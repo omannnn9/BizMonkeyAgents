@@ -29,14 +29,22 @@ the round-trip works); it disappears automatically the moment real env vars are 
 
 ## Status
 
-**Phase 1** (one CEO agent, cockpit UI, approval gate, audit log) and **Phase 2** (Sales/Marketing
-department agents, the knowledge-graph view, scheduled briefings) are both built — everything that
-doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
-applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
-(see below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested.
-`/dashboard`'s layout (no redirect, no login) was visually verified in a real browser with
-placeholder Supabase credentials; the actual data-bearing pages weren't, since that needs a real
-database.
+**Phase 1** (one CEO agent, cockpit UI, approval gate, audit log), **Phase 2** (Sales/Marketing
+department agents, the knowledge-graph view, scheduled briefings), and **Phase 3** (Tablo/NOVA
+onboarded the same way, group-scope agents, memory promotion, the living-system map, company/agent
+creator wizards, OKRs/board-report generation) are all built — everything that doesn't require a
+live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been applied to a live
+database or run end-to-end yet** — that's blocked on a Supabase project existing (see below). Until
+then, treat the agents' tool behavior as reviewed-but-unverified, not tested. `/dashboard`'s layout
+(no redirect, no login) was visually verified in a real browser with placeholder Supabase
+credentials; the actual data-bearing pages weren't, since that needs a real database.
+
+One deliberate deviation from the architecture doc: the Part 9 living-system map (`/map`) polls
+`/api/map` on an interval instead of subscribing to Supabase Realtime. There's no browser-side
+Supabase client anywhere in this app by design (no login — the service role key must never reach
+the browser), and Realtime needs exactly that; even the anon key would see nothing, since RLS is
+keyed on `auth.uid()`, which is always null with no session. Polling is "near-live," not literally
+push-driven, but it's consistent with the no-login decision rather than quietly reopening it.
 
 Known stubs — each fails loudly with a clear "not connected" error instead of pretending to act,
 same pattern throughout:
@@ -48,9 +56,16 @@ same pattern throughout:
 - `supabase/functions/daily-briefing/` — written, but not deployed; needs a live Supabase project
   and the `pg_cron` schedule in `supabase/migrations/0004_phase2.sql` filled in and un-commented.
 
-Note on these three: each is connected as an MCP server in the *Claude Code session* that built this
-app, but that connection isn't reachable by the *deployed app* at runtime — the app needs its own
-API key for each, same as Gmail.
+Note on the three integrations above: each is connected as an MCP server in the *Claude Code
+session* that built this app, but that connection isn't reachable by the *deployed app* at runtime —
+the app needs its own API key for each, same as Gmail. Approving an `enrich_lead` or
+`generate_creative_asset` action does attempt real execution against these stubs (same as
+`send_email`) and records the resulting failure — it was never silently skipped.
+
+Also fixed this pass: a real race condition in `documents`, `approvals`, and `memories` — a slow,
+now-stale fetch for the previously active company could resolve after a fast company switch and
+clobber the new company's already-rendered data. All three now guard against it (`dashboard` and
+`activity` already did).
 
 ## One-time setup
 
@@ -62,10 +77,12 @@ API key for each, same as Gmail.
    - `VOYAGE_API_KEY` (free tier at voyageai.com)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` only if you want to run `test:rls` (the app itself never uses it)
 3. Apply the migrations in order, via the Supabase MCP's `apply_migration` (or the Supabase CLI /
-   SQL editor): `0001_init.sql`, `0002_seed_companies.sql`, `0003_storage.sql`, `0004_phase2.sql`.
-   `0004_phase2.sql` seeds the Sales and Marketing agents under ODAX and some structural knowledge-
-   graph edges; its `pg_cron` block at the bottom is commented out — see the comment inside it for
-   how to wire up the daily briefing once this project's ref and service role key are known.
+   SQL editor): `0001_init.sql`, `0002_seed_companies.sql`, `0003_storage.sql`, `0004_phase2.sql`,
+   `0005_phase3.sql`. `0004_phase2.sql` seeds the Sales and Marketing agents under ODAX and some
+   structural knowledge-graph edges; its `pg_cron` block at the bottom is commented out — see the
+   comment inside it for how to wire up the daily briefing once this project's ref and service role
+   key are known. `0005_phase3.sql` mirrors that pattern for Tablo and NOVA, adds the two group-scope
+   agents (Group CFO, Group Strategy) at OD Holdings, and adds the `goals` table.
 4. Seed the founder identity (creates the one `auth.users` row for FK purposes and grants it
    `controls_approvals` across all four companies — no login involved):
    ```
@@ -82,9 +99,12 @@ API key for each, same as Gmail.
    ```
 7. `npm run dev` and walk the cockpit yourself: switch companies, upload a `.txt` doc and ask the
    agent about it, ask it to draft an email and confirm it shows up in Approvals (not sent). On
-   ODAX, try the agent switcher in `/chat` — Sales and Marketing agents propose `enrich_lead` /
-   `generate_creative_asset` the same approval-gated way, then fail loudly since those integrations
-   aren't connected. Check `/graph` for the seeded structural relationships.
+   ODAX, Tablo, or NOVA, try the agent switcher in `/chat` — Sales and Marketing agents propose
+   `enrich_lead` / `generate_creative_asset` the same approval-gated way, then fail loudly since
+   those integrations aren't connected. At OD Holdings, try Group CFO / Group Strategy and ask for
+   a board report. Check `/graph` for the full relationship explorer and `/map` for the animated
+   version. Visit `/memories` and promote a company-scope memory to group. Try `/companies/new` and
+   `/agents/new`.
 
 ## Deploying
 
@@ -113,15 +133,15 @@ that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn'
 | `npm run seed:founder` | Creates the one auth.users row (no login involved) and grants it membership + controls_approvals across all 4 companies. Run this first. |
 | `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
-| `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO, Sales, and Marketing agents. |
-| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — 44 checks across dashboard, chat (incl. the agent switcher), documents, activity, approvals, the knowledge graph, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed. Does NOT verify real data flows (RLS, real agent responses, real approvals) — those need the scripts above against a live project. |
+| `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO, Sales, Marketing, and Group CFO agents — including promote_memory and generate_board_report. |
+| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — 54 checks across dashboard, chat (incl. the agent switcher), documents, activity, approvals, the knowledge graph, the living-system map, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed. Does NOT verify real data flows (RLS, real agent responses, real approvals) — those need the scripts above against a live project. |
 
 ## What's genuinely not built yet
 
-PDF/DOCX document parsing (text/markdown/CSV only), group-scope/project-scope agents in practice
-(the schema supports them; nothing creates one), Tablo/NOVA as fully onboarded companies with their
-own department agents, memory promotion between companies, the Part 9 animated "living system" map
-(distinct from the Part 8 knowledge-graph explorer, which is built), OKRs/board-report generation,
-company/agent creator wizards, and the literal 3D headquarters (Phase 4, conditional) — see the
-architecture doc's Part 16 for the full phased roadmap. Also still pending: the real OSL lead
-database/scoring model, and real API keys for Gmail/Apollo.io/Higgsfield (see "Status" above).
+PDF/DOCX document parsing (text/markdown/CSV only), project-scope agents in practice (the schema
+supports them; nothing creates one), cross-company synergy detection, and the literal 3D
+headquarters (Phase 4, conditional) — see the architecture doc's Part 16 for the full phased
+roadmap. Also still pending: the real OSL lead database/scoring model, real API keys for
+Gmail/Apollo.io/Higgsfield, and actually deploying the daily-briefing Edge Function + its `pg_cron`
+schedule (see "Status" above) — all blocked on a live Supabase project and/or real credentials, not
+on any unwritten code.

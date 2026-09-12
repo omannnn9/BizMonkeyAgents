@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
 
@@ -41,11 +41,18 @@ export default function ApprovalsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
+  // Guards against a slower, now-stale request (e.g. for the company
+  // active before a fast switch) resolving after a newer one and
+  // clobbering its result.
+  const latestRequestedCompanyId = useRef<string | null>(null);
+
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
+    latestRequestedCompanyId.current = activeCompanyId;
     setLoading(true);
     const res = await fetch(`/api/approvals?companyId=${activeCompanyId}`);
     const body = await res.json();
+    if (latestRequestedCompanyId.current !== activeCompanyId) return;
     setApprovals(body.approvals ?? []);
     setLoading(false);
   }, [activeCompanyId]);

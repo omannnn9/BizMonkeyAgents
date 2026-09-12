@@ -152,7 +152,7 @@ export interface Database {
           created_at: string;
           expires_at: string | null;
           promoted_from_id: string | null;
-          source: "manual" | "briefing" | "document";
+          source: "manual" | "briefing" | "document" | "promoted";
         };
         Insert: Partial<Database["public"]["Tables"]["memories"]["Row"]> & { scope: string; content: string };
         Update: Partial<Database["public"]["Tables"]["memories"]["Row"]>;
@@ -212,6 +212,24 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["agent_runs"]["Row"]> & { agent_id: string; model: string };
         Update: Partial<Database["public"]["Tables"]["agent_runs"]["Row"]>;
+        Relationships: [];
+      };
+      goals: {
+        Row: {
+          id: string;
+          company_id: string;
+          objective: string;
+          key_results: Json;
+          period: string;
+          status: "on_track" | "at_risk" | "off_track" | "done";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["goals"]["Row"]> & {
+          company_id: string;
+          objective: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["goals"]["Row"]>;
         Relationships: [];
       };
       action_policies: {

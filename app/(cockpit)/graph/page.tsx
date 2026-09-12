@@ -1,107 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-interface GraphNode {
-  id: string;
-  type: string;
-  label: string;
-}
-interface GraphEdge {
-  source: string;
-  target: string;
-  relation: string;
-}
-interface PositionedNode extends GraphNode {
-  x: number;
-  y: number;
-}
-
-const WIDTH = 800;
-const HEIGHT = 480;
-
-/**
- * A small hand-rolled force-directed layout (repulsion + spring + center
- * pull, run for a fixed number of iterations) — deliberately not a new
- * dependency (d3-force, React Flow): the graphs here are a few dozen nodes
- * at most, and this is a few dozen lines.
- */
-function layout(nodes: GraphNode[], edges: GraphEdge[]): PositionedNode[] {
-  const positioned: PositionedNode[] = nodes.map((n, i) => {
-    const angle = (i / Math.max(nodes.length, 1)) * Math.PI * 2;
-    return { ...n, x: WIDTH / 2 + Math.cos(angle) * 150, y: HEIGHT / 2 + Math.sin(angle) * 150 };
-  });
-  const byId = new Map(positioned.map((n) => [n.id, n]));
-
-  const REPULSION = 6000;
-  const SPRING = 0.02;
-  const SPRING_LENGTH = 140;
-  const CENTER_PULL = 0.01;
-
-  for (let iter = 0; iter < 300; iter++) {
-    const forces = new Map<string, { fx: number; fy: number }>();
-    for (const n of positioned) forces.set(n.id, { fx: 0, fy: 0 });
-
-    for (let i = 0; i < positioned.length; i++) {
-      for (let j = i + 1; j < positioned.length; j++) {
-        const a = positioned[i];
-        const b = positioned[j];
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const distSq = Math.max(dx * dx + dy * dy, 1);
-        const dist = Math.sqrt(distSq);
-        const force = REPULSION / distSq;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        forces.get(a.id)!.fx += fx;
-        forces.get(a.id)!.fy += fy;
-        forces.get(b.id)!.fx -= fx;
-        forces.get(b.id)!.fy -= fy;
-      }
-    }
-
-    for (const e of edges) {
-      const a = byId.get(e.source);
-      const b = byId.get(e.target);
-      if (!a || !b) continue;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
-      const displacement = dist - SPRING_LENGTH;
-      const fx = (dx / dist) * displacement * SPRING;
-      const fy = (dy / dist) * displacement * SPRING;
-      forces.get(a.id)!.fx += fx;
-      forces.get(a.id)!.fy += fy;
-      forces.get(b.id)!.fx -= fx;
-      forces.get(b.id)!.fy -= fy;
-    }
-
-    for (const n of positioned) {
-      const f = forces.get(n.id)!;
-      f.fx += (WIDTH / 2 - n.x) * CENTER_PULL;
-      f.fy += (HEIGHT / 2 - n.y) * CENTER_PULL;
-      n.x = Math.min(Math.max(n.x + f.fx, 30), WIDTH - 30);
-      n.y = Math.min(Math.max(n.y + f.fy, 30), HEIGHT - 30);
-    }
-  }
-
-  return positioned;
-}
-
-function colorForType(type: string): string {
-  switch (type) {
-    case "company":
-      return "#7c9cff";
-    case "agent":
-      return "#8fd3a0";
-    case "document":
-      return "#e0b35c";
-    case "decision":
-      return "#d98cd8";
-    default:
-      return "#9aa4b2";
-  }
-}
+import {
+  forceLayout,
+  colorForNodeType,
+  GRAPH_WIDTH as WIDTH,
+  GRAPH_HEIGHT as HEIGHT,
+  type GraphNode,
+  type GraphEdge,
+} from "@/lib/graph-layout";
 
 export default function GraphPage() {
   const [nodes, setNodes] = useState<GraphNode[]>([]);
@@ -125,7 +32,7 @@ export default function GraphPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const positioned = useMemo(() => layout(nodes, edges), [nodes, edges]);
+  const positioned = useMemo(() => forceLayout(nodes, edges), [nodes, edges]);
   const byId = useMemo(() => new Map(positioned.map((n) => [n.id, n])), [positioned]);
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const connectedEdges = selectedId
@@ -184,7 +91,7 @@ export default function GraphPage() {
                   cx={n.x}
                   cy={n.y}
                   r={selectedId === n.id ? 12 : 9}
-                  fill={colorForType(n.type)}
+                  fill={colorForNodeType(n.type)}
                   stroke={selectedId === n.id ? "#fff" : "none"}
                   strokeWidth={2}
                 />

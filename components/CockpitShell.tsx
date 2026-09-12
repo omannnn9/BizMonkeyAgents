@@ -10,8 +10,15 @@ const NAV = [
   { href: "/chat", label: "Chat" },
   { href: "/documents", label: "Documents" },
   { href: "/graph", label: "Graph" },
+  { href: "/map", label: "Map" },
+  { href: "/memories", label: "Memories" },
   { href: "/activity", label: "Activity" },
   { href: "/approvals", label: "Approvals" },
+];
+
+const CREATE_NAV = [
+  { href: "/companies/new", label: "+ New company" },
+  { href: "/agents/new", label: "+ New agent" },
 ];
 
 export function CockpitShell({
@@ -60,6 +67,26 @@ export function CockpitShell({
         >
           <ul className="flex flex-col gap-1">
             {NAV.map((item) => {
+              const active = pathname === item.href;
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setNavOpen(false)}
+                    className={`block rounded-md px-3 py-2 text-sm ${
+                      active
+                        ? "bg-surface-raised text-foreground"
+                        : "text-muted hover:bg-surface-raised hover:text-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <ul className="mt-4 flex flex-col gap-1 border-t border-border pt-4">
+            {CREATE_NAV.map((item) => {
               const active = pathname === item.href;
               return (
                 <li key={item.href}>

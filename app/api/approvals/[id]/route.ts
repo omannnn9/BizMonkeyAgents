@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendEmailViaGmail } from "@/lib/integrations/gmail";
+import { enrichLeadViaApollo } from "@/lib/integrations/apollo";
+import { generateAssetViaHiggsfield } from "@/lib/integrations/higgsfield";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { controlsApprovalsFor } from "@/lib/agent/approvals-authz";
 import { withApiErrorHandling } from "@/lib/api-error";
@@ -74,23 +76,39 @@ export const POST = withApiErrorHandling(async (
     return NextResponse.json({ status: "rejected" });
   }
 
-  // Approved — attempt real execution. Only send_email exists in Phase 1.
+  // Approved — attempt real execution. Every external action type gets
+  // attempted here, never just marked "approved" and left alone — an
+  // unconnected integration (Apollo.io, Higgsfield) still needs to fail
+  // loudly through this path, not silently skip it.
+  let executionResult: { ok: boolean; error?: string } | null = null;
   if (approval.action_type === "send_email") {
     const payload = approval.payload as { to: string; subject: string; body: string };
     const result = await sendEmailViaGmail(payload);
-    const finalStatus = result.sent ? "executed" : "failed";
-    await supabase.from("approvals").update({ status: finalStatus }).eq("id", id);
-    await supabase.from("audit_log").insert({
-      actor_type: "user",
-      actor_id: founderUserId,
-      action: `approval:execute:${finalStatus}`,
-      target_type: "approval",
-      target_id: id,
-      company_id: approval.company_id,
-      metadata: result.sent ? {} : { error: result.error },
-    });
-    return NextResponse.json({ status: finalStatus, error: result.sent ? undefined : result.error });
+    executionResult = { ok: result.sent, error: result.sent ? undefined : result.error };
+  } else if (approval.action_type === "enrich_lead") {
+    const payload = approval.payload as { domainOrEmail: string };
+    const result = await enrichLeadViaApollo(payload);
+    executionResult = { ok: result.enriched, error: result.enriched ? undefined : result.error };
+  } else if (approval.action_type === "generate_creative_asset") {
+    const payload = approval.payload as { prompt: string; assetType: "image" | "video" };
+    const result = await generateAssetViaHiggsfield(payload);
+    executionResult = { ok: result.generated, error: result.generated ? undefined : result.error };
   }
 
-  return NextResponse.json({ status: "approved" });
+  if (!executionResult) {
+    return NextResponse.json({ status: "approved" });
+  }
+
+  const finalStatus = executionResult.ok ? "executed" : "failed";
+  await supabase.from("approvals").update({ status: finalStatus }).eq("id", id);
+  await supabase.from("audit_log").insert({
+    actor_type: "user",
+    actor_id: founderUserId,
+    action: `approval:execute:${finalStatus}`,
+    target_type: "approval",
+    target_id: id,
+    company_id: approval.company_id,
+    metadata: executionResult.ok ? {} : { error: executionResult.error ?? "unknown error" },
+  });
+  return NextResponse.json({ status: finalStatus, error: executionResult.error });
 });

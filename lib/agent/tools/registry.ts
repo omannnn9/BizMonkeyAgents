@@ -4,6 +4,8 @@ import { searchDocumentsTool } from "@/lib/agent/tools/search-documents";
 import { sendEmailTool } from "@/lib/agent/tools/send-email";
 import { enrichLeadTool } from "@/lib/agent/tools/enrich-lead";
 import { generateCreativeAssetTool } from "@/lib/agent/tools/generate-creative-asset";
+import { promoteMemoryTool } from "@/lib/agent/tools/promote-memory";
+import { generateBoardReportTool } from "@/lib/agent/tools/generate-board-report";
 
 /**
  * Every tool an agent could be assigned, keyed by name. An agent's own
@@ -17,6 +19,8 @@ const ALL_TOOLS: AgentTool[] = [
   sendEmailTool,
   enrichLeadTool,
   generateCreativeAssetTool,
+  promoteMemoryTool,
+  generateBoardReportTool,
 ];
 
 const toolsByName = new Map(ALL_TOOLS.map((t) => [t.name, t]));

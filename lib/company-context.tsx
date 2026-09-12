@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 export interface CompanySummary {
   id: string;
@@ -14,6 +14,7 @@ interface CompanyContextValue {
   activeCompanyId: string;
   activeCompany: CompanySummary | undefined;
   setActiveCompanyId: (id: string) => void;
+  refreshCompanies: () => Promise<void>;
 }
 
 const CompanyContext = createContext<CompanyContextValue | null>(null);
@@ -42,16 +43,20 @@ export function CompanyProvider({
     return initialCompanies.find((c) => c.parent_id === null)?.id ?? initialCompanies[0]?.id ?? "";
   });
 
-  useEffect(() => {
-    fetch("/api/companies")
-      .then((res) => res.json())
-      .then((body) => {
-        if (Array.isArray(body.companies)) setCompanies(body.companies);
-      })
-      .catch(() => {
-        // Keep the server-rendered initialCompanies if this refresh fails.
-      });
+  const refreshCompanies = useCallback(async () => {
+    try {
+      const res = await fetch("/api/companies");
+      const body = await res.json();
+      if (Array.isArray(body.companies)) setCompanies(body.companies);
+    } catch {
+      // Keep whatever company list is already loaded if this refresh fails.
+    }
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: refreshes the server-rendered initialCompanies once on mount
+    refreshCompanies();
+  }, [refreshCompanies]);
 
   function setActiveCompanyId(id: string) {
     setActiveCompanyIdState(id);
@@ -64,8 +69,9 @@ export function CompanyProvider({
       activeCompanyId,
       activeCompany: companies.find((c) => c.id === activeCompanyId),
       setActiveCompanyId,
+      refreshCompanies,
     }),
-    [companies, activeCompanyId],
+    [companies, activeCompanyId, refreshCompanies],
   );
 
   return <CompanyContext.Provider value={value}>{children}</CompanyContext.Provider>;

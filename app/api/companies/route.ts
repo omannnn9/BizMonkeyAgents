@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getFounderUserId } from "@/lib/agent/founder";
 import { withApiErrorHandling } from "@/lib/api-error";
 import { isDemoMode, DEMO_COMPANIES } from "@/lib/demo-mode";
 
@@ -13,4 +14,80 @@ export const GET = withApiErrorHandling(async () => {
     .order("name");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ companies: data ?? [] });
+});
+
+/**
+ * The company-creator wizard (Part 16/14). Always seeds a default CEO
+ * Agent along with the company — the same pattern every existing company
+ * has, enforced here structurally rather than left as a manual follow-up
+ * step someone could forget.
+ */
+export const POST = withApiErrorHandling(async (request: Request) => {
+  const { name, slug, parentId, industry } = (await request.json()) as {
+    name: string;
+    slug: string;
+    parentId: string | null;
+    industry?: string;
+  };
+  if (!name || !slug) {
+    return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
+  }
+
+  if (isDemoMode()) {
+    return NextResponse.json({
+      company: { id: "demo-company", name, slug, parent_id: parentId ?? null },
+      demo: true,
+    });
+  }
+
+  const supabase = await createClient();
+  const founderUserId = await getFounderUserId(supabase);
+
+  const { data: company, error: companyErr } = await supabase
+    .from("companies")
+    .insert({ name, slug, parent_id: parentId || null, industry: industry || null })
+    .select("id, name, slug, parent_id")
+    .single();
+  if (companyErr || !company) {
+    return NextResponse.json({ error: companyErr?.message ?? "Failed to create company" }, { status: 500 });
+  }
+
+  const { data: agent, error: agentErr } = await supabase
+    .from("agents")
+    .insert({
+      name: "CEO Agent",
+      role_title: "Chief of Staff",
+      company_id: company.id,
+      scope: "company",
+      persona: `You are the CEO / Chief of Staff agent for ${name}.`,
+      model: "claude-sonnet-5",
+      tools: ["query_company_data", "search_documents", "send_email", "generate_board_report"],
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (agentErr || !agent) {
+    return NextResponse.json(
+      { error: `Company created, but failed to seed its CEO Agent: ${agentErr?.message}` },
+      { status: 500 },
+    );
+  }
+
+  await supabase.from("edges").insert([
+    ...(parentId
+      ? [{ source_type: "company", source_id: parentId, target_type: "company", target_id: company.id, relation: "owns" }]
+      : []),
+    { source_type: "company", source_id: company.id, target_type: "agent", target_id: agent.id, relation: "has_agent" },
+  ]);
+
+  await supabase.from("audit_log").insert({
+    actor_type: "user",
+    actor_id: founderUserId,
+    action: "create_company",
+    target_type: "company",
+    target_id: company.id,
+    company_id: company.id,
+  });
+
+  return NextResponse.json({ company, agentId: agent.id });
 });

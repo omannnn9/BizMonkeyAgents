@@ -17,9 +17,11 @@ import { runAgentTurn } from "../lib/agent/agent-runtime";
 import { getFounderUserId } from "../lib/agent/founder";
 import type { Database } from "../lib/supabase/types";
 
+const OD_HOLDINGS_ID = "00000000-0000-0000-0000-000000000001";
 const ODAX_ID = "00000000-0000-0000-0000-000000000002";
 const SALES_AGENT_ID = "00000000-0000-0000-0000-000000000012";
 const MARKETING_AGENT_ID = "00000000-0000-0000-0000-000000000013";
+const GROUP_CFO_ID = "00000000-0000-0000-0000-000000000030";
 
 type Check = { name: string; pass: boolean; detail?: string };
 const results: Check[] = [];
@@ -134,7 +136,69 @@ async function main() {
     !!pendingAssetApprovals && pendingAssetApprovals.length > 0,
   );
 
+  // Scenario 5: asking the CEO agent to promote a memory should call
+  // promote_memory and create a new group-scope row pointing back at the
+  // original via promoted_from_id — never silently no-op.
+  const { data: seededMemory } = await admin
+    .from("memories")
+    .insert({
+      scope: "company",
+      scope_id: ODAX_ID,
+      content: "Test-agent-scenarios: temporary memory for promote_memory scenario.",
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+
+  const r5 = await runAgentTurn(admin, {
+    agentId: agent!.id,
+    activeCompanyId: ODAX_ID,
+    userId,
+    userMessage: `Promote memory ${seededMemory!.id} to the group so every company can see it.`,
+    history: [],
+  });
+  record("Asking to promote a memory calls promote_memory", r5.toolCalls.some((c) => c.name === "promote_memory"));
+
+  const { data: promotedMemory } = await admin
+    .from("memories")
+    .select("id")
+    .eq("promoted_from_id", seededMemory!.id)
+    .eq("scope", "group")
+    .maybeSingle();
+  record("promote_memory creates a new group-scope row referencing the original", !!promotedMemory);
+
+  // Scenario 6: asking the Group CFO for a board report should call
+  // generate_board_report and reference the real seeded goal, never invent figures.
+  const { data: seededGoal } = await admin
+    .from("goals")
+    .insert({ company_id: ODAX_ID, objective: "Test-agent-scenarios temporary goal", status: "on_track" })
+    .select("id")
+    .single();
+
+  const r6 = await runAgentTurn(admin, {
+    agentId: GROUP_CFO_ID,
+    activeCompanyId: OD_HOLDINGS_ID,
+    userId,
+    userMessage: "Generate a board report for Q3 2025.",
+    history: [],
+  });
+  const boardReportCall = r6.toolCalls.find((c) => c.name === "generate_board_report");
+  record("Asking the Group CFO for a board report calls generate_board_report", !!boardReportCall);
+  record(
+    "The board report references the real seeded goal",
+    !!boardReportCall && boardReportCall.result.includes("Test-agent-scenarios temporary goal"),
+  );
+
   // Cleanup.
+  await admin.from("memories").delete().in("id", [seededMemory!.id, ...(promotedMemory ? [promotedMemory.id] : [])]);
+  await admin.from("goals").delete().eq("id", seededGoal!.id);
+  await admin
+    .from("agent_runs")
+    .delete()
+    .eq("agent_id", agent!.id)
+    .eq("input", `Promote memory ${seededMemory!.id} to the group so every company can see it.`);
+  await admin.from("agent_runs").delete().eq("agent_id", GROUP_CFO_ID).eq("input", "Generate a board report for Q3 2025.");
+
   const allPendingApprovalIds = [
     ...(pendingApprovals ?? []),
     ...(pendingLeadApprovals ?? []),

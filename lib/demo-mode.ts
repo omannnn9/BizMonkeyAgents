@@ -122,6 +122,43 @@ export function demoAgents(companyId: string) {
   return { agents: base };
 }
 
+/** The architecture doc's own example of a promotable finding — company-scope, then its group-scope promotion. */
+export function demoMemories(companyId: string) {
+  const [holdings, odax] = DEMO_COMPANIES;
+  const groupMemory = {
+    id: "mem-group-1",
+    scope: "group",
+    scope_id: holdings.id,
+    content:
+      "Most F&B leads prospected so far turned out to be home-based producers, not dine-in " +
+      "restaurants — re-qualify before outreach on any new food & beverage segment.",
+    importance: 0.75,
+    confidence: 0.8,
+    source: "promoted",
+    created_at: daysAgo(1),
+    promoted_from_id: "mem-company-1",
+  };
+  if (companyId !== odax.id) {
+    return { memories: [groupMemory] };
+  }
+  return {
+    memories: [
+      groupMemory,
+      {
+        id: "mem-company-1",
+        scope: "company",
+        scope_id: odax.id,
+        content: groupMemory.content,
+        importance: 0.65,
+        confidence: 0.8,
+        source: "manual",
+        created_at: daysAgo(3),
+        promoted_from_id: null,
+      },
+    ],
+  };
+}
+
 /** Matches the structural edges seeded by migration 0004_phase2.sql — real org structure, not fabricated activity. */
 export function demoGraph() {
   const [holdings, odax, tablo, nova] = DEMO_COMPANIES;
@@ -132,6 +169,32 @@ export function demoGraph() {
     { id: `company:${nova.id}`, type: "company", label: nova.name },
     { id: "agent:agent-sales", type: "agent", label: "Sales Agent" },
     { id: "agent:agent-marketing", type: "agent", label: "Marketing Agent" },
+  ];
+  const edges = [
+    { source: `company:${holdings.id}`, target: `company:${odax.id}`, relation: "owns" },
+    { source: `company:${holdings.id}`, target: `company:${tablo.id}`, relation: "owns" },
+    { source: `company:${holdings.id}`, target: `company:${nova.id}`, relation: "owns" },
+    { source: `company:${odax.id}`, target: "agent:agent-sales", relation: "has_agent" },
+    { source: `company:${odax.id}`, target: "agent:agent-marketing", relation: "has_agent" },
+  ];
+  return { nodes, edges };
+}
+
+/** Same structural shape as demoGraph(), plus a recent run on one agent so the glow/particle effect has something real (within demo mode) to show. */
+export function demoMap() {
+  const [holdings, odax, tablo, nova] = DEMO_COMPANIES;
+  const nodes = [
+    { id: `company:${holdings.id}`, type: "company" as const, label: holdings.name, lastRunAt: null },
+    { id: `company:${odax.id}`, type: "company" as const, label: odax.name, lastRunAt: null },
+    { id: `company:${tablo.id}`, type: "company" as const, label: tablo.name, lastRunAt: null },
+    { id: `company:${nova.id}`, type: "company" as const, label: nova.name, lastRunAt: null },
+    {
+      id: "agent:agent-sales",
+      type: "agent" as const,
+      label: "Sales Agent",
+      lastRunAt: hoursAgo(2),
+    },
+    { id: "agent:agent-marketing", type: "agent" as const, label: "Marketing Agent", lastRunAt: null },
   ];
   const edges = [
     { source: `company:${holdings.id}`, target: `company:${odax.id}`, relation: "owns" },

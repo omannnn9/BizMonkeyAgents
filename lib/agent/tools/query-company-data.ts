@@ -4,7 +4,7 @@ import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
 
 const inputSchema = z.object({
   operation: z.enum(["list", "create", "update"]),
-  resource: z.enum(["tasks", "decisions", "projects"]),
+  resource: z.enum(["tasks", "decisions", "projects", "goals"]),
   filters: z.record(z.string(), z.unknown()).optional(),
   id: z.string().uuid().optional().describe("Required for update"),
   data: z.record(z.string(), z.unknown()).optional().describe("Required for create/update"),
@@ -13,7 +13,7 @@ const inputSchema = z.object({
 export const queryCompanyDataTool: AgentTool = {
   name: "query_company_data",
   description:
-    "Read or write the active company's own structured data: tasks, decisions, and projects. " +
+    "Read or write the active company's own structured data: tasks, decisions, projects, and goals. " +
     "Scoped automatically to whichever company is currently active in the cockpit (and its " +
     "sub-companies, if the group level is active) — you cannot use this to see or change another " +
     "company's data. Writes are direct (not approval-gated): tasks/decisions are internal " +
@@ -22,7 +22,7 @@ export const queryCompanyDataTool: AgentTool = {
     type: "object",
     properties: {
       operation: { type: "string", enum: ["list", "create", "update"] },
-      resource: { type: "string", enum: ["tasks", "decisions", "projects"] },
+      resource: { type: "string", enum: ["tasks", "decisions", "projects", "goals"] },
       filters: {
         type: "object",
         description: "For 'list': e.g. { status: 'open' }. Simple equality filters only.",

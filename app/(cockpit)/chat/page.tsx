@@ -36,6 +36,12 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Tracks whether the agents-fetch below has ever resolved before — guards
+  // against clearing an in-flight/just-sent message if this fetch resolves
+  // after the user has already started typing or sent something (a real
+  // race observed under slower load: the effect's own async resolution
+  // landing after a fast send() call would otherwise wipe it out).
+  const hasLoadedAgentsOnce = useRef(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -54,7 +60,11 @@ export default function ChatPage() {
         setAgents(body.agents);
         const ceoAgent = body.agents.find((a: AgentSummary) => a.name === "CEO Agent");
         setActiveAgentId(ceoAgent?.id ?? body.agents[0]?.id ?? "");
-        setMessages([]);
+        // Only clear an existing conversation on a real company switch —
+        // never on this effect's first resolution, which races with
+        // whatever the user does while it's still in flight.
+        if (hasLoadedAgentsOnce.current) setMessages([]);
+        hasLoadedAgentsOnce.current = true;
       })
       .catch(() => {
         // Keep whatever agent list/selection we already had.
