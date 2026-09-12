@@ -15,10 +15,12 @@ config({ path: ".env.local" });
 import { createClient } from "@supabase/supabase-js";
 import { runAgentTurn } from "../lib/agent/agent-runtime";
 import { getFounderUserId } from "../lib/agent/founder";
+import { embedDocuments } from "../lib/embeddings/voyage";
 import type { Database } from "../lib/supabase/types";
 
 const OD_HOLDINGS_ID = "00000000-0000-0000-0000-000000000001";
 const ODAX_ID = "00000000-0000-0000-0000-000000000002";
+const TABLO_ID = "00000000-0000-0000-0000-000000000003";
 const SALES_AGENT_ID = "00000000-0000-0000-0000-000000000012";
 const MARKETING_AGENT_ID = "00000000-0000-0000-0000-000000000013";
 const GROUP_CFO_ID = "00000000-0000-0000-0000-000000000030";
@@ -189,7 +191,60 @@ async function main() {
     !!boardReportCall && boardReportCall.result.includes("Test-agent-scenarios temporary goal"),
   );
 
+  // Scenario 7: asking the Group CFO to find synergies should call
+  // detect_synergies and surface a real cross-company pair — seeded with
+  // real embeddings (not just similar text) since match_cross_company_memories
+  // filters on actual cosine similarity, same as production data would.
+  const synergyText =
+    "Most F&B leads prospected so far turned out to be home-based producers, not dine-in restaurants.";
+  const [synergyEmbeddingA, synergyEmbeddingB] = await embedDocuments([
+    synergyText,
+    synergyText + " Same pattern showed up independently here too.",
+  ]);
+  const { data: synergyMemoryA } = await admin
+    .from("memories")
+    .insert({
+      scope: "company",
+      scope_id: ODAX_ID,
+      content: synergyText,
+      embedding: JSON.stringify(synergyEmbeddingA),
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+  const { data: synergyMemoryB } = await admin
+    .from("memories")
+    .insert({
+      scope: "company",
+      scope_id: TABLO_ID,
+      content: synergyText + " Same pattern showed up independently here too.",
+      embedding: JSON.stringify(synergyEmbeddingB),
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+
+  const r7 = await runAgentTurn(admin, {
+    agentId: GROUP_CFO_ID,
+    activeCompanyId: OD_HOLDINGS_ID,
+    userId,
+    userMessage: "Are there any cross-company synergies worth flagging right now?",
+    history: [],
+  });
+  const synergyCall = r7.toolCalls.find((c) => c.name === "detect_synergies");
+  record("Asking the Group CFO for synergies calls detect_synergies", !!synergyCall);
+  record(
+    "detect_synergies finds the seeded cross-company pair",
+    !!synergyCall && synergyCall.result.includes("home-based producers"),
+  );
+
   // Cleanup.
+  await admin.from("memories").delete().in("id", [synergyMemoryA!.id, synergyMemoryB!.id]);
+  await admin
+    .from("agent_runs")
+    .delete()
+    .eq("agent_id", GROUP_CFO_ID)
+    .eq("input", "Are there any cross-company synergies worth flagging right now?");
   await admin.from("memories").delete().in("id", [seededMemory!.id, ...(promotedMemory ? [promotedMemory.id] : [])]);
   await admin.from("goals").delete().eq("id", seededGoal!.id);
   await admin

@@ -105,11 +105,28 @@ const DEMO_AGENT_IDS = {
   ceo: "agent-ceo",
   sales: "agent-sales",
   marketing: "agent-marketing",
+  groupCfo: "agent-group-cfo",
+  groupStrategy: "agent-group-strategy",
 } as const;
 
-/** Agents visible for a given demo company — only ODAX has Sales/Marketing, matching migration 0004. */
+/**
+ * Agents visible for a given demo company — ODAX gets Sales/Marketing
+ * (migration 0004), OD Holdings gets the two group-scope agents (migration
+ * 0005). These two were missing from demo mode entirely until now — a real
+ * gap, since it meant Phase 3's group agents were never reachable in the
+ * frontend preview.
+ */
 export function demoAgents(companyId: string) {
   const base = [{ id: DEMO_AGENT_IDS.ceo, name: "CEO Agent", role_title: "Chief of Staff" }];
+  if (companyId === DEMO_COMPANIES[0].id) {
+    return {
+      agents: [
+        ...base,
+        { id: DEMO_AGENT_IDS.groupCfo, name: "Group CFO", role_title: "Chief Financial Officer" },
+        { id: DEMO_AGENT_IDS.groupStrategy, name: "Group Strategy", role_title: "Head of Strategy" },
+      ],
+    };
+  }
   if (companyId === DEMO_COMPANIES[1].id) {
     return {
       agents: [
@@ -232,6 +249,37 @@ export function demoChatReply(
       toolCalls: [
         { name: "generate_creative_asset", input: { prompt: userMessage }, result: "Not connected yet." },
       ],
+    };
+  }
+  if (agentId === DEMO_AGENT_IDS.groupCfo) {
+    // References the same F&B finding demoMemories() already uses, so the
+    // demo stays internally consistent across pages.
+    const candidates = JSON.stringify([
+      {
+        similarity: 0.891,
+        companyA: "ODAX",
+        memoryA:
+          "Most F&B leads prospected so far turned out to be home-based producers, not dine-in restaurants.",
+        companyB: "Tablo",
+        memoryB: "Tablo's own F&B outreach has hit the same home-based-producer mismatch.",
+      },
+    ]);
+    return {
+      message:
+        `**Demo mode** — Group CFO. Here's what a real \`detect_synergies\` result looks like: ODAX ` +
+        `and Tablo both independently noted the same F&B lead-qualification issue — worth promoting ` +
+        `that finding to group scope from \`/memories\` if it isn't already. Real board-report and ` +
+        `goal data would come from your live \`goals\`/\`decisions\` tables once connected.`,
+      toolCalls: [{ name: "detect_synergies", input: { limit: 5 }, result: candidates }],
+    };
+  }
+  if (agentId === DEMO_AGENT_IDS.groupStrategy) {
+    return {
+      message:
+        `**Demo mode** — Group Strategy. Once real data exists, I'd reason over goals and decisions ` +
+        `across every company for "${userMessage}" and could compile a board report on request — try ` +
+        `asking a real deployment for one.`,
+      toolCalls: [],
     };
   }
 

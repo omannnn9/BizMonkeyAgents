@@ -304,6 +304,20 @@ export interface Database {
           similarity: number;
         }>;
       };
+      match_cross_company_memories: {
+        Args: { p_limit?: number; p_min_similarity?: number };
+        Returns: Array<{
+          memory_a_id: string;
+          memory_a_content: string;
+          company_a_id: string;
+          company_a_name: string;
+          memory_b_id: string;
+          memory_b_content: string;
+          company_b_id: string;
+          company_b_name: string;
+          similarity: number;
+        }>;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

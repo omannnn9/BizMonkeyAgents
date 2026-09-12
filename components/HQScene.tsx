@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Html } from "@react-three/drei";
+import { OrbitControls, Html, useGLTF, useAnimations } from "@react-three/drei";
+import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 
 // Labels use drei's <Html> (a positioned DOM overlay using the app's own
 // CSS/fonts) rather than <Text> (troika-three-text, which fetches a font
@@ -28,6 +29,16 @@ export interface HQNode {
 
 const RECENT_MS = 10 * 60 * 1000; // matches /map's "is this agent live" window
 
+// CesiumMan (CC BY 4.0, © 2017 Cesium — see public/models/CesiumMan.LICENSE.md),
+// the standard rigged/skinned/animated reference character three.js's own
+// examples use for exactly this purpose. Preloaded once at module scope so
+// every agent instance shares the same cached GLTF (each still gets its
+// own SkeletonUtils clone + AnimationMixer below — a skinned mesh can't
+// share a single scene graph across multiple positions, since bones are
+// referenced, not copied, by a plain object clone).
+const AGENT_MODEL_PATH = "/models/CesiumMan.glb";
+useGLTF.preload(AGENT_MODEL_PATH);
+
 function CompanyPedestal({ x, z, label }: { x: number; z: number; label: string }) {
   return (
     <group position={[x, 0, z]}>
@@ -42,7 +53,20 @@ function CompanyPedestal({ x, z, label }: { x: number; z: number; label: string 
   );
 }
 
-function AgentMarker({
+/**
+ * A real animated, rigged, skinned character (CesiumMan) — the founder
+ * asked for this after being told the literal Pixar-quality version needs
+ * a dedicated 3D artist. This is the honest middle ground: a genuine
+ * walk-cycle animation, not custom character art, sourced from an
+ * existing CC-BY reference model.
+ *
+ * The walk cycle itself is ambient scene life, same category as the 2D
+ * /map's "idle nodes breathe gently" — it never implies a real event on
+ * its own. The ring beneath the character is the actual data-driven
+ * signal: it only lights up when `live` (a real recent agent_runs
+ * timestamp) says so.
+ */
+function AgentCharacter({
   x,
   z,
   label,
@@ -57,31 +81,43 @@ function AgentMarker({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const group = useRef<THREE.Group>(null);
+  const { scene, animations } = useGLTF(AGENT_MODEL_PATH);
+  const clonedScene = useMemo(() => cloneSkeleton(scene), [scene]);
+  const { actions, names } = useAnimations(animations, group);
 
-  // Emissive pulse driven only by a real recent agent_runs timestamp
-  // (passed in as `live`) — never a decorative animation on its own, same
-  // rule as the 2D /map.
+  useEffect(() => {
+    const action = names[0] ? actions[names[0]] : undefined;
+    action?.reset().fadeIn(0.3).play();
+    return () => {
+      action?.fadeOut(0.3);
+    };
+  }, [actions, names]);
+
+  const ringMaterialRef = useRef<THREE.MeshBasicMaterial>(null);
   useFrame((state) => {
-    if (!materialRef.current) return;
-    materialRef.current.emissiveIntensity = live
-      ? 0.6 + Math.sin(state.clock.elapsedTime * 4) * 0.4
-      : 0.1;
+    if (!ringMaterialRef.current) return;
+    ringMaterialRef.current.opacity = live
+      ? 0.4 + Math.sin(state.clock.elapsedTime * 4) * 0.3
+      : selected
+        ? 0.35
+        : 0;
   });
 
   return (
     <group
-      position={[x, 10, z]}
+      position={[x, 0, z]}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
       }}
     >
-      <mesh>
-        <sphereGeometry args={[selected ? 5 : 4, 16, 16]} />
-        <meshStandardMaterial ref={materialRef} color="#8fd3a0" emissive="#8fd3a0" emissiveIntensity={0.1} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]}>
+        <ringGeometry args={[9, 11, 32]} />
+        <meshBasicMaterial ref={ringMaterialRef} color={selected ? "#ffffff" : "#8fd3a0"} transparent opacity={0} />
       </mesh>
-      <group position={[0, 8, 0]}>
+      <primitive ref={group} object={clonedScene} scale={24} />
+      <group position={[0, 40, 0]}>
         <Label>{label}</Label>
       </group>
     </group>
@@ -148,38 +184,40 @@ export function HQScene({
         <meshStandardMaterial color="#151820" />
       </mesh>
 
-      {positioned.map((n) => {
-        const x = n.x - GRAPH_WIDTH / 2;
-        const z = n.y - GRAPH_HEIGHT / 2;
+      <Suspense fallback={null}>
+        {positioned.map((n) => {
+          const x = n.x - GRAPH_WIDTH / 2;
+          const z = n.y - GRAPH_HEIGHT / 2;
 
-        if (n.type === "company") {
+          if (n.type === "company") {
+            return (
+              <group
+                key={n.id}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(n.id);
+                }}
+              >
+                <CompanyPedestal x={x} z={z} label={n.label} />
+                {n.id === rootCompanyId && <FounderMarker x={x} z={z - 24} />}
+              </group>
+            );
+          }
+
+          const live = !!n.lastRunAt && now - new Date(n.lastRunAt).getTime() < RECENT_MS;
           return (
-            <group
+            <AgentCharacter
               key={n.id}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(n.id);
-              }}
-            >
-              <CompanyPedestal x={x} z={z} label={n.label} />
-              {n.id === rootCompanyId && <FounderMarker x={x} z={z - 24} />}
-            </group>
+              x={x}
+              z={z}
+              label={n.label}
+              live={live}
+              selected={selectedId === n.id}
+              onSelect={() => onSelect(n.id)}
+            />
           );
-        }
-
-        const live = !!n.lastRunAt && now - new Date(n.lastRunAt).getTime() < RECENT_MS;
-        return (
-          <AgentMarker
-            key={n.id}
-            x={x}
-            z={z}
-            label={n.label}
-            live={live}
-            selected={selectedId === n.id}
-            onSelect={() => onSelect(n.id)}
-          />
-        );
-      })}
+        })}
+      </Suspense>
 
       <OrbitControls enablePan maxPolarAngle={Math.PI / 2.05} />
     </Canvas>

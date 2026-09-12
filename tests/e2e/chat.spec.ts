@@ -28,15 +28,32 @@ test.describe("Chat (demo mode)", () => {
     await expect(page.getByText("ODAX pricing notes.txt")).toBeVisible();
   });
 
-  test("switching to ODAX reveals the agent switcher, and switching agent changes the demo reply", async ({
+  test("OD Holdings shows the group agent switcher by default (CEO, Group CFO, Group Strategy)", async ({
     page,
   }) => {
     await page.goto("/chat");
-    // The default active company (group level) has only one agent, so the
-    // switcher — present in the DOM at every viewport like the company
-    // switcher — stays hidden rather than showing a single-option dropdown.
-    await expect(page.getByLabel("Active agent")).toHaveCount(0);
+    const agentSwitcher = page.getByLabel("Active agent");
+    await expect(agentSwitcher).toBeVisible();
+    const options = await agentSwitcher.locator("option").allTextContents();
+    expect(options.some((o) => o.includes("Group CFO"))).toBe(true);
+    expect(options.some((o) => o.includes("Group Strategy"))).toBe(true);
+  });
 
+  test("asking the Group CFO for synergies calls detect_synergies in its demo reply", async ({ page }) => {
+    await page.goto("/chat");
+    await page.getByLabel("Active agent").selectOption({ label: "Group CFO — Chief Financial Officer" });
+    const input = page.getByPlaceholder(/Message the Group CFO/);
+    await input.fill("Any cross-company synergies worth flagging?");
+    await page.getByRole("button", { name: "Send" }).click();
+
+    await expect(page.getByText("Group CFO.", { exact: false }).last()).toBeVisible();
+    await expect(page.getByText("both independently noted the same F&B")).toBeVisible();
+  });
+
+  test("switching to ODAX reveals the Sales/Marketing agent switcher, and switching agent changes the demo reply", async ({
+    page,
+  }) => {
+    await page.goto("/chat");
     await page.locator("select:visible").first().selectOption({ label: "ODAX" });
     const agentSwitcher = page.getByLabel("Active agent");
     await expect(agentSwitcher).toBeVisible();

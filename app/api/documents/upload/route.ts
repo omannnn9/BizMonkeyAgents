@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/documents/chunk";
+import { extractPdfText, extractDocxText } from "@/lib/documents/extract-text";
 import { embedDocuments } from "@/lib/embeddings/voyage";
 import { autoTagDocument } from "@/lib/documents/auto-tag";
 import { getFounderUserId } from "@/lib/agent/founder";
@@ -9,6 +10,21 @@ import { withApiErrorHandling } from "@/lib/api-error";
 import { isDemoMode } from "@/lib/demo-mode";
 
 const SUPPORTED_TEXT_TYPES = ["text/plain", "text/markdown", "text/csv"];
+const PDF_TYPES = ["application/pdf"];
+const DOCX_TYPES = ["application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+
+/**
+ * Everything downstream (chunking, embedding, auto-tagging) only ever sees
+ * plain text — chunk.ts/auto-tag.ts needed no changes to support PDF/DOCX,
+ * once extraction lands here.
+ */
+async function extractText(file: File, buffer: ArrayBuffer): Promise<string> {
+  const isPdf = PDF_TYPES.includes(file.type) || /\.pdf$/i.test(file.name);
+  const isDocx = DOCX_TYPES.includes(file.type) || /\.docx$/i.test(file.name);
+  if (isPdf) return extractPdfText(buffer);
+  if (isDocx) return extractDocxText(buffer);
+  return new TextDecoder("utf-8").decode(buffer);
+}
 
 export const POST = withApiErrorHandling(async (request: Request) => {
   const formData = await request.formData();
@@ -29,21 +45,32 @@ export const POST = withApiErrorHandling(async (request: Request) => {
   const supabase = await createClient();
   const uploadedBy = await getFounderUserId(supabase);
 
-  const isSupportedText =
-    SUPPORTED_TEXT_TYPES.includes(file.type) || /\.(txt|md|csv)$/i.test(file.name);
-  if (!isSupportedText) {
+  const isSupported =
+    SUPPORTED_TEXT_TYPES.includes(file.type) ||
+    PDF_TYPES.includes(file.type) ||
+    DOCX_TYPES.includes(file.type) ||
+    /\.(txt|md|csv|pdf|docx)$/i.test(file.name);
+  if (!isSupported) {
     return NextResponse.json(
       {
         error:
-          `Unsupported file type "${file.type || "unknown"}". Phase 1 only parses plain text, ` +
-          "markdown, and CSV — PDF/DOCX extraction isn't built yet.",
+          `Unsupported file type "${file.type || "unknown"}". This app parses plain text, ` +
+          "markdown, CSV, PDF, and DOCX.",
       },
       { status: 415 },
     );
   }
 
   const buffer = await file.arrayBuffer();
-  const text = new TextDecoder("utf-8").decode(buffer);
+  let text: string;
+  try {
+    text = await extractText(file, buffer);
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Could not extract text from "${file.name}": ${err instanceof Error ? err.message : String(err)}` },
+      { status: 422 },
+    );
+  }
   const storagePath = `${companyId}/${randomUUID()}-${file.name}`;
 
   const { error: uploadErr } = await supabase.storage.from("documents").upload(storagePath, buffer, {

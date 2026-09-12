@@ -12,5 +12,8 @@ test.describe("3D headquarters (demo mode)", () => {
     // this environment — that's the scene's data/plumbing working, which
     // is what this check is for, not pixel-level rendering correctness.
     await expect(page.locator("canvas")).toBeVisible({ timeout: 10_000 });
+
+    // The CesiumMan attribution (CC BY 4.0 requires it) must actually render.
+    await expect(page.getByRole("link", { name: "CesiumMan" })).toBeVisible();
   });
 });

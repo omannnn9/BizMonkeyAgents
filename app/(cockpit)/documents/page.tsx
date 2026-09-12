@@ -71,13 +71,13 @@ export default function DocumentsPage() {
 
       <div className="rounded-lg border border-border bg-surface p-4">
         <p className="mb-2 text-sm text-muted">
-          Plain text, Markdown, and CSV only for now — PDF/DOCX extraction isn&apos;t built yet.
+          Plain text, Markdown, CSV, PDF, and DOCX.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
             ref={fileInput}
             type="file"
-            accept=".txt,.md,.csv"
+            accept=".txt,.md,.csv,.pdf,.docx"
             className="min-w-0 text-sm text-muted"
           />
           <button

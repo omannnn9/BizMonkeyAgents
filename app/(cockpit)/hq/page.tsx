@@ -49,10 +49,19 @@ export default function HQPage() {
       <h1 className="text-lg font-semibold text-foreground">3D headquarters (preview)</h1>
       <p className="text-sm text-muted">
         A scoped-down preview, built ahead of the architecture doc&apos;s own advice to wait until
-        Phases 1-3 are in daily use — by explicit choice, not because that condition was met. No
-        character animation or pathing (the doc&apos;s own flagged risk, normally a dedicated-artist
-        job): companies are simple platforms, agents are markers that glow on real recent activity,
-        and the founder is a single marker, not a figure. Drag to orbit, scroll to zoom.
+        Phases 1-3 are in daily use — by explicit choice, not because that condition was met.
+        Companies are simple platforms; agents are an animated character (
+        <a
+          href="https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan"
+          target="_blank"
+          rel="noreferrer"
+          className="underline hover:text-foreground"
+        >
+          CesiumMan
+        </a>
+        , CC BY 4.0 © Cesium — not custom character art) with a real walk cycle; the ring beneath each
+        one lights up only on real recent activity, never the animation itself. The founder is a
+        single marker, not a figure. Drag to orbit, scroll to zoom.
       </p>
 
       {loading && <p className="text-sm text-muted">Loading…</p>}
