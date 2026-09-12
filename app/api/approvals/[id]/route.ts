@@ -3,11 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { sendEmailViaGmail } from "@/lib/integrations/gmail";
 
 /**
- * Approve or reject a pending action. RLS already restricts the UPDATE to
- * controls_approvals members of the approval's company, but we re-check
- * explicitly here too (defense in depth) before attempting to execute
- * anything — and execution failure (e.g. Gmail not connected) is recorded
- * as a failure, never silently treated as success.
+ * Approve or reject a pending action. The controls_approvals check is RLS's
+ * job alone (private.controls_approvals_for, which also honors group-level
+ * controllers approving a descendant company's actions) — duplicating that
+ * logic here with a simpler direct-membership check would just make this
+ * route stricter than the DB and wrongly 403 a legitimate group-level
+ * approver. So this attempts the UPDATE directly and reads RLS's answer
+ * off whether a row came back, then records real execution outcome (e.g.
+ * Gmail not connected) as a failure, never silently treated as success.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,23 +35,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: `Approval already ${approval.status}` }, { status: 409 });
   }
 
-  const { data: membership } = await supabase
-    .from("company_members")
-    .select("controls_approvals")
-    .eq("company_id", approval.company_id)
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
-  if (!membership?.controls_approvals) {
+  const { data: updatedRows, error: updateErr } = await supabase
+    .from("approvals")
+    .update({ status: decision, decided_by: userData.user.id, decided_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id");
+
+  // Two distinct RLS outcomes both mean "not authorized to decide this":
+  // a row outside the user's visible companies just matches nothing
+  // (empty result, no error), while a visible-but-non-controlling member
+  // fails the policy's WITH CHECK, which Postgres raises as an error.
+  const isRlsDenial = updateErr?.message?.toLowerCase().includes("row-level security");
+  if (isRlsDenial || (!updateErr && (!updatedRows || updatedRows.length === 0))) {
     return NextResponse.json(
-      { error: "Only a controlling member of this company can decide approvals" },
+      { error: "Only a controlling member of this company (or its group level) can decide approvals" },
       { status: 403 },
     );
   }
-
-  const { error: updateErr } = await supabase
-    .from("approvals")
-    .update({ status: decision, decided_by: userData.user.id, decided_at: new Date().toISOString() })
-    .eq("id", id);
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 });
 
   await supabase.from("audit_log").insert({

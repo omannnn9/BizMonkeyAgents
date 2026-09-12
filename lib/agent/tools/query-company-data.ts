@@ -41,8 +41,17 @@ export const queryCompanyDataTool: AgentTool = {
     if (!parsed.success) {
       return { content: `Invalid input: ${parsed.error.message}`, isError: true };
     }
-    const { operation, resource, filters, id, data } = parsed.data;
+    const { operation, resource, filters, id } = parsed.data;
     const scopedCompanyIds = await getScopedCompanyIds(ctx.supabase, ctx.activeCompanyId);
+
+    // Never let model-supplied data move a row between companies (or touch
+    // its id) — company_id is always the active company, full stop,
+    // regardless of what the model passes in 'data'.
+    const data = parsed.data.data ? { ...parsed.data.data } : undefined;
+    if (data) {
+      delete data.company_id;
+      delete data.id;
+    }
 
     if (operation === "list") {
       let query = ctx.supabase.from(resource).select("*").in("company_id", scopedCompanyIds);

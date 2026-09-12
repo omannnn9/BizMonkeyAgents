@@ -59,15 +59,17 @@ create table public.agents (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   role_title text,
-  company_id uuid references public.companies(id) on delete cascade,
+  -- Always set, never null: a 'group' scope agent points at OD Holdings
+  -- (the group-level company row) rather than leaving this null, so RLS
+  -- never needs a "null = visible/writable by everyone" escape hatch.
+  company_id uuid not null references public.companies(id) on delete cascade,
   department_id uuid references public.departments(id) on delete set null,
   scope text not null default 'company' check (scope in ('company', 'group', 'project')),
   persona text not null default '',
   model text not null default 'claude-sonnet-5',
   tools jsonb not null default '[]'::jsonb,
   status text not null default 'active' check (status in ('active', 'paused', 'retired')),
-  created_at timestamptz not null default now(),
-  check (scope <> 'company' or company_id is not null)
+  created_at timestamptz not null default now()
 );
 comment on column public.agents.scope is 'company now; group/project reserved for Phase 2-3, not exercised yet.';
 
@@ -261,20 +263,25 @@ language sql stable security definer set search_path = public as $$
   select id from expanded;
 $$;
 
+-- A group-level controlling member (e.g. a controls_approvals row at OD
+-- Holdings) can approve actions for any descendant company, without needing
+-- a separate membership row at that company — so this walks UP from
+-- p_company_id to its ancestors (including itself) rather than checking
+-- only a direct company_id match.
 create function private.controls_approvals_for(p_company_id uuid) returns boolean
 language sql stable security definer set search_path = public as $$
+  with recursive ancestors(id) as (
+    select p_company_id
+    union
+    select c.parent_id from public.companies c
+      join ancestors a on c.id = a.id
+      where c.parent_id is not null
+  )
   select exists (
-    select 1 from public.company_members
-    where user_id = auth.uid()
-      and controls_approvals = true
-      and company_id in (
-        with recursive expanded(id) as (
-          select company_id from public.company_members where user_id = auth.uid()
-          union
-          select c.id from public.companies c join expanded e on c.parent_id = e.id
-        )
-        select id from expanded where id = p_company_id
-      )
+    select 1 from public.company_members cm
+    where cm.user_id = auth.uid()
+      and cm.controls_approvals = true
+      and cm.company_id in (select id from ancestors)
   );
 $$;
 
@@ -330,8 +337,8 @@ create policy departments_all on public.departments for all
   with check (company_id in (select private.allowed_company_ids()));
 
 create policy agents_all on public.agents for all
-  using (company_id is null or company_id in (select private.allowed_company_ids()))
-  with check (company_id is null or company_id in (select private.allowed_company_ids()));
+  using (company_id in (select private.allowed_company_ids()))
+  with check (company_id in (select private.allowed_company_ids()));
 
 create policy projects_all on public.projects for all
   using (company_id in (select private.allowed_company_ids()))
@@ -362,7 +369,7 @@ create policy agent_runs_select on public.agent_runs for select
 create policy agent_runs_insert on public.agent_runs for insert
   with check (
     exists (select 1 from public.agents a where a.id = agent_id
-      and (a.company_id is null or a.company_id in (select private.allowed_company_ids())))
+      and a.company_id in (select private.allowed_company_ids()))
   );
 
 -- memories: scope-aware visibility. 'group' is visible to every member of
