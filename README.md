@@ -9,8 +9,10 @@ online.
 Everything that doesn't require a live Supabase project is built and passes `npm run build` /
 `npm run lint`: schema + RLS, the CEO agent (Messages API + custom tool loop), the approval gate,
 and the full cockpit UI. **Nothing has been applied to a live database or run end-to-end yet** —
-that's blocked on a Supabase project existing (see below). Until then, treat the RLS policies, the
-agent's tool behavior, and the auth flow as reviewed-but-unverified, not tested.
+that's blocked on a Supabase project existing (see below). Until then, treat the RLS policies and
+the agent's tool behavior as reviewed-but-unverified, not tested. The `/login` page itself was
+visually verified in a real browser (dark theme, desktop + mobile) with placeholder Supabase
+credentials; the authenticated cockpit pages weren't, since that needs a real account.
 
 Known stub: `lib/integrations/gmail.ts` — Gmail isn't connected yet, so approved email actions fail
 loudly with a clear error instead of sending anything.
@@ -47,9 +49,21 @@ loudly with a clear error instead of sending anything.
 
 ## Deploying
 
-Deploy to Vercel with the same env vars as `.env.local` set in the project settings. Connect
-Sentry once the first deployment exists (the brief's own sequencing) and wire `@sentry/nextjs` in
-— not done yet, since there's no deployment to point it at.
+The app builds clean and is resilient to missing config (a misconfigured/unreachable Supabase
+degrades to "not authenticated" rather than 500ing every request), so it's safe to deploy before
+the Supabase project is ready — nothing will actually work until the env vars below are set, but it
+won't crash either.
+
+1. Go to [vercel.com/new](https://vercel.com/new) and import `omannnn9/BizMonkeyAgents`. Vercel
+   auto-detects Next.js; no build config changes needed. (The Vercel MCP connector available in
+   this session could create a project but not deploy to it or read it back — a permissions
+   limitation on that connector, not the code — so this is a manual step for now.)
+2. In the new project's Settings → Environment Variables, add the same keys as `.env.local.example`:
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+   `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`.
+3. Redeploy (or it'll deploy automatically once the repo is imported and vars are set).
+4. Connect Sentry once that first deployment exists (the brief's own sequencing) and wire
+   `@sentry/nextjs` in — not done yet, since there was no deployment to point it at.
 
 ## Scripts
 
