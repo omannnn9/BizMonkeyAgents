@@ -20,10 +20,12 @@ export const GRAPH_HEIGHT = 480;
  * A small hand-rolled force-directed layout (repulsion + spring + center
  * pull, run for a fixed number of iterations) — deliberately not a new
  * dependency (d3-force, React Flow): the graphs using this (`/graph`,
- * `/map`) are a few dozen nodes at most, and this is a few dozen lines.
+ * `/map`, `/hq`) are a few dozen nodes at most, and this is a few dozen
+ * lines. Generic over the node type so callers with extra fields (e.g.
+ * `/map` and `/hq`'s `lastRunAt`) get them back typed, not just at runtime.
  */
-export function forceLayout(nodes: GraphNode[], edges: GraphEdge[]): PositionedNode[] {
-  const positioned: PositionedNode[] = nodes.map((n, i) => {
+export function forceLayout<T extends GraphNode>(nodes: T[], edges: GraphEdge[]): (T & { x: number; y: number })[] {
+  const positioned: (T & { x: number; y: number })[] = nodes.map((n, i) => {
     const angle = (i / Math.max(nodes.length, 1)) * Math.PI * 2;
     return {
       ...n,

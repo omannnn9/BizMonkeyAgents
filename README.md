@@ -30,14 +30,38 @@ the round-trip works); it disappears automatically the moment real env vars are 
 ## Status
 
 **Phase 1** (one CEO agent, cockpit UI, approval gate, audit log), **Phase 2** (Sales/Marketing
-department agents, the knowledge-graph view, scheduled briefings), and **Phase 3** (Tablo/NOVA
-onboarded the same way, group-scope agents, memory promotion, the living-system map, company/agent
-creator wizards, OKRs/board-report generation) are all built — everything that doesn't require a
-live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been applied to a live
-database or run end-to-end yet** — that's blocked on a Supabase project existing (see below). Until
-then, treat the agents' tool behavior as reviewed-but-unverified, not tested. `/dashboard`'s layout
-(no redirect, no login) was visually verified in a real browser with placeholder Supabase
-credentials; the actual data-bearing pages weren't, since that needs a real database.
+department agents, the knowledge-graph view, scheduled briefings), **Phase 3** (Tablo/NOVA onboarded
+the same way, group-scope agents, memory promotion, the living-system map, company/agent creator
+wizards, OKRs/board-report generation), and a scoped-down **Phase 4** (a 3D preview of the same data
+at `/hq`) are all built — everything that doesn't require a live Supabase project passes
+`npm run build` / `npm run lint`. **Nothing has been applied to a live database or run end-to-end
+yet** — that's blocked on a Supabase project existing (see below). Until then, treat the agents'
+tool behavior as reviewed-but-unverified, not tested. `/dashboard`'s layout (no redirect, no login)
+was visually verified in a real browser with placeholder Supabase credentials; the actual
+data-bearing pages weren't, since that needs a real database. `/hq` *was* visually verified
+end-to-end in a real headless browser (screenshot-checked, not just asserted) — see below for why
+that one page got the extra scrutiny.
+
+**On Phase 4 specifically:** the architecture doc's Part 16 makes the literal 3D headquarters
+conditional on Phases 1-3 being "genuinely in daily use" — which hasn't happened (nothing's
+deployed yet). That was flagged to the founder directly; the choice was to build a scoped-down
+version anyway rather than wait. "Scoped down" means: no character models, no animation, no
+pathing — the doc's own flagged risk, normally a dedicated 3D artist's job, not something to
+approximate here. `/hq` reuses `/api/map`'s exact data (companies as low-poly platforms, agents as
+markers that glow only on a real recent `agent_runs` timestamp, the founder as a single non-human
+marker) rendered with `three` + `@react-three/fiber` + `@react-three/drei` — the one new runtime
+dependency added anywhere in this project; everywhere else deliberately avoided adding one. Building
+and `npm run lint`/`build` passing wasn't enough proof here: this is the one page where "does it
+actually render" isn't verifiable by reading the code, so it was independently checked with a real
+headless-browser screenshot before being called done — first attempt actually failed silently (see
+below), which is exactly the kind of thing static checks don't catch.
+
+**A real bug worth knowing about if you touch `/hq`:** it originally used `drei`'s `<Text>` for
+in-scene labels, which fetches a font file over the network by default (via `troika-three-text`).
+In network-restricted environments (this build sandbox included) that fetch silently fails and can
+break the whole scene without throwing anywhere visible in the UI. Labels now use `drei`'s `<Html>`
+instead — a plain DOM overlay using the app's own CSS, no network dependency. If you ever reach for
+`<Text>` again here, know why it was avoided.
 
 One deliberate deviation from the architecture doc: the Part 9 living-system map (`/map`) polls
 `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no browser-side
@@ -104,7 +128,7 @@ clobber the new company's already-rendered data. All three now guard against it 
    those integrations aren't connected. At OD Holdings, try Group CFO / Group Strategy and ask for
    a board report. Check `/graph` for the full relationship explorer and `/map` for the animated
    version. Visit `/memories` and promote a company-scope memory to group. Try `/companies/new` and
-   `/agents/new`.
+   `/agents/new`. Try `/hq` for the 3D preview — drag to orbit, scroll to zoom.
 
 ## Deploying
 
@@ -134,13 +158,14 @@ that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn'
 | `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
 | `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO, Sales, Marketing, and Group CFO agents — including promote_memory and generate_board_report. |
-| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — 54 checks across dashboard, chat (incl. the agent switcher), documents, activity, approvals, the knowledge graph, the living-system map, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed. Does NOT verify real data flows (RLS, real agent responses, real approvals) — those need the scripts above against a live project. |
+| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — 56 checks across dashboard, chat (incl. the agent switcher), documents, activity, approvals, the knowledge graph, the living-system map, the 3D HQ preview, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed. Does NOT verify real data flows (RLS, real agent responses, real approvals) — those need the scripts above against a live project. |
 
 ## What's genuinely not built yet
 
 PDF/DOCX document parsing (text/markdown/CSV only), project-scope agents in practice (the schema
-supports them; nothing creates one), cross-company synergy detection, and the literal 3D
-headquarters (Phase 4, conditional) — see the architecture doc's Part 16 for the full phased
+supports them; nothing creates one), cross-company synergy detection, and the *full* literal 3D
+headquarters vision (character animation, pathing, game-engine-grade polish — `/hq` is a
+deliberately scoped-down preview, not that) — see the architecture doc's Part 16 for the full phased
 roadmap. Also still pending: the real OSL lead database/scoring model, real API keys for
 Gmail/Apollo.io/Higgsfield, and actually deploying the daily-briefing Edge Function + its `pg_cron`
 schedule (see "Status" above) — all blocked on a live Supabase project and/or real credentials, not
