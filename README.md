@@ -79,10 +79,14 @@ won't error either. **Once deployed, treat the URL as sensitive** — there's no
    this session could create a project but not deploy to it or read it back — a permissions
    limitation on that connector, not the code — so this is a manual step for now.)
 2. In the new project's Settings → Environment Variables, add the same keys as `.env.local.example`
-   (`NEXT_PUBLIC_SUPABASE_ANON_KEY` isn't needed here — it's only for the local RLS test).
+   (`NEXT_PUBLIC_SUPABASE_ANON_KEY` isn't needed here — it's only for the local RLS test). Sentry's
+   `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` are already filled in in the example file — they're not
+   secret — so error reporting works from the first deployment.
 3. Redeploy (or it'll deploy automatically once the repo is imported and vars are set).
-4. Connect Sentry once that first deployment exists (the brief's own sequencing) and wire
-   `@sentry/nextjs` in — not done yet, since there was no deployment to point it at.
+
+Sentry is already wired in (`instrumentation.ts`, `instrumentation-client.ts`, `sentry.*.config.ts`,
+`app/global-error.tsx`, org `odax` / project `od-group-cockpit`) — no source-map upload yet, since
+that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn't need it.
 
 ## Scripts
 

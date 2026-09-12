@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CompanyProvider } from "@/lib/company-context";
 import { CockpitShell } from "@/components/CockpitShell";
 import { isDemoMode, DEMO_COMPANIES } from "@/lib/demo-mode";
+import * as Sentry from "@sentry/nextjs";
 
 // This data (which companies exist, and everything under them) must never
 // be statically cached — force per-request rendering. Without this, Next
@@ -47,11 +48,13 @@ async function loadCompanies(): Promise<
       .order("name");
     if (error) {
       console.error("[CockpitLayout] companies query failed:", error);
+      Sentry.captureException(new Error(`companies query failed: ${error.message}`));
       return { ok: false, message: error.message };
     }
     return { ok: true, companies: data ?? [] };
   } catch (err) {
     console.error("[CockpitLayout] Supabase client/setup error:", err);
+    Sentry.captureException(err);
     return { ok: false, message: err instanceof Error ? err.message : String(err) };
   }
 }

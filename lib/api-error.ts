@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 
 /**
  * Wraps a route handler so a thrown error (e.g. createClient() failing on a
@@ -14,6 +15,7 @@ export function withApiErrorHandling<Args extends unknown[]>(
       return await handler(...args);
     } catch (err) {
       console.error("[api] unhandled error:", err);
+      Sentry.captureException(err);
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown server error" },
         { status: 500 },
