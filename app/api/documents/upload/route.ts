@@ -5,10 +5,11 @@ import { chunkText } from "@/lib/documents/chunk";
 import { embedDocuments } from "@/lib/embeddings/voyage";
 import { autoTagDocument } from "@/lib/documents/auto-tag";
 import { getFounderUserId } from "@/lib/agent/founder";
+import { withApiErrorHandling } from "@/lib/api-error";
 
 const SUPPORTED_TEXT_TYPES = ["text/plain", "text/markdown", "text/csv"];
 
-export async function POST(request: Request) {
+export const POST = withApiErrorHandling(async (request: Request) => {
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
   const companyId = formData.get("companyId") as string | null;
@@ -100,4 +101,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ documentId: document.id, chunkCount, tags });
-}
+});

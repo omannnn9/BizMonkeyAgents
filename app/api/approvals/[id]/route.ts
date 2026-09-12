@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendEmailViaGmail } from "@/lib/integrations/gmail";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { controlsApprovalsFor } from "@/lib/agent/approvals-authz";
+import { withApiErrorHandling } from "@/lib/api-error";
 
 /**
  * Approve or reject a pending action. With no login/session, this can't
@@ -13,7 +14,10 @@ import { controlsApprovalsFor } from "@/lib/agent/approvals-authz";
  * Real execution outcome (e.g. Gmail not connected) is still recorded as
  * a failure, never silently treated as success.
  */
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export const POST = withApiErrorHandling(async (
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) => {
   const { id } = await params;
   const { decision } = (await request.json()) as { decision: "approved" | "rejected" };
   if (decision !== "approved" && decision !== "rejected") {
@@ -81,4 +85,4 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   return NextResponse.json({ status: "approved" });
-}
+});

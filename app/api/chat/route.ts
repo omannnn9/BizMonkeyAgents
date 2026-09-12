@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runChatTurn } from "@/lib/agent/ceo-agent";
 import { getFounderUserId } from "@/lib/agent/founder";
+import { withApiErrorHandling } from "@/lib/api-error";
 
-export async function POST(request: Request) {
+export const POST = withApiErrorHandling(async (request: Request) => {
   const { activeCompanyId, message, history } = (await request.json()) as {
     activeCompanyId: string;
     message: string;
@@ -48,4 +49,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});

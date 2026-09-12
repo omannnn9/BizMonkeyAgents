@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
+import { withApiErrorHandling } from "@/lib/api-error";
 
-export async function GET(request: Request) {
+export const GET = withApiErrorHandling(async (request: Request) => {
   const companyId = new URL(request.url).searchParams.get("companyId");
   if (!companyId) return NextResponse.json({ error: "companyId is required" }, { status: 400 });
 
@@ -41,4 +42,4 @@ export async function GET(request: Request) {
     lastAgentRun: lastRun.data ?? null,
     recentDecisions: decisions.data ?? [],
   });
-}
+});
