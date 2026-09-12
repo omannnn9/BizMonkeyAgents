@@ -46,8 +46,10 @@ export async function assembleSystemPrompt(
   let memories: Array<{ content: string; importance: number }> = [];
   try {
     const embedding = await embedQuery(params.userMessage);
+    // pgvector's text input format is "[v1,v2,...]", which is also valid
+    // JSON array syntax — JSON.stringify gives us exactly that.
     const { data } = await supabase.rpc("match_memories", {
-      p_query_embedding: embedding as unknown as string,
+      p_query_embedding: JSON.stringify(embedding),
       p_limit: 6,
     });
     memories = data ?? [];

@@ -32,7 +32,7 @@ export const searchDocumentsTool: AgentTool = {
     const embedding = await embedQuery(parsed.data.query);
 
     const { data: matches, error } = await ctx.supabase.rpc("match_document_chunks", {
-      p_query_embedding: embedding as unknown as string,
+      p_query_embedding: JSON.stringify(embedding),
       p_company_ids: scopedCompanyIds,
       p_limit: parsed.data.limit ?? 6,
     });

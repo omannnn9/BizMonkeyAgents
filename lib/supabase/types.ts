@@ -126,7 +126,7 @@ export interface Database {
           document_id: string;
           company_id: string;
           content: string;
-          embedding: number[] | null;
+          embedding: string | number[] | null;
           chunk_index: number;
           created_at: string;
         };
@@ -144,7 +144,7 @@ export interface Database {
           scope: "founder" | "group" | "company" | "department" | "project" | "agent";
           scope_id: string | null;
           content: string;
-          embedding: number[] | null;
+          embedding: string | number[] | null;
           source_document_id: string | null;
           importance: number;
           confidence: number;
