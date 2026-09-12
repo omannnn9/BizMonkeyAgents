@@ -9,7 +9,8 @@
     "lint": "eslint",
     "seed:founder": "tsx scripts/seed-founder-membership.ts",
     "test:rls": "tsx scripts/test-rls-isolation.ts",
-    "test:prompt-injection": "tsx scripts/test-prompt-injection.ts"
+    "test:prompt-injection": "tsx scripts/test-prompt-injection.ts",
+    "test:agent-scenarios": "tsx scripts/test-agent-scenarios.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
