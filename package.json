@@ -10,7 +10,8 @@
     "seed:founder": "tsx scripts/seed-founder-membership.ts",
     "test:rls": "tsx scripts/test-rls-isolation.ts",
     "test:prompt-injection": "tsx scripts/test-prompt-injection.ts",
-    "test:agent-scenarios": "tsx scripts/test-agent-scenarios.ts"
+    "test:agent-scenarios": "tsx scripts/test-agent-scenarios.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
@@ -26,6 +27,7 @@
     "zod": "^4.6.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

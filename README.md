@@ -96,6 +96,7 @@ that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn'
 | `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
 | `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO agent. |
+| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — 38 checks across dashboard, chat, documents, activity, approvals, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed. Does NOT verify real data flows (RLS, real agent responses, real approvals) — those need the scripts above against a live project. |
 
 ## What's genuinely not built yet (by design, out of Phase 1 scope)
 
