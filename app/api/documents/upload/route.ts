@@ -6,6 +6,7 @@ import { embedDocuments } from "@/lib/embeddings/voyage";
 import { autoTagDocument } from "@/lib/documents/auto-tag";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { withApiErrorHandling } from "@/lib/api-error";
+import { isDemoMode } from "@/lib/demo-mode";
 
 const SUPPORTED_TEXT_TYPES = ["text/plain", "text/markdown", "text/csv"];
 
@@ -17,6 +18,12 @@ export const POST = withApiErrorHandling(async (request: Request) => {
 
   if (!file || !companyId || !title) {
     return NextResponse.json({ error: "file, companyId, and title are required" }, { status: 400 });
+  }
+
+  if (isDemoMode()) {
+    // Nothing to embed/persist against — proves the upload round-trip
+    // works without erroring, doesn't actually add to the demo list.
+    return NextResponse.json({ documentId: "demo", chunkCount: 1, tags: ["demo"] });
   }
 
   const supabase = await createClient();

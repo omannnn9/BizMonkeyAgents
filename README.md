@@ -19,6 +19,14 @@ There's still exactly one `auth.users` row (created by `npm run seed:founder`), 
 foreign keys on `documents.uploaded_by`, `approvals.decided_by`, `audit_log.actor_id`, etc. — it's
 never used to sign in anywhere.
 
+## Demo mode
+
+If `NEXT_PUBLIC_SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` aren't set (e.g. before the Supabase
+project exists yet), every page falls back to realistic mock data (`lib/demo-mode.ts`) instead of
+erroring, with a persistent orange banner saying so — so the actual UI can be reviewed before the
+backend is wired up. Nothing in demo mode is real or persists (approve/reject and upload just prove
+the round-trip works); it disappears automatically the moment real env vars are set.
+
 ## Status
 
 Everything that doesn't require a live Supabase project is built and passes `npm run build` /

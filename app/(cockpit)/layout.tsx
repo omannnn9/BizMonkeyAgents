@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { CompanyProvider } from "@/lib/company-context";
 import { CockpitShell } from "@/components/CockpitShell";
+import { isDemoMode, DEMO_COMPANIES } from "@/lib/demo-mode";
 
 // This data (which companies exist, and everything under them) must never
 // be statically cached — force per-request rendering. Without this, Next
@@ -56,6 +57,14 @@ async function loadCompanies(): Promise<
 }
 
 export default async function CockpitLayout({ children }: { children: React.ReactNode }) {
+  if (isDemoMode()) {
+    return (
+      <CompanyProvider initialCompanies={DEMO_COMPANIES}>
+        <CockpitShell demoMode>{children}</CockpitShell>
+      </CompanyProvider>
+    );
+  }
+
   const result = await loadCompanies();
   if (!result.ok) {
     return <SetupError message={result.message} />;

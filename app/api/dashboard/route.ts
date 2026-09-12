@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
 import { withApiErrorHandling } from "@/lib/api-error";
+import { isDemoMode, demoDashboard } from "@/lib/demo-mode";
 
 export const GET = withApiErrorHandling(async (request: Request) => {
   const companyId = new URL(request.url).searchParams.get("companyId");
   if (!companyId) return NextResponse.json({ error: "companyId is required" }, { status: 400 });
+
+  if (isDemoMode()) return NextResponse.json(demoDashboard());
 
   const supabase = await createClient();
   const scopedCompanyIds = await getScopedCompanyIds(supabase, companyId);
