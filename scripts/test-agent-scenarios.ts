@@ -13,11 +13,13 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { createClient } from "@supabase/supabase-js";
-import { runChatTurn } from "../lib/agent/ceo-agent";
+import { runAgentTurn } from "../lib/agent/agent-runtime";
 import { getFounderUserId } from "../lib/agent/founder";
 import type { Database } from "../lib/supabase/types";
 
 const ODAX_ID = "00000000-0000-0000-0000-000000000002";
+const SALES_AGENT_ID = "00000000-0000-0000-0000-000000000012";
+const MARKETING_AGENT_ID = "00000000-0000-0000-0000-000000000013";
 
 type Check = { name: string; pass: boolean; detail?: string };
 const results: Check[] = [];
@@ -38,15 +40,17 @@ async function main() {
     .select("id")
     .single();
 
+  // ODAX has three company-scope agents since migration 0004 (CEO, Sales,
+  // Marketing) — name it explicitly rather than .single() on scope alone.
   const { data: agent } = await admin
     .from("agents")
     .select("id")
     .eq("company_id", ODAX_ID)
-    .eq("scope", "company")
+    .eq("name", "CEO Agent")
     .single();
 
   // Scenario 1: asking about open tasks should call query_company_data(list, tasks).
-  const r1 = await runChatTurn(admin, {
+  const r1 = await runAgentTurn(admin, {
     agentId: agent!.id,
     activeCompanyId: ODAX_ID,
     userId,
@@ -59,7 +63,7 @@ async function main() {
   record("Asking about open tasks calls query_company_data(tasks)", listedTasks);
 
   // Scenario 2: asking to send an email should call send_email and create a pending approval.
-  const r2 = await runChatTurn(admin, {
+  const r2 = await runAgentTurn(admin, {
     agentId: agent!.id,
     activeCompanyId: ODAX_ID,
     userId,
@@ -81,15 +85,75 @@ async function main() {
     !!pendingApprovals && pendingApprovals.length > 0,
   );
 
+  // Scenario 3: asking the Sales Agent to enrich a lead should call
+  // enrich_lead and create a pending approval — never silently "done",
+  // since Apollo.io isn't connected (see lib/integrations/apollo.ts).
+  const r3 = await runAgentTurn(admin, {
+    agentId: SALES_AGENT_ID,
+    activeCompanyId: ODAX_ID,
+    userId,
+    userMessage: "Enrich the lead at acme.com and score it.",
+    history: [],
+  });
+  record("Asking the Sales Agent to enrich a lead calls enrich_lead", r3.toolCalls.some((c) => c.name === "enrich_lead"));
+
+  const { data: pendingLeadApprovals } = await admin
+    .from("approvals")
+    .select("id")
+    .eq("company_id", ODAX_ID)
+    .eq("action_type", "enrich_lead")
+    .eq("status", "pending");
+  record(
+    "enrich_lead creates a pending approval (never enriches directly)",
+    !!pendingLeadApprovals && pendingLeadApprovals.length > 0,
+  );
+
+  // Scenario 4: asking the Marketing Agent to generate an asset should call
+  // generate_creative_asset and create a pending approval — Higgsfield
+  // isn't connected (see lib/integrations/higgsfield.ts).
+  const r4 = await runAgentTurn(admin, {
+    agentId: MARKETING_AGENT_ID,
+    activeCompanyId: ODAX_ID,
+    userId,
+    userMessage: "Generate a promo image for the new ODAX pricing page.",
+    history: [],
+  });
+  record(
+    "Asking the Marketing Agent to generate an asset calls generate_creative_asset",
+    r4.toolCalls.some((c) => c.name === "generate_creative_asset"),
+  );
+
+  const { data: pendingAssetApprovals } = await admin
+    .from("approvals")
+    .select("id")
+    .eq("company_id", ODAX_ID)
+    .eq("action_type", "generate_creative_asset")
+    .eq("status", "pending");
+  record(
+    "generate_creative_asset creates a pending approval (never generates directly)",
+    !!pendingAssetApprovals && pendingAssetApprovals.length > 0,
+  );
+
   // Cleanup.
-  if (pendingApprovals) {
-    await admin.from("approvals").delete().in("id", pendingApprovals.map((a) => a.id));
+  const allPendingApprovalIds = [
+    ...(pendingApprovals ?? []),
+    ...(pendingLeadApprovals ?? []),
+    ...(pendingAssetApprovals ?? []),
+  ].map((a) => a.id);
+  if (allPendingApprovalIds.length > 0) {
+    await admin.from("approvals").delete().in("id", allPendingApprovalIds);
   }
   await admin.from("tasks").delete().eq("id", seededTask!.id);
   await admin.from("agent_runs").delete().eq("agent_id", agent!.id).in("input", [
     "What open tasks do we have right now?",
     "Draft and send an email to md@example.com letting them know the Q3 numbers follow-up is in progress.",
   ]);
+  await admin.from("agent_runs").delete().eq("agent_id", SALES_AGENT_ID).eq("input", "Enrich the lead at acme.com and score it.");
+  await admin
+    .from("agent_runs")
+    .delete()
+    .eq("agent_id", MARKETING_AGENT_ID)
+    .eq("input", "Generate a promo image for the new ODAX pricing page.");
 
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} scenarios passed.`);

@@ -16,7 +16,7 @@ config({ path: ".env.local" });
 
 import { createClient } from "@supabase/supabase-js";
 import { embedDocuments } from "../lib/embeddings/voyage";
-import { runChatTurn } from "../lib/agent/ceo-agent";
+import { runAgentTurn } from "../lib/agent/agent-runtime";
 import { getFounderUserId } from "../lib/agent/founder";
 import type { Database } from "../lib/supabase/types";
 
@@ -49,15 +49,17 @@ async function main() {
     chunk_index: 0,
   });
 
+  // ODAX has three company-scope agents since migration 0004 (CEO, Sales,
+  // Marketing) — name it explicitly rather than .single() on scope alone.
   const { data: agent } = await admin
     .from("agents")
     .select("id")
     .eq("company_id", ODAX_ID)
-    .eq("scope", "company")
+    .eq("name", "CEO Agent")
     .single();
 
   const userId = await getFounderUserId(admin);
-  const result = await runChatTurn(admin, {
+  const result = await runAgentTurn(admin, {
     agentId: agent!.id,
     activeCompanyId: ODAX_ID,
     userId,

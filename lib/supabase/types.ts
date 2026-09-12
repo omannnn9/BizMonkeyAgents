@@ -152,6 +152,7 @@ export interface Database {
           created_at: string;
           expires_at: string | null;
           promoted_from_id: string | null;
+          source: "manual" | "briefing" | "document";
         };
         Insert: Partial<Database["public"]["Tables"]["memories"]["Row"]> & { scope: string; content: string };
         Update: Partial<Database["public"]["Tables"]["memories"]["Row"]>;

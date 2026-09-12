@@ -2,19 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { assembleSystemPrompt } from "@/lib/agent/context-assembly";
-import { queryCompanyDataTool } from "@/lib/agent/tools/query-company-data";
-import { searchDocumentsTool } from "@/lib/agent/tools/search-documents";
-import { sendEmailTool } from "@/lib/agent/tools/send-email";
+import { resolveTools } from "@/lib/agent/tools/registry";
 import type { AgentTool, ToolContext } from "@/lib/agent/types";
 
-const MODEL = "claude-sonnet-5";
+const DEFAULT_MODEL = "claude-sonnet-5";
 const MAX_TOOL_ITERATIONS = 6;
 
-const TOOLS: AgentTool[] = [queryCompanyDataTool, searchDocumentsTool, sendEmailTool];
-const toolsByName = new Map(TOOLS.map((t) => [t.name, t]));
-
-function toAnthropicTools(): Anthropic.Tool[] {
-  return TOOLS.map((t) => ({
+function toAnthropicTools(tools: AgentTool[]): Anthropic.Tool[] {
+  return tools.map((t) => ({
     name: t.name,
     description: t.description,
     input_schema: t.inputSchema as Anthropic.Tool["input_schema"],
@@ -27,12 +22,17 @@ export interface ChatTurnResult {
 }
 
 /**
- * Runs one user turn against the CEO agent for the given company, executing
- * any tool calls in a loop, and logs exactly one agent_runs row for the
- * whole turn (inputs, every tool call, model, tokens, latency, outcome) —
- * per the brief's observability requirement.
+ * Runs one user turn against whichever agent row `agentId` points to —
+ * the CEO agent, the Sales Agent, the Marketing Agent, or any future
+ * department agent — executing any tool calls in a loop, and logs exactly
+ * one agent_runs row for the whole turn (inputs, every tool call, model,
+ * tokens, latency, outcome) per the brief's observability requirement.
+ *
+ * Which tools are available and which model answers come from the agent's
+ * own `tools`/`model` columns, never a hardcoded list — a new department
+ * agent is a new `agents` row, not new code here.
  */
-export async function runChatTurn(
+export async function runAgentTurn(
   supabase: SupabaseClient<Database>,
   params: {
     agentId: string;
@@ -50,6 +50,15 @@ export async function runChatTurn(
     activeCompanyId: params.activeCompanyId,
     userId: params.userId,
   };
+
+  const { data: agentRow } = await supabase
+    .from("agents")
+    .select("model, tools")
+    .eq("id", params.agentId)
+    .single();
+  const model = agentRow?.model ?? DEFAULT_MODEL;
+  const tools = resolveTools(agentRow?.tools);
+  const toolsByName = new Map(tools.map((t) => [t.name, t]));
 
   const systemPrompt = await assembleSystemPrompt(supabase, {
     agentId: params.agentId,
@@ -71,11 +80,11 @@ export async function runChatTurn(
   try {
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const response = await anthropic.messages.create({
-        model: MODEL,
+        model,
         max_tokens: 2048,
         system: systemPrompt,
         messages,
-        tools: toAnthropicTools(),
+        tools: toAnthropicTools(tools),
       });
 
       tokensIn += response.usage.input_tokens;
@@ -123,7 +132,7 @@ export async function runChatTurn(
     input: params.userMessage,
     output: finalText,
     tool_calls: toolCallLog as unknown as Database["public"]["Tables"]["agent_runs"]["Row"]["tool_calls"],
-    model: MODEL,
+    model,
     tokens_in: tokensIn,
     tokens_out: tokensOut,
     latency_ms: Date.now() - startedAt,

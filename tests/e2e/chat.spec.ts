@@ -28,6 +28,31 @@ test.describe("Chat (demo mode)", () => {
     await expect(page.getByText("ODAX pricing notes.txt")).toBeVisible();
   });
 
+  test("switching to ODAX reveals the agent switcher, and switching agent changes the demo reply", async ({
+    page,
+  }) => {
+    await page.goto("/chat");
+    // The default active company (group level) has only one agent, so the
+    // switcher — present in the DOM at every viewport like the company
+    // switcher — stays hidden rather than showing a single-option dropdown.
+    await expect(page.getByLabel("Active agent")).toHaveCount(0);
+
+    await page.locator("select:visible").first().selectOption({ label: "ODAX" });
+    const agentSwitcher = page.getByLabel("Active agent");
+    await expect(agentSwitcher).toBeVisible();
+    const options = await agentSwitcher.locator("option").allTextContents();
+    expect(options.some((o) => o.includes("Sales Agent"))).toBe(true);
+    expect(options.some((o) => o.includes("Marketing Agent"))).toBe(true);
+
+    await agentSwitcher.selectOption({ label: "Sales Agent — Sales" });
+    const input = page.getByPlaceholder(/Message the Sales Agent/);
+    await input.fill("acme.com");
+    await page.getByRole("button", { name: "Send" }).click();
+
+    await expect(page.getByText("Sales Agent.", { exact: false }).last()).toBeVisible();
+    await expect(page.getByText("Apollo.io and the OSL lead-scoring model")).toBeVisible();
+  });
+
   test("input clears after sending and the send button disables while empty", async ({ page }) => {
     await page.goto("/chat");
     const input = page.getByPlaceholder("Message the CEO Agent…");

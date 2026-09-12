@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
+import { AgentSwitcher, type AgentSummary } from "@/components/AgentSwitcher";
 
 interface Citation {
   document_title: string;
@@ -21,8 +22,15 @@ interface ChatMessage {
   toolNotes?: string[];
 }
 
+// Tool calls whose result is worth surfacing inline as a note under the
+// reply — every one of these is an external action gated on approval, so
+// the founder should see the outcome without digging into Activity.
+const NOTEWORTHY_TOOLS = new Set(["send_email", "enrich_lead", "generate_creative_asset"]);
+
 export default function ChatPage() {
   const { activeCompanyId, activeCompany } = useCompany();
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const [activeAgentId, setActiveAgentId] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -32,6 +40,36 @@ export default function ChatPage() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, sending]);
+
+  // Re-fetch the agent list whenever the active company changes, and reset
+  // to that company's default agent (CEO-style) rather than carrying over
+  // an agent id that may not exist for the newly active company.
+  useEffect(() => {
+    if (!activeCompanyId) return;
+    let cancelled = false;
+    fetch(`/api/agents?companyId=${activeCompanyId}`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled || !Array.isArray(body.agents)) return;
+        setAgents(body.agents);
+        const ceoAgent = body.agents.find((a: AgentSummary) => a.name === "CEO Agent");
+        setActiveAgentId(ceoAgent?.id ?? body.agents[0]?.id ?? "");
+        setMessages([]);
+      })
+      .catch(() => {
+        // Keep whatever agent list/selection we already had.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCompanyId]);
+
+  function switchAgent(id: string) {
+    setActiveAgentId(id);
+    setMessages([]);
+  }
+
+  const activeAgent = agents.find((a) => a.id === activeAgentId);
 
   async function send() {
     if (!input.trim() || !activeCompanyId) return;
@@ -46,7 +84,7 @@ export default function ChatPage() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ activeCompanyId, message: userMessage, history }),
+        body: JSON.stringify({ activeCompanyId, agentId: activeAgentId, message: userMessage, history }),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -66,7 +104,7 @@ export default function ChatPage() {
             // non-JSON (e.g. "no matches found") — nothing to cite
           }
         }
-        if (call.name === "send_email") {
+        if (NOTEWORTHY_TOOLS.has(call.name)) {
           toolNotes.push(call.result);
         }
       }
@@ -84,9 +122,12 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4 sm:h-[calc(100vh-6rem)]">
-      <h1 className="text-lg font-semibold text-foreground">
-        Chat {activeCompany ? `— ${activeCompany.name}` : ""}
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-lg font-semibold text-foreground">
+          Chat {activeCompany ? `— ${activeCompany.name}` : ""}
+        </h1>
+        <AgentSwitcher agents={agents} activeAgentId={activeAgentId} onChange={switchAgent} />
+      </div>
 
       <div
         ref={scrollRef}
@@ -94,9 +135,9 @@ export default function ChatPage() {
       >
         {messages.length === 0 && (
           <p className="text-sm text-muted">
-            Ask the CEO Agent anything about {activeCompany?.name ?? "this company"} — it can look
-            up tasks and decisions, search uploaded documents, and draft emails (which always go to
-            your approval queue first).
+            Ask {activeAgent?.name ?? "the agent"} anything about {activeCompany?.name ?? "this company"}
+            {" "}— it can look up tasks and decisions and search uploaded documents. Anything it tries to
+            *do* (an email, a lead enrichment, a creative asset) always goes to your approval queue first.
           </p>
         )}
         {messages.map((m, i) => (
@@ -144,7 +185,11 @@ export default function ChatPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
-          placeholder="Message the CEO Agent…"
+          placeholder={
+            !activeAgent || activeAgent.name === "CEO Agent"
+              ? "Message the CEO Agent…"
+              : `Message the ${activeAgent.name}…`
+          }
           className="flex-1 rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
         />
         <button

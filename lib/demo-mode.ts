@@ -29,6 +29,13 @@ export function demoDashboard() {
       { id: "d1", title: "Raise ODAX booking fee from 2% to 2.5%", created_at: daysAgo(2) },
       { id: "d2", title: "Pause Tablo paid ads until QR scan flow is fixed", created_at: daysAgo(5) },
     ],
+    latestBriefing: {
+      content:
+        "**Example only — the daily briefing isn't deployed yet** (needs a live Supabase project + " +
+        "the daily-briefing Edge Function). Once it is, this card summarizes what's outstanding for " +
+        "this company once a day, drawn from the same data as the stat cards above.",
+      created_at: hoursAgo(14),
+    },
   };
 }
 
@@ -94,10 +101,77 @@ export function demoDocuments() {
   };
 }
 
-export function demoChatReply(userMessage: string): {
+const DEMO_AGENT_IDS = {
+  ceo: "agent-ceo",
+  sales: "agent-sales",
+  marketing: "agent-marketing",
+} as const;
+
+/** Agents visible for a given demo company — only ODAX has Sales/Marketing, matching migration 0004. */
+export function demoAgents(companyId: string) {
+  const base = [{ id: DEMO_AGENT_IDS.ceo, name: "CEO Agent", role_title: "Chief of Staff" }];
+  if (companyId === DEMO_COMPANIES[1].id) {
+    return {
+      agents: [
+        ...base,
+        { id: DEMO_AGENT_IDS.sales, name: "Sales Agent", role_title: "Sales" },
+        { id: DEMO_AGENT_IDS.marketing, name: "Marketing Agent", role_title: "Marketing / Creative" },
+      ],
+    };
+  }
+  return { agents: base };
+}
+
+/** Matches the structural edges seeded by migration 0004_phase2.sql — real org structure, not fabricated activity. */
+export function demoGraph() {
+  const [holdings, odax, tablo, nova] = DEMO_COMPANIES;
+  const nodes = [
+    { id: `company:${holdings.id}`, type: "company", label: holdings.name },
+    { id: `company:${odax.id}`, type: "company", label: odax.name },
+    { id: `company:${tablo.id}`, type: "company", label: tablo.name },
+    { id: `company:${nova.id}`, type: "company", label: nova.name },
+    { id: "agent:agent-sales", type: "agent", label: "Sales Agent" },
+    { id: "agent:agent-marketing", type: "agent", label: "Marketing Agent" },
+  ];
+  const edges = [
+    { source: `company:${holdings.id}`, target: `company:${odax.id}`, relation: "owns" },
+    { source: `company:${holdings.id}`, target: `company:${tablo.id}`, relation: "owns" },
+    { source: `company:${holdings.id}`, target: `company:${nova.id}`, relation: "owns" },
+    { source: `company:${odax.id}`, target: "agent:agent-sales", relation: "has_agent" },
+    { source: `company:${odax.id}`, target: "agent:agent-marketing", relation: "has_agent" },
+  ];
+  return { nodes, edges };
+}
+
+export function demoChatReply(
+  userMessage: string,
+  agentId?: string,
+): {
   message: string;
   toolCalls: Array<{ name: string; input: unknown; result: string }>;
 } {
+  if (agentId === DEMO_AGENT_IDS.sales) {
+    return {
+      message:
+        `**Demo mode** — Sales Agent. Apollo.io and the OSL lead-scoring model aren't connected to ` +
+        `this app yet, so I can't really enrich or score a lead for "${userMessage}". Once they are, ` +
+        `an \`enrich_lead\` request would still go to your Approvals queue first, same as any other ` +
+        `external action.`,
+      toolCalls: [{ name: "enrich_lead", input: { domainOrEmail: userMessage }, result: "Not connected yet." }],
+    };
+  }
+  if (agentId === DEMO_AGENT_IDS.marketing) {
+    return {
+      message:
+        `**Demo mode** — Marketing Agent. Higgsfield isn't connected to this app yet, so I can't ` +
+        `really generate an asset for "${userMessage}". Once it is, a \`generate_creative_asset\` ` +
+        `request would still go to your Approvals queue first.`,
+      toolCalls: [
+        { name: "generate_creative_asset", input: { prompt: userMessage }, result: "Not connected yet." },
+      ],
+    };
+  }
+
   const citedResult = JSON.stringify([
     {
       document_title: "ODAX pricing notes.txt",

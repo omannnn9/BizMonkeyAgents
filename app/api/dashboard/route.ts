@@ -13,7 +13,7 @@ export const GET = withApiErrorHandling(async (request: Request) => {
   const supabase = await createClient();
   const scopedCompanyIds = await getScopedCompanyIds(supabase, companyId);
 
-  const [openTasks, pendingApprovals, lastRun, decisions] = await Promise.all([
+  const [openTasks, pendingApprovals, lastRun, decisions, latestBriefing] = await Promise.all([
     supabase
       .from("tasks")
       .select("id", { count: "exact", head: true })
@@ -37,6 +37,19 @@ export const GET = withApiErrorHandling(async (request: Request) => {
       .in("company_id", scopedCompanyIds)
       .order("created_at", { ascending: false })
       .limit(5),
+    // The daily briefing Edge Function (not yet deployed — see
+    // supabase/functions/daily-briefing) writes one of these per company
+    // per day, scoped directly to that company (not its descendants), so
+    // this reads scope_id = companyId rather than the expanded scope list.
+    supabase
+      .from("memories")
+      .select("content, created_at")
+      .eq("scope", "company")
+      .eq("scope_id", companyId)
+      .eq("source", "briefing")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   return NextResponse.json({
@@ -44,5 +57,6 @@ export const GET = withApiErrorHandling(async (request: Request) => {
     pendingApprovalsCount: pendingApprovals.count ?? 0,
     lastAgentRun: lastRun.data ?? null,
     recentDecisions: decisions.data ?? [],
+    latestBriefing: latestBriefing.data ?? null,
   });
 });

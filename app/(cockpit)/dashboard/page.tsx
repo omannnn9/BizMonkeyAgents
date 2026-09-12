@@ -9,6 +9,7 @@ interface DashboardData {
   pendingApprovalsCount: number;
   lastAgentRun: { created_at: string; status: string; model: string } | null;
   recentDecisions: Array<{ id: string; title: string; created_at: string }>;
+  latestBriefing: { content: string; created_at: string } | null;
 }
 
 export default function DashboardPage() {
@@ -58,6 +59,18 @@ export default function DashboardPage() {
               sub={data.lastAgentRun ? `${data.lastAgentRun.model} · ${data.lastAgentRun.status}` : undefined}
             />
           </div>
+
+          {data.latestBriefing && (
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <div className="mb-2 flex items-baseline justify-between">
+                <h2 className="text-sm font-medium text-foreground">Latest briefing</h2>
+                <span className="text-xs text-muted">
+                  {new Date(data.latestBriefing.created_at).toLocaleString()}
+                </span>
+              </div>
+              <p className="whitespace-pre-wrap text-sm text-muted">{data.latestBriefing.content}</p>
+            </div>
+          )}
 
           <div className="rounded-lg border border-border bg-surface p-4">
             <h2 className="mb-3 text-sm font-medium text-foreground">Recent decisions</h2>
