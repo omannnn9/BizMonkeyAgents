@@ -24,6 +24,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["companies"]["Row"]> & { name: string; slug: string };
         Update: Partial<Database["public"]["Tables"]["companies"]["Row"]>;
+        Relationships: [];
       };
       company_members: {
         Row: {
@@ -39,6 +40,7 @@ export interface Database {
           user_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["company_members"]["Row"]>;
+        Relationships: [];
       };
       departments: {
         Row: { id: string; company_id: string; name: string; kind: string | null; created_at: string };
@@ -47,6 +49,7 @@ export interface Database {
           name: string;
         };
         Update: Partial<Database["public"]["Tables"]["departments"]["Row"]>;
+        Relationships: [];
       };
       agents: {
         Row: {
@@ -64,6 +67,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["agents"]["Row"]> & { name: string };
         Update: Partial<Database["public"]["Tables"]["agents"]["Row"]>;
+        Relationships: [];
       };
       projects: {
         Row: {
@@ -77,6 +81,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["projects"]["Row"]> & { company_id: string; name: string };
         Update: Partial<Database["public"]["Tables"]["projects"]["Row"]>;
+        Relationships: [];
       };
       tasks: {
         Row: {
@@ -94,6 +99,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["tasks"]["Row"]> & { company_id: string; title: string };
         Update: Partial<Database["public"]["Tables"]["tasks"]["Row"]>;
+        Relationships: [];
       };
       documents: {
         Row: {
@@ -112,6 +118,7 @@ export interface Database {
           title: string;
         };
         Update: Partial<Database["public"]["Tables"]["documents"]["Row"]>;
+        Relationships: [];
       };
       document_chunks: {
         Row: {
@@ -129,6 +136,7 @@ export interface Database {
           chunk_index: number;
         };
         Update: Partial<Database["public"]["Tables"]["document_chunks"]["Row"]>;
+        Relationships: [];
       };
       memories: {
         Row: {
@@ -147,6 +155,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["memories"]["Row"]> & { scope: string; content: string };
         Update: Partial<Database["public"]["Tables"]["memories"]["Row"]>;
+        Relationships: [];
       };
       edges: {
         Row: {
@@ -167,6 +176,7 @@ export interface Database {
           relation: string;
         };
         Update: Partial<Database["public"]["Tables"]["edges"]["Row"]>;
+        Relationships: [];
       };
       decisions: {
         Row: {
@@ -181,6 +191,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["decisions"]["Row"]> & { company_id: string; title: string };
         Update: Partial<Database["public"]["Tables"]["decisions"]["Row"]>;
+        Relationships: [];
       };
       agent_runs: {
         Row: {
@@ -200,6 +211,7 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["agent_runs"]["Row"]> & { agent_id: string; model: string };
         Update: Partial<Database["public"]["Tables"]["agent_runs"]["Row"]>;
+        Relationships: [];
       };
       action_policies: {
         Row: {
@@ -209,6 +221,7 @@ export interface Database {
         };
         Insert: Database["public"]["Tables"]["action_policies"]["Row"];
         Update: Partial<Database["public"]["Tables"]["action_policies"]["Row"]>;
+        Relationships: [];
       };
       approvals: {
         Row: {
@@ -228,6 +241,7 @@ export interface Database {
           action_type: string;
         };
         Update: Partial<Database["public"]["Tables"]["approvals"]["Row"]>;
+        Relationships: [];
       };
       audit_log: {
         Row: {
@@ -243,7 +257,36 @@ export interface Database {
         };
         Insert: Partial<Database["public"]["Tables"]["audit_log"]["Row"]> & { actor_type: string; action: string };
         Update: Partial<Database["public"]["Tables"]["audit_log"]["Row"]>;
+        Relationships: [];
       };
     };
+    Views: Record<string, never>;
+    Functions: {
+      match_memories: {
+        Args: { p_query_embedding: string; p_limit?: number };
+        Returns: Array<{
+          id: string;
+          content: string;
+          scope: string;
+          scope_id: string | null;
+          importance: number;
+          confidence: number;
+          created_at: string;
+          similarity: number;
+        }>;
+      };
+      match_document_chunks: {
+        Args: { p_query_embedding: string; p_company_ids: string[]; p_limit?: number };
+        Returns: Array<{
+          id: string;
+          document_id: string;
+          content: string;
+          chunk_index: number;
+          similarity: number;
+        }>;
+      };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }

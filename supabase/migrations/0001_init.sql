@@ -429,3 +429,46 @@ create policy audit_log_insert on public.audit_log for insert
   with check (
     company_id is null or company_id in (select private.allowed_company_ids())
   );
+
+-- ============================================================================
+-- Retrieval RPCs for context assembly
+--
+-- Deliberately NOT `security definer`: these run as the calling session, so
+-- the existing RLS policies on memories/document_chunks apply exactly as
+-- they would to a direct select. No separate access-control logic to keep
+-- in sync with the table policies.
+-- ============================================================================
+
+create function public.match_memories(p_query_embedding vector(1024), p_limit int default 8)
+returns table (
+  id uuid, content text, scope text, scope_id uuid,
+  importance numeric, confidence numeric, created_at timestamptz, similarity float
+)
+language sql stable as $$
+  select m.id, m.content, m.scope, m.scope_id, m.importance, m.confidence, m.created_at,
+         1 - (m.embedding <=> p_query_embedding) as similarity
+  from public.memories m
+  where m.embedding is not null
+    and (m.expires_at is null or m.expires_at > now())
+  order by (
+    -- blended score: embedding similarity, stated importance, and recency
+    (1 - (m.embedding <=> p_query_embedding)) * 0.5
+    + m.importance * 0.3
+    + (1.0 / (1.0 + extract(epoch from (now() - m.created_at)) / 86400.0)) * 0.2
+  ) desc
+  limit p_limit;
+$$;
+
+create function public.match_document_chunks(
+  p_query_embedding vector(1024), p_company_ids uuid[], p_limit int default 6
+)
+returns table (id uuid, document_id uuid, content text, chunk_index int, similarity float)
+language sql stable as $$
+  select dc.id, dc.document_id, dc.content, dc.chunk_index,
+         1 - (dc.embedding <=> p_query_embedding) as similarity
+  from public.document_chunks dc
+  where dc.embedding is not null
+    and dc.company_id = any(p_company_ids)
+  order by dc.embedding <=> p_query_embedding
+  limit p_limit;
+$$;
