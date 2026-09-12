@@ -3,14 +3,19 @@
  * what it did), not exact wording — model output varies, the integration
  * contract shouldn't.
  *
+ * Uses the service-role client + the seeded founder identity directly (no
+ * throwaway signed-in user) — that's what the real app does too, since
+ * there's no login. Run `npm run seed:founder` first.
+ *
  * Usage: npx tsx scripts/test-agent-scenarios.ts
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "crypto";
 import { runChatTurn } from "../lib/agent/ceo-agent";
+import { getFounderUserId } from "../lib/agent/founder";
+import type { Database } from "../lib/supabase/types";
 
 const ODAX_ID = "00000000-0000-0000-0000-000000000002";
 
@@ -23,24 +28,10 @@ function record(name: string, pass: boolean, detail?: string) {
 
 async function main() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
+  const admin = createClient<Database>(url, serviceKey, { auth: { persistSession: false } });
 
-  const email = `agent-scenario-test-${randomUUID()}@example.invalid`;
-  const password = randomUUID();
-  const { data: user, error: userErr } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-  if (userErr) throw userErr;
-  await admin.from("company_members").insert({
-    company_id: ODAX_ID,
-    user_id: user.user.id,
-    role: "owner",
-    controls_approvals: true,
-  });
+  const userId = await getFounderUserId(admin);
   const { data: seededTask } = await admin
     .from("tasks")
     .insert({ company_id: ODAX_ID, title: "Follow up with MD on Q3 numbers", status: "open" })
@@ -54,14 +45,11 @@ async function main() {
     .eq("scope", "company")
     .single();
 
-  const client = createClient(url, anonKey);
-  await client.auth.signInWithPassword({ email, password });
-
   // Scenario 1: asking about open tasks should call query_company_data(list, tasks).
-  const r1 = await runChatTurn(client as never, {
+  const r1 = await runChatTurn(admin, {
     agentId: agent!.id,
     activeCompanyId: ODAX_ID,
-    userId: user.user.id,
+    userId,
     userMessage: "What open tasks do we have right now?",
     history: [],
   });
@@ -71,10 +59,10 @@ async function main() {
   record("Asking about open tasks calls query_company_data(tasks)", listedTasks);
 
   // Scenario 2: asking to send an email should call send_email and create a pending approval.
-  const r2 = await runChatTurn(client as never, {
+  const r2 = await runChatTurn(admin, {
     agentId: agent!.id,
     activeCompanyId: ODAX_ID,
-    userId: user.user.id,
+    userId,
     userMessage:
       "Draft and send an email to md@example.com letting them know the Q3 numbers follow-up is in progress.",
     history: [],
@@ -102,8 +90,6 @@ async function main() {
     "What open tasks do we have right now?",
     "Draft and send an email to md@example.com letting them know the Q3 numbers follow-up is in progress.",
   ]);
-  await admin.from("company_members").delete().eq("user_id", user.user.id);
-  await admin.auth.admin.deleteUser(user.user.id);
 
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} scenarios passed.`);

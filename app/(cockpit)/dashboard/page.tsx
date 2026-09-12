@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
 
@@ -24,45 +22,13 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: show a loading state while refetching on company switch
     setLoading(true);
 
-    (async () => {
-      const supabase = createClient();
-      const scopedCompanyIds = await getScopedCompanyIds(supabase, activeCompanyId);
-
-      const [openTasks, pendingApprovals, lastRun, decisions] = await Promise.all([
-        supabase
-          .from("tasks")
-          .select("id", { count: "exact", head: true })
-          .in("company_id", scopedCompanyIds)
-          .not("status", "in", "(done,cancelled)"),
-        supabase
-          .from("approvals")
-          .select("id", { count: "exact", head: true })
-          .in("company_id", scopedCompanyIds)
-          .eq("status", "pending"),
-        supabase
-          .from("agent_runs")
-          .select("created_at, status, model")
-          .in("company_id", scopedCompanyIds)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("decisions")
-          .select("id, title, created_at")
-          .in("company_id", scopedCompanyIds)
-          .order("created_at", { ascending: false })
-          .limit(5),
-      ]);
-
-      if (cancelled) return;
-      setData({
-        openTasksCount: openTasks.count ?? 0,
-        pendingApprovalsCount: pendingApprovals.count ?? 0,
-        lastAgentRun: lastRun.data ?? null,
-        recentDecisions: decisions.data ?? [],
+    fetch(`/api/dashboard?companyId=${activeCompanyId}`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled) return;
+        setData(body);
+        setLoading(false);
       });
-      setLoading(false);
-    })();
 
     return () => {
       cancelled = true;

@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 export interface CompanySummary {
   id: string;
@@ -44,13 +43,13 @@ export function CompanyProvider({
   });
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from("companies")
-      .select("id, name, slug, parent_id")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setCompanies(data);
+    fetch("/api/companies")
+      .then((res) => res.json())
+      .then((body) => {
+        if (Array.isArray(body.companies)) setCompanies(body.companies);
+      })
+      .catch(() => {
+        // Keep the server-rendered initialCompanies if this refresh fails.
       });
   }, []);
 

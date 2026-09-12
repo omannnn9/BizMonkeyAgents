@@ -13,6 +13,17 @@
 --     entry not tied to one company).
 --   * action_policies is new: it's the classification table the brief's
 --     approval-gating step requires but didn't spell out as a table.
+--
+-- IMPORTANT — architecture change from the RLS design below: the app has
+-- no login (single-user internal tool, by explicit decision). It always
+-- talks to Supabase server-side as the service role, which bypasses RLS
+-- by design (see lib/supabase/server.ts). The RLS policies below are NOT
+-- the app's enforcement mechanism anymore — they're kept as defense-in-
+-- depth for the anon key (never exposed to the browser, but still worth
+-- not leaving wide open), and are what scripts/test-rls-isolation.ts
+-- verifies. The app's own "who can approve what" check is implemented in
+-- lib/agent/approvals-authz.ts instead, since a service-role session has
+-- no auth.uid() for private.controls_approvals_for() to read.
 
 create extension if not exists "pgcrypto";
 create extension if not exists "vector";

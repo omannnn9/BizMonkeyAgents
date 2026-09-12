@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { runChatTurn } from "@/lib/agent/ceo-agent";
+import { getFounderUserId } from "@/lib/agent/founder";
 
 export async function POST(request: Request) {
   const { activeCompanyId, message, history } = (await request.json()) as {
@@ -14,8 +15,6 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const { data: agent, error: agentErr } = await supabase
     .from("agents")
@@ -28,16 +27,17 @@ export async function POST(request: Request) {
 
   if (agentErr || !agent) {
     return NextResponse.json(
-      { error: "No active CEO agent found for this company — RLS may be blocking access, or it isn't seeded." },
+      { error: "No active CEO agent found for this company — it isn't seeded yet." },
       { status: 404 },
     );
   }
 
   try {
+    const userId = await getFounderUserId(supabase);
     const result = await runChatTurn(supabase, {
       agentId: agent.id,
       activeCompanyId,
-      userId: userData.user.id,
+      userId,
       userMessage: message,
       history: history ?? [],
     });

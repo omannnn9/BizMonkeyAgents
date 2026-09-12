@@ -1,8 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
 
@@ -46,15 +44,9 @@ export default function ApprovalsPage() {
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
     setLoading(true);
-    const supabase = createClient();
-    const scopedCompanyIds = await getScopedCompanyIds(supabase, activeCompanyId);
-    const { data } = await supabase
-      .from("approvals")
-      .select("id, action_type, payload, risk_level, status, created_at")
-      .in("company_id", scopedCompanyIds)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    setApprovals((data as Approval[]) ?? []);
+    const res = await fetch(`/api/approvals?companyId=${activeCompanyId}`);
+    const body = await res.json();
+    setApprovals(body.approvals ?? []);
     setLoading(false);
   }, [activeCompanyId]);
 

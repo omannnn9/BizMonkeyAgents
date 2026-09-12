@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
 
@@ -24,13 +23,9 @@ export default function DocumentsPage() {
   const load = useCallback(async () => {
     if (!activeCompanyId) return;
     setLoading(true);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("documents")
-      .select("id, title, mime_type, tags, created_at")
-      .eq("company_id", activeCompanyId)
-      .order("created_at", { ascending: false });
-    setDocs(data ?? []);
+    const res = await fetch(`/api/documents?companyId=${activeCompanyId}`);
+    const body = await res.json();
+    setDocs(body.documents ?? []);
     setLoading(false);
   }, [activeCompanyId]);
 

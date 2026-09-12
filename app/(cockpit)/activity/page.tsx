@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
 
@@ -25,48 +23,38 @@ export default function ActivityPage() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: show a loading state while refetching on company switch
     setLoading(true);
 
-    (async () => {
-      const supabase = createClient();
-      const scopedCompanyIds = await getScopedCompanyIds(supabase, activeCompanyId);
+    fetch(`/api/activity?companyId=${activeCompanyId}`)
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled) return;
 
-      const [runs, logs] = await Promise.all([
-        supabase
-          .from("agent_runs")
-          .select("id, created_at, status, model, input")
-          .in("company_id", scopedCompanyIds)
-          .order("created_at", { ascending: false })
-          .limit(30),
-        supabase
-          .from("audit_log")
-          .select("id, created_at, actor_type, action, target_type")
-          .in("company_id", scopedCompanyIds)
-          .order("created_at", { ascending: false })
-          .limit(30),
-      ]);
+        const runs = body.runs ?? [];
+        const logs = body.logs ?? [];
+        const merged: ActivityItem[] = [
+          ...runs.map(
+            (r: { id: string; created_at: string; status: string; model: string; input: string | null }) => ({
+              id: r.id,
+              kind: "agent_run" as const,
+              createdAt: r.created_at,
+              status: r.status,
+              summary: `CEO Agent ran (${r.model}): "${(r.input ?? "").slice(0, 80)}${
+                (r.input ?? "").length > 80 ? "…" : ""
+              }"`,
+            }),
+          ),
+          ...logs.map(
+            (l: { id: string; created_at: string; actor_type: string; action: string; target_type: string | null }) => ({
+              id: l.id,
+              kind: "audit" as const,
+              createdAt: l.created_at,
+              summary: `[${l.actor_type}] ${l.action}${l.target_type ? ` (${l.target_type})` : ""}`,
+            }),
+          ),
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-      if (cancelled) return;
-
-      const merged: ActivityItem[] = [
-        ...(runs.data ?? []).map((r) => ({
-          id: r.id,
-          kind: "agent_run" as const,
-          createdAt: r.created_at,
-          status: r.status,
-          summary: `CEO Agent ran (${r.model}): "${(r.input ?? "").slice(0, 80)}${
-            (r.input ?? "").length > 80 ? "…" : ""
-          }"`,
-        })),
-        ...(logs.data ?? []).map((l) => ({
-          id: l.id,
-          kind: "audit" as const,
-          createdAt: l.created_at,
-          summary: `[${l.actor_type}] ${l.action}${l.target_type ? ` (${l.target_type})` : ""}`,
-        })),
-      ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      setItems(merged);
-      setLoading(false);
-    })();
+        setItems(merged);
+        setLoading(false);
+      });
 
     return () => {
       cancelled = true;

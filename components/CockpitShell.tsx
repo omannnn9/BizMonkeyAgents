@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
-import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard" },
@@ -14,21 +13,9 @@ const NAV = [
   { href: "/approvals", label: "Approvals" },
 ];
 
-export function CockpitShell({
-  userEmail,
-  children,
-}: {
-  userEmail: string;
-  children: React.ReactNode;
-}) {
+export function CockpitShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [navOpen, setNavOpen] = useState(false);
-
-  async function signOut() {
-    await createClient().auth.signOut();
-    router.push("/login");
-  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -47,15 +34,6 @@ export function CockpitShell({
           <div className="hidden sm:block">
             <CompanySwitcher />
           </div>
-        </div>
-        <div className="flex items-center gap-3 sm:gap-4">
-          <span className="hidden max-w-40 truncate text-sm text-muted sm:inline">{userEmail}</span>
-          <button
-            onClick={signOut}
-            className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:text-foreground"
-          >
-            Sign out
-          </button>
         </div>
       </header>
       <div className="border-b border-border bg-surface px-4 py-2 sm:hidden">

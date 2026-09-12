@@ -1,35 +1,27 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 
 /**
- * Server-side Supabase client scoped to the current user's session cookie.
- * All agent tools read/write through this client, never the service role
- * key, so every agent action is subject to the same RLS policies as the
- * human founder — the agent has no elevated access of its own.
+ * Single-user internal tool, no login: the app always talks to Supabase as
+ * the service role, server-side only. This key must never reach the
+ * browser — every page that needs data now goes through a Next.js API
+ * route or a Server Component, not a browser Supabase client (there isn't
+ * one anymore; see the deleted lib/supabase/client.ts).
+ *
+ * RLS policies stay in the schema as defense-in-depth (harmless — the
+ * service role bypasses them by design), but the app's own authorization
+ * for "who can approve" is enforced in code (lib/agent/founder.ts /
+ * lib/agent/approvals-authz.ts), not by a Postgres session's auth.uid().
  */
-export async function createClient() {
-  const cookieStore = await cookies();
+let client: ReturnType<typeof createSupabaseClient<Database>> | null = null;
 
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // Called from a Server Component — middleware refreshes the
-            // session instead. Safe to ignore.
-          }
-        },
-      },
-    },
-  );
+export async function createClient() {
+  if (!client) {
+    client = createSupabaseClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } },
+    );
+  }
+  return client;
 }

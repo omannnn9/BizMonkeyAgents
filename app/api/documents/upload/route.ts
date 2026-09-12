@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { chunkText } from "@/lib/documents/chunk";
 import { embedDocuments } from "@/lib/embeddings/voyage";
 import { autoTagDocument } from "@/lib/documents/auto-tag";
+import { getFounderUserId } from "@/lib/agent/founder";
 
 const SUPPORTED_TEXT_TYPES = ["text/plain", "text/markdown", "text/csv"];
 
@@ -18,8 +19,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = await createClient();
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData?.user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const uploadedBy = await getFounderUserId(supabase);
 
   const isSupportedText =
     SUPPORTED_TEXT_TYPES.includes(file.type) || /\.(txt|md|csv)$/i.test(file.name);
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       storage_path: storagePath,
       title,
       mime_type: file.type || "text/plain",
-      uploaded_by: userData.user.id,
+      uploaded_by: uploadedBy,
     })
     .select("id")
     .single();
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
 
   await supabase.from("audit_log").insert({
     actor_type: "user",
-    actor_id: userData.user.id,
+    actor_id: uploadedBy,
     action: "upload_document",
     target_type: "document",
     target_id: document.id,

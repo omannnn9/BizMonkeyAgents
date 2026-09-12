@@ -4,15 +4,30 @@ Internal AI command center for OD Group (ODAX, Tablo, NOVA, OD Holdings). See th
 prompt and architecture doc for full context; this README covers what exists and how to bring it
 online.
 
+## No login, by design
+
+This is a single-user internal tool and there's no login screen — the app always talks to Supabase
+server-side as the **service role key**, which bypasses Row-Level Security by design. That's a real
+trade-off, made deliberately: anyone who has the deployed URL gets full read/write access (there's
+no per-request identity check at all), and there's no DB-level isolation stopping one company's
+data from mixing with another's within the app — the UI's company switcher is the only boundary.
+RLS policies stay in the schema as defense-in-depth for the anon key (which the app itself never
+uses), verified by `npm run test:rls`, but they are not what protects this app in production —
+**keep the deployed URL private.**
+
+There's still exactly one `auth.users` row (created by `npm run seed:founder`), purely to satisfy
+foreign keys on `documents.uploaded_by`, `approvals.decided_by`, `audit_log.actor_id`, etc. — it's
+never used to sign in anywhere.
+
 ## Status
 
 Everything that doesn't require a live Supabase project is built and passes `npm run build` /
 `npm run lint`: schema + RLS, the CEO agent (Messages API + custom tool loop), the approval gate,
 and the full cockpit UI. **Nothing has been applied to a live database or run end-to-end yet** —
-that's blocked on a Supabase project existing (see below). Until then, treat the RLS policies and
-the agent's tool behavior as reviewed-but-unverified, not tested. The `/login` page itself was
-visually verified in a real browser (dark theme, desktop + mobile) with placeholder Supabase
-credentials; the authenticated cockpit pages weren't, since that needs a real account.
+that's blocked on a Supabase project existing (see below). Until then, treat the agent's tool
+behavior as reviewed-but-unverified, not tested. `/dashboard`'s layout (no redirect, no login) was
+visually verified in a real browser with placeholder Supabase credentials; the actual data-bearing
+pages weren't, since that needs a real database.
 
 Known stub: `lib/integrations/gmail.ts` — Gmail isn't connected yet, so approved email actions fail
 loudly with a clear error instead of sending anything.
@@ -20,47 +35,43 @@ loudly with a clear error instead of sending anything.
 ## One-time setup
 
 1. **Create a Supabase project** (new, dedicated — don't reuse another project's database) and
-   note its project ref, URL, anon key, and service role key.
+   note its project ref, URL, and service role key.
 2. Copy `.env.local.example` to `.env.local` and fill in:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
    - `ANTHROPIC_API_KEY`
    - `VOYAGE_API_KEY` (free tier at voyageai.com)
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` only if you want to run `test:rls` (the app itself never uses it)
 3. Apply the migrations in order, via the Supabase MCP's `apply_migration` (or the Supabase CLI /
    SQL editor): `supabase/migrations/0001_init.sql`, `0002_seed_companies.sql`, `0003_storage.sql`.
-4. **Run the RLS isolation test before building anything further on top — this must pass:**
+4. Seed the founder identity (creates the one `auth.users` row for FK purposes and grants it
+   `controls_approvals` across all four companies — no login involved):
    ```
-   npm run test:rls
+   npm run seed:founder
    ```
-5. Sign up through `/login` with your own founder account, then grant yourself membership across
-   all four companies:
-   ```
-   FOUNDER_EMAIL=you@example.com npm run seed:founder
-   ```
-6. Optional but recommended: regenerate `lib/supabase/types.ts` from the real schema instead of the
+5. Optional but recommended: regenerate `lib/supabase/types.ts` from the real schema instead of the
    hand-written version here (`mcp__Supabase__generate_typescript_types`, or
    `supabase gen types typescript`).
-7. Run the remaining scripted tests:
+6. Run the scripted tests:
    ```
+   npm run test:rls               # defense-in-depth only, see "No login" above
    npm run test:prompt-injection
    npm run test:agent-scenarios
    ```
-8. `npm run dev` and walk the cockpit yourself: switch companies, upload a `.txt` doc and ask the
+7. `npm run dev` and walk the cockpit yourself: switch companies, upload a `.txt` doc and ask the
    agent about it, ask it to draft an email and confirm it shows up in Approvals (not sent).
 
 ## Deploying
 
-The app builds clean and is resilient to missing config (a misconfigured/unreachable Supabase
-degrades to "not authenticated" rather than 500ing every request), so it's safe to deploy before
-the Supabase project is ready — nothing will actually work until the env vars below are set, but it
-won't crash either.
+The app builds clean and doesn't crash on missing config, so it's safe to deploy before the
+Supabase project is ready — nothing will actually work until the env vars below are set, but it
+won't error either. **Once deployed, treat the URL as sensitive** — there's no login (see above).
 
 1. Go to [vercel.com/new](https://vercel.com/new) and import `omannnn9/BizMonkeyAgents`. Vercel
    auto-detects Next.js; no build config changes needed. (The Vercel MCP connector available in
    this session could create a project but not deploy to it or read it back — a permissions
    limitation on that connector, not the code — so this is a manual step for now.)
-2. In the new project's Settings → Environment Variables, add the same keys as `.env.local.example`:
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-   `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`.
+2. In the new project's Settings → Environment Variables, add the same keys as `.env.local.example`
+   (`NEXT_PUBLIC_SUPABASE_ANON_KEY` isn't needed here — it's only for the local RLS test).
 3. Redeploy (or it'll deploy automatically once the repo is imported and vars are set).
 4. Connect Sentry once that first deployment exists (the brief's own sequencing) and wire
    `@sentry/nextjs` in — not done yet, since there was no deployment to point it at.
@@ -69,8 +80,8 @@ won't crash either.
 
 | Script | What it does |
 |---|---|
-| `npm run test:rls` | Proves a Company A member can't read/write Company B's rows. Run first. |
-| `npm run seed:founder` | Grants a signed-up founder account membership across all 4 companies. |
+| `npm run seed:founder` | Creates the one auth.users row (no login involved) and grants it membership + controls_approvals across all 4 companies. Run this first. |
+| `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
 | `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO agent. |
 

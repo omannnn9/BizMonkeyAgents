@@ -4,7 +4,12 @@
  * one company cannot read or write the other's rows in any company-scoped
  * table — enforced by Postgres RLS, not application code.
  *
- * This MUST pass before any agent or UI code is built on top of the schema.
+ * The app itself no longer relies on this (there's no login, so it always
+ * talks to Supabase as the service role, which bypasses RLS by design —
+ * see lib/supabase/server.ts). RLS stays in the schema as defense-in-depth
+ * for the anon key, so this test still matters: it's what proves that key
+ * is actually safe if it were ever exposed or a future feature reintroduces
+ * browser-side Supabase access.
  *
  * Usage: npx tsx scripts/test-rls-isolation.ts
  * Requires NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
