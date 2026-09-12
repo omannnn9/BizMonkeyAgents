@@ -56,7 +56,7 @@ export interface Database {
           id: string;
           name: string;
           role_title: string | null;
-          company_id: string | null;
+          company_id: string;
           department_id: string | null;
           scope: "company" | "group" | "project";
           persona: string;
@@ -65,7 +65,7 @@ export interface Database {
           status: "active" | "paused" | "retired";
           created_at: string;
         };
-        Insert: Partial<Database["public"]["Tables"]["agents"]["Row"]> & { name: string };
+        Insert: Partial<Database["public"]["Tables"]["agents"]["Row"]> & { name: string; company_id: string };
         Update: Partial<Database["public"]["Tables"]["agents"]["Row"]>;
         Relationships: [];
       };

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useCompany } from "@/lib/company-context";
+import { Spinner } from "@/components/Spinner";
 
 interface DocRow {
   id: string;
@@ -71,12 +72,17 @@ export default function DocumentsPage() {
         <p className="mb-2 text-sm text-muted">
           Plain text, Markdown, and CSV only for now — PDF/DOCX extraction isn&apos;t built yet.
         </p>
-        <div className="flex gap-2">
-          <input ref={fileInput} type="file" accept=".txt,.md,.csv" className="text-sm text-muted" />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".txt,.md,.csv"
+            className="min-w-0 text-sm text-muted"
+          />
           <button
             onClick={upload}
             disabled={uploading}
-            className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             {uploading ? "Uploading…" : "Upload"}
           </button>
@@ -86,7 +92,7 @@ export default function DocumentsPage() {
 
       <div className="flex flex-col gap-2">
         {loading ? (
-          <p className="text-sm text-muted">Loading…</p>
+          <Spinner />
         ) : docs.length === 0 ? (
           <p className="text-sm text-muted">No documents uploaded for this company yet.</p>
         ) : (

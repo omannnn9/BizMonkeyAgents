@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useCompany } from "@/lib/company-context";
+import { Spinner } from "@/components/Spinner";
 
 interface Citation {
   document_title: string;
@@ -24,6 +27,11 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, sending]);
 
   async function send() {
     if (!input.trim() || !activeCompanyId) return;
@@ -75,12 +83,15 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4">
+    <div className="flex h-[calc(100vh-8rem)] flex-col gap-4 sm:h-[calc(100vh-6rem)]">
       <h1 className="text-lg font-semibold text-foreground">
         Chat {activeCompany ? `— ${activeCompany.name}` : ""}
       </h1>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-surface p-4">
+      <div
+        ref={scrollRef}
+        className="flex flex-1 flex-col gap-3 overflow-y-auto rounded-lg border border-border bg-surface p-4"
+      >
         {messages.length === 0 && (
           <p className="text-sm text-muted">
             Ask the CEO Agent anything about {activeCompany?.name ?? "this company"} — it can look
@@ -91,13 +102,19 @@ export default function ChatPage() {
         {messages.map((m, i) => (
           <div
             key={i}
-            className={`max-w-2xl rounded-lg px-4 py-2 text-sm ${
+            className={`max-w-[85%] rounded-lg px-4 py-2 text-sm sm:max-w-2xl ${
               m.role === "user"
                 ? "self-end bg-accent text-white"
                 : "self-start bg-surface-raised text-foreground"
             }`}
           >
-            <p className="whitespace-pre-wrap">{m.content}</p>
+            {m.role === "assistant" ? (
+              <div className="prose-chat">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap">{m.content}</p>
+            )}
             {m.citations && m.citations.length > 0 && (
               <div className="mt-2 border-t border-border/50 pt-2">
                 <p className="mb-1 text-[10px] uppercase tracking-wide text-muted">Sources</p>
@@ -118,7 +135,7 @@ export default function ChatPage() {
             ))}
           </div>
         ))}
-        {sending && <p className="text-sm text-muted">Thinking…</p>}
+        {sending && <Spinner label="Thinking…" />}
         {error && <p className="text-sm text-danger">{error}</p>}
       </div>
 

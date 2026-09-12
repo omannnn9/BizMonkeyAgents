@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
@@ -22,6 +23,7 @@ export function CockpitShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [navOpen, setNavOpen] = useState(false);
 
   async function signOut() {
     await createClient().auth.signOut();
@@ -30,13 +32,24 @@ export function CockpitShell({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-border bg-surface px-6 py-3">
-        <div className="flex items-center gap-6">
+      <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-3 sm:gap-6">
+          <button
+            onClick={() => setNavOpen((v) => !v)}
+            aria-label="Toggle navigation"
+            className="rounded-md border border-border p-1.5 text-muted hover:text-foreground md:hidden"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
           <span className="text-sm font-semibold tracking-wide text-foreground">OD Group</span>
-          <CompanySwitcher />
+          <div className="hidden sm:block">
+            <CompanySwitcher />
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-muted">{userEmail}</span>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <span className="hidden max-w-40 truncate text-sm text-muted sm:inline">{userEmail}</span>
           <button
             onClick={signOut}
             className="rounded-md border border-border px-3 py-1.5 text-sm text-muted hover:text-foreground"
@@ -45,9 +58,16 @@ export function CockpitShell({
           </button>
         </div>
       </header>
+      <div className="border-b border-border bg-surface px-4 py-2 sm:hidden">
+        <CompanySwitcher />
+      </div>
 
       <div className="flex flex-1">
-        <nav className="w-48 border-r border-border bg-surface px-3 py-4">
+        <nav
+          className={`${
+            navOpen ? "block" : "hidden"
+          } w-full shrink-0 border-b border-border bg-surface px-3 py-4 md:block md:w-48 md:border-b-0 md:border-r`}
+        >
           <ul className="flex flex-col gap-1">
             {NAV.map((item) => {
               const active = pathname === item.href;
@@ -55,6 +75,7 @@ export function CockpitShell({
                 <li key={item.href}>
                   <Link
                     href={item.href}
+                    onClick={() => setNavOpen(false)}
                     className={`block rounded-md px-3 py-2 text-sm ${
                       active
                         ? "bg-surface-raised text-foreground"
@@ -69,7 +90,7 @@ export function CockpitShell({
           </ul>
         </nav>
 
-        <main className="flex-1 p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

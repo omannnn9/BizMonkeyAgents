@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
 import { useCompany } from "@/lib/company-context";
+import { Spinner } from "@/components/Spinner";
 
 interface DashboardData {
   openTasksCount: number;
@@ -75,7 +76,7 @@ export default function DashboardPage() {
       </h1>
 
       {loading || !data ? (
-        <p className="text-sm text-muted">Loading…</p>
+        <Spinner />
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

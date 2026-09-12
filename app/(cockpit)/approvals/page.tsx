@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
 import { useCompany } from "@/lib/company-context";
+import { Spinner } from "@/components/Spinner";
 
 interface Approval {
   id: string;
@@ -12,6 +13,27 @@ interface Approval {
   risk_level: string;
   status: string;
   created_at: string;
+}
+
+function PayloadPreview({ actionType, payload }: { actionType: string; payload: Record<string, unknown> }) {
+  if (actionType === "send_email" && typeof payload.to === "string") {
+    return (
+      <div className="mb-3 space-y-1 rounded bg-surface-raised p-3 text-xs">
+        <p className="text-muted">
+          To <span className="text-foreground">{String(payload.to)}</span>
+        </p>
+        <p className="text-muted">
+          Subject <span className="text-foreground">{String(payload.subject ?? "")}</span>
+        </p>
+        <p className="whitespace-pre-wrap text-foreground">{String(payload.body ?? "")}</p>
+      </div>
+    );
+  }
+  return (
+    <pre className="mb-3 whitespace-pre-wrap rounded bg-surface-raised p-2 text-xs text-muted">
+      {JSON.stringify(payload, null, 2)}
+    </pre>
+  );
 }
 
 export default function ApprovalsPage() {
@@ -72,7 +94,7 @@ export default function ApprovalsPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-medium text-muted">Pending ({pending.length})</h2>
         {loading ? (
-          <p className="text-sm text-muted">Loading…</p>
+          <Spinner />
         ) : pending.length === 0 ? (
           <p className="text-sm text-muted">Nothing waiting on you.</p>
         ) : (
@@ -92,9 +114,7 @@ export default function ApprovalsPage() {
                   {a.risk_level}
                 </span>
               </div>
-              <pre className="mb-3 whitespace-pre-wrap rounded bg-surface-raised p-2 text-xs text-muted">
-                {JSON.stringify(a.payload, null, 2)}
-              </pre>
+              <PayloadPreview actionType={a.action_type} payload={a.payload} />
               <div className="flex gap-2">
                 <button
                   disabled={busyId === a.id}

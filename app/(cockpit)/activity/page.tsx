@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
 import { useCompany } from "@/lib/company-context";
+import { Spinner } from "@/components/Spinner";
 
 interface ActivityItem {
   id: string;
@@ -76,7 +77,7 @@ export default function ActivityPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-lg font-semibold text-foreground">Activity</h1>
       {loading ? (
-        <p className="text-sm text-muted">Loading…</p>
+        <Spinner />
       ) : items.length === 0 ? (
         <p className="text-sm text-muted">Nothing has happened here yet.</p>
       ) : (
