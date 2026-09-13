@@ -74,6 +74,20 @@ in roughly the last two minutes), else idle. Nothing here is a decorative animat
 by one of those checks; the only ambient motion is a shared idle sprite-frame bob, the same category
 as `/map`'s old idle-breathing nodes — cosmetic life, never itself a claim about a real event.
 
+**Look and feel ("Night Shift"):** the office is a near-black scene where color is spent only on
+whichever agent actually has something real to show — a glowing halo behind the character's head
+(not a mark at their feet), everything else (floor grid, decor, idle agents) dimmed to recede, one
+full-canvas vignette. This came out of a second design pass after the founder pointed at five other
+agent-office projects (`paulrobello/claude-office`, `ColdSlither/pixel-agents`,
+`fakeminjun7321/pixel-office` — self-described "dark first, glow second: ~85% near-black navy, neon
+is the spice" — `naolnegassa/StarOffice-UI`, and a16z's AI Town) and said the first pass, while
+data-correct, wasn't polished. Two competing static mockups (this dark/glow direction, and a warm
+"lived-in" alternative closer to StarOffice-UI's cluttered, lamp-lit look) were built and shown before
+either was implemented — this one was the one picked. The only genuinely new motion is each agent's
+"prominence" easing toward its target (dim when idle, bright when it has a real state) a little each
+frame, rather than snapping instantly — smoother, but it never changes *which* state is shown, only
+how the render catches up to one that already changed.
+
 `/graph`, `/documents`, `/memories`, `/activity`, and `/approvals` remain full pages, reachable from
 a "More" section in the sidebar rather than sitting as equal-weight items next to Office/Chat.
 Clicking a company's room calls the same `setActiveCompanyId()` the header's company switcher

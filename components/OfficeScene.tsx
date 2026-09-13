@@ -33,23 +33,39 @@ export function deriveAgentState(
   return "idle";
 }
 
-const STATE_TINT: Record<AgentVisualState, string | null> = {
-  working: "#7c9cff",
-  error: "#e05c5c",
-  "needs-approval": "#e0b35c",
-  delivering: "#8fd3a0",
+// "Night Shift" palette — dark first, glow second (the one technique every
+// polished reference we looked at shared): a near-black void, everything
+// dim by default, and color spent only on whichever agent's state is
+// actually real right now.
+const STATE_GLOW: Record<AgentVisualState, string | null> = {
+  working: "#7ec8ff",
+  error: "#ff5a6e",
+  "needs-approval": "#ffc24d",
+  delivering: "#5dff9b",
   idle: null,
 };
 
-const FLOOR_COLOR = "#8a6a4a";
-const FLOOR_PLANK_COLOR = "#7a5c40";
-const WALL_COLOR = "#1c2333";
+const VOID_COLOR = "#050710";
+const WALL_COLOR = "#080a16";
+const FLOOR_COLOR = "#0e1220";
+const GRID_LINE_COLOR = "rgba(70,100,190,0.16)";
+const SEAM_GLOW_COLOR = "rgba(120,170,255,0.55)";
+const ROOM_HEADER = 54;
 const WALL_BORDER = 6;
+// Idle agents recede; only a real state (or the current selection) earns
+// full prominence — same "glow concentrated on what's active" idea applied
+// to the whole seat, not just the ring.
+const IDLE_PROMINENCE = 0.5;
+const PROMINENCE_EASE = 0.12;
 
 function hashToIndex(id: string, mod: number): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return h % mod;
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
 }
 
 interface OfficeAssets {
@@ -103,6 +119,11 @@ export function OfficeScene({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const assetsRef = useRef<OfficeAssets | null>(null);
   const rafRef = useRef<number | null>(null);
+  // How "lit" each agent's seat currently is (0..1), eased toward its target
+  // every frame — the one bit of motion in this scene that isn't a literal
+  // 1:1 mirror of a data field, but it never changes *which* state is shown,
+  // only how quickly the render catches up to a state that already changed.
+  const prominenceRef = useRef<Map<string, number>>(new Map());
   // Refs so the draw loop always sees the latest props without re-creating
   // the rAF loop (and its asset-load effect) on every change. Written from
   // an effect, not during render, per the rules-of-hooks ref-mutation rule.
@@ -144,7 +165,7 @@ export function OfficeScene({
       }
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx!.imageSmoothingEnabled = false;
-      ctx!.fillStyle = "#0b0d12";
+      ctx!.fillStyle = VOID_COLOR;
       ctx!.fillRect(0, 0, cssWidth, cssHeight);
 
       if (!assets || !allLoaded(assets)) {
@@ -157,21 +178,37 @@ export function OfficeScene({
 
       for (const room of layout.rooms) {
         const isActive = activeCompanyRef.current !== null && room.companyId === `company:${activeCompanyRef.current}`;
-        drawRoom(ctx!, assets, room);
-        if (isActive) {
-          ctx!.strokeStyle = "#ffffff";
-          ctx!.lineWidth = 2;
-          ctx!.strokeRect(room.x + 1, room.y + 1, room.width - 2, room.height - 2);
-        }
+        drawRoom(ctx!, assets, room, isActive);
       }
 
       for (const agent of layout.agents) {
         const isWorking = workingRef.current.has(agent.agentId);
         const state = deriveAgentState(agent, isWorking, now);
-        const charImg = assets.characters[hashToIndex(agent.agentId, assets.characters.length)];
         const selected = selectedRef.current === agent.agentId;
-        drawAgentSeat(ctx!, assets, charImg, agent, bobFrame, state, selected);
+        const target = state !== "idle" || selected ? 1 : IDLE_PROMINENCE;
+        const prominenceMap = prominenceRef.current;
+        const current = prominenceMap.get(agent.agentId) ?? target;
+        const eased = lerp(current, target, PROMINENCE_EASE);
+        prominenceMap.set(agent.agentId, eased);
+
+        const charImg = assets.characters[hashToIndex(agent.agentId, assets.characters.length)];
+        drawAgentSeat(ctx!, assets, charImg, agent, bobFrame, state, selected, eased);
       }
+
+      // Full-canvas vignette, drawn last so nothing sits on top of it —
+      // cosmetic framing only, applied uniformly regardless of any state.
+      const vignette = ctx!.createRadialGradient(
+        cssWidth / 2,
+        cssHeight / 2,
+        Math.min(cssWidth, cssHeight) * 0.35,
+        cssWidth / 2,
+        cssHeight / 2,
+        Math.max(cssWidth, cssHeight) * 0.75,
+      );
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(1, "rgba(0,0,0,0.55)");
+      ctx!.fillStyle = vignette;
+      ctx!.fillRect(0, 0, cssWidth, cssHeight);
 
       rafRef.current = requestAnimationFrame(draw);
     }
@@ -213,7 +250,8 @@ export function OfficeScene({
       onClick={handleClick}
       role="img"
       aria-label="Office scene"
-      className="cursor-pointer rounded-lg border border-border bg-[#0b0d12]"
+      className="cursor-pointer rounded-lg border border-border"
+      style={{ backgroundColor: VOID_COLOR }}
     />
   );
 }
@@ -222,29 +260,54 @@ function drawRoom(
   ctx: CanvasRenderingContext2D,
   assets: OfficeAssets,
   room: { x: number; y: number; width: number; height: number; label: string },
+  isActive: boolean,
 ) {
-  const ROOM_HEADER = 54;
-
   // Walls (flat fill — the actual pixel-agents wall PNGs are uncolored
   // bitmask templates meant for a runtime HSL tinting pipeline we don't
   // have; a solid color reads just as well for a room border here).
   ctx.fillStyle = WALL_COLOR;
   ctx.fillRect(room.x, room.y, room.width, room.height);
 
-  // Floor
   const floorX = room.x + WALL_BORDER;
   const floorY = room.y + ROOM_HEADER;
   const floorW = room.width - WALL_BORDER * 2;
   const floorH = room.height - ROOM_HEADER - WALL_BORDER;
   ctx.fillStyle = FLOOR_COLOR;
   ctx.fillRect(floorX, floorY, floorW, floorH);
-  ctx.fillStyle = FLOOR_PLANK_COLOR;
-  for (let ly = floorY + 16; ly < floorY + floorH; ly += 16) {
-    ctx.fillRect(floorX, ly, floorW, 1);
+
+  ctx.strokeStyle = GRID_LINE_COLOR;
+  ctx.lineWidth = 1;
+  for (let gx = floorX; gx < floorX + floorW; gx += 16) {
+    ctx.beginPath();
+    ctx.moveTo(gx + 0.5, floorY);
+    ctx.lineTo(gx + 0.5, floorY + floorH);
+    ctx.stroke();
+  }
+  for (let gy = floorY; gy < floorY + floorH; gy += 16) {
+    ctx.beginPath();
+    ctx.moveTo(floorX, gy + 0.5);
+    ctx.lineTo(floorX + floorW, gy + 0.5);
+    ctx.stroke();
   }
 
-  // Decor mounted on the back wall — static ambiance, same category as the
-  // room label itself, never a signal.
+  // A thin glowing seam at the floor/wall boundary — a light source
+  // implied, not a status signal, same as a practical light fixture would
+  // read in any of these rooms.
+  ctx.save();
+  ctx.shadowColor = SEAM_GLOW_COLOR;
+  ctx.shadowBlur = 6;
+  ctx.strokeStyle = SEAM_GLOW_COLOR;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(floorX, floorY + 0.5);
+  ctx.lineTo(floorX + floorW, floorY + 0.5);
+  ctx.stroke();
+  ctx.restore();
+
+  // Decor mounted on the back wall — dimmed so it recedes rather than
+  // competing with the glowing agents; static ambiance, same category as
+  // the room label itself, never a signal.
+  ctx.globalAlpha = 0.4;
   const bsW = assets.bookshelf.naturalWidth;
   const bsH = assets.bookshelf.naturalHeight;
   ctx.drawImage(assets.bookshelf, room.x + 10, floorY - bsH - 2, bsW, bsH);
@@ -252,7 +315,6 @@ function drawRoom(
   const clockH = assets.clock.naturalHeight;
   ctx.drawImage(assets.clock, room.x + 10 + bsW + 10, floorY - clockH - 2, clockW, clockH);
 
-  // A corner plant, if the room is wide enough for the reserved column.
   const plantW = assets.plant.naturalWidth;
   const plantH = assets.plant.naturalHeight;
   if (room.width > plantW + 40) {
@@ -264,11 +326,22 @@ function drawRoom(
       plantH,
     );
   }
+  ctx.globalAlpha = 1;
 
-  ctx.fillStyle = "#e8eaf0";
+  ctx.fillStyle = isActive ? "#cfe4ff" : "#4d5a7a";
   ctx.font = "11px monospace";
   ctx.textBaseline = "top";
   ctx.fillText(room.label, room.x + 6, room.y + 6);
+
+  if (isActive) {
+    ctx.save();
+    ctx.shadowColor = "rgba(110,170,255,0.85)";
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = "rgba(160,200,255,0.9)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(room.x + 1, room.y + 1, room.width - 2, room.height - 2);
+    ctx.restore();
+  }
 }
 
 function drawAgentSeat(
@@ -279,11 +352,15 @@ function drawAgentSeat(
   bobFrame: number,
   state: AgentVisualState,
   selected: boolean,
+  prominence: number,
 ) {
   // agent.x/y is the character sprite's vertical center — the desk/monitor
-  // stack directly above it, the state ring and label sit below it.
+  // stack directly above it, the state halo sits behind it, the label
+  // below it.
   const charTop = agent.y - CHAR_FRAME_H / 2;
   const charLeft = agent.x - CHAR_FRAME_W / 2;
+
+  ctx.globalAlpha = 0.65 + 0.35 * prominence;
 
   const desk = assets.desk;
   const deskBottom = charTop - 2;
@@ -302,20 +379,34 @@ function drawAgentSeat(
     monitor.naturalHeight,
   );
 
-  const tint = STATE_TINT[state];
-  if (tint) {
-    ctx.beginPath();
-    ctx.fillStyle = tint;
-    ctx.globalAlpha = state === "working" ? 0.55 + 0.25 * Math.sin(Date.now() / 200) : 0.6;
-    ctx.ellipse(agent.x, agent.y + CHAR_FRAME_H / 2 - 2, 13, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
+  // The state signal: a glowing halo behind the character's head, not a
+  // mark at their feet — the only saturated color in the scene, and only
+  // for an agent whose state is actually real right now.
+  const glow = STATE_GLOW[state];
+  if (glow) {
+    const pulse = state === "working" ? 0.75 + 0.25 * Math.sin(Date.now() / 200) : 1;
+    const haloX = agent.x;
+    const haloY = agent.y - CHAR_FRAME_H * 0.35;
+    const radius = 20 * pulse;
+    const halo = ctx.createRadialGradient(haloX, haloY, 0, haloX, haloY, radius);
+    halo.addColorStop(0, glow + "cc");
+    halo.addColorStop(1, glow + "00");
+    ctx.save();
     ctx.globalAlpha = 1;
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(haloX, haloY, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   if (selected) {
+    ctx.save();
+    ctx.globalAlpha = 1;
     ctx.strokeStyle = "#ffffff";
     ctx.lineWidth = 1.5;
     ctx.strokeRect(charLeft - 2, charTop - 2, CHAR_FRAME_W + 4, CHAR_FRAME_H + 4);
+    ctx.restore();
   }
 
   ctx.drawImage(
@@ -334,9 +425,10 @@ function drawAgentSeat(
   // this slot spacing — the first word is enough to identify who's who,
   // and the overlay panel (opened on click) always has the full name.
   const shortLabel = agent.label.split(" ")[0];
-  ctx.fillStyle = "#cfd3da";
+  ctx.fillStyle = "#8b96b8";
   ctx.font = "9px monospace";
   ctx.textAlign = "center";
   ctx.fillText(shortLabel, agent.x, agent.y + CHAR_FRAME_H / 2 + 6);
   ctx.textAlign = "left";
+  ctx.globalAlpha = 1;
 }
