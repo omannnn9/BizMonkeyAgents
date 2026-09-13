@@ -1,12 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 // Coordinates below are derived from lib/office-layout.ts's deterministic
-// grid (ROOM_GAP=24, ROOM_PADDING=20, ROOM_HEADER=30, AGENT_SLOT=54) applied
-// to demoMap()'s fixture in lib/demo-mode.ts: OD Holdings (with the Group
-// CFO agent) is always the first room at (24,24), and the sole agent sits
-// at its room's first grid slot, (71, 81).
+// grid (ROOM_GAP=24, ROOM_PADDING=20, ROOM_HEADER=54, AGENT_SLOT_W=56,
+// AGENT_SLOT_H=92) applied to demoMap()'s fixture in lib/demo-mode.ts: OD
+// Holdings (with the Group CFO agent) is always the first room at (24,24),
+// and the sole agent sits at its room's first grid slot, (72, 144).
 const HOLDINGS_ROOM = { x: 24, y: 24 };
-const GROUP_CFO_AGENT = { x: 71, y: 81 };
+const GROUP_CFO_AGENT = { x: 72, y: 144 };
 
 test.describe("Office (demo mode)", () => {
   test("loads, shows the demo banner, and mounts the office canvas", async ({ page }) => {

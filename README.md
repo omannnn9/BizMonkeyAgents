@@ -55,18 +55,24 @@ for hand-rolling small renderers (`lib/graph-layout.ts`'s force layout) over pul
 Room/agent placement is a deterministic grid (`lib/office-layout.ts`), not a physics simulation —
 company areas need to read as distinct rooms, not a floating network.
 
-Tiles and character sprites are Kenney's **RPG Urban Pack** (CC0 1.0 Universal — see
-`public/sprites/office-tilemap.LICENSE.md`), sourced from a public mirror since kenney.nl/itch.io
-weren't reachable from this build sandbox; license independently confirmed via a second public
-source before use. Each agent sprite's visual state is a pure function of real rows, checked in this
-order: **working** (blue — this browser has a chat request in flight to that agent right now; the one
-state that is deliberately client-side-only, since no data anywhere records "an agent is mid-turn" —
-`agent_runs` rows are written only after a turn completes, so there is nothing durable to poll for
-this), **error** (red — the agent's last run failed), **needs-approval** (amber — a pending row in
-`approvals`), **delivering** (green — a successful run in roughly the last two minutes), else idle.
-Nothing here is a decorative animation that isn't gated by one of those checks; the only ambient
-motion is a shared idle sprite-frame bob, the same category as `/map`'s old idle-breathing nodes —
-cosmetic life, never itself a claim about a real event.
+Character and furniture sprites (`public/sprites/office/`) come from
+[Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) (MIT — see
+`public/sprites/office/ATTRIBUTION.md`), a similar agent-visualization tool the founder pointed to
+as a visual reference; its own README credits the characters to the Metro City pack (JIK-A-4,
+itch.io). Its floor/wall PNGs turned out to be uncolored template tiles meant for a runtime HSL
+tinting pipeline we don't have (confirmed by inspecting them directly — one is a flat gray square,
+the other a khaki bitmask atlas), so those stayed out; floors and walls are plain canvas fills
+instead, which reads close enough to the reference without building an equivalent tinting system.
+Each agent's desk gets a real, not decorative, monitor: **on** once that agent has ever produced a
+run (`lastRunAt !== null`), **off** otherwise. Each agent sprite's visual *state ring* is a pure
+function of real rows, checked in this order: **working** (blue — this browser has a chat request in
+flight to that agent right now; the one state that is deliberately client-side-only, since no data
+anywhere records "an agent is mid-turn" — `agent_runs` rows are written only after a turn completes,
+so there is nothing durable to poll for this), **error** (red — the agent's last run failed),
+**needs-approval** (amber — a pending row in `approvals`), **delivering** (green — a successful run
+in roughly the last two minutes), else idle. Nothing here is a decorative animation that isn't gated
+by one of those checks; the only ambient motion is a shared idle sprite-frame bob, the same category
+as `/map`'s old idle-breathing nodes — cosmetic life, never itself a claim about a real event.
 
 `/graph`, `/documents`, `/memories`, `/activity`, and `/approvals` remain full pages, reachable from
 a "More" section in the sidebar rather than sitting as equal-weight items next to Office/Chat.

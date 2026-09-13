@@ -13,6 +13,8 @@ export interface OfficeAgentPosition {
   agentId: string;
   companyId: string;
   label: string;
+  /** Center of the character sprite's feet — OfficeScene stacks the desk
+   *  and monitor above this point and the state ring/label below it. */
   x: number;
   y: number;
   lastRunAt: string | null;
@@ -29,10 +31,18 @@ export interface OfficeLayout {
 
 const ROOM_GAP = 24;
 const ROOM_PADDING = 20;
-const ROOM_HEADER = 30;
-const AGENT_SLOT = 54;
+// Top strip inside each room: the company label plus a row of decor
+// (bookshelf/clock) drawn there by OfficeScene — both purely static
+// ambiance, never a signal.
+const ROOM_HEADER = 54;
+// Each seat stacks a desk (32px) above a character (32px) with room left
+// over for the state ring and label — see OfficeScene's per-agent draw order.
+const AGENT_SLOT_W = 56;
+const AGENT_SLOT_H = 92;
 const AGENTS_PER_ROW = 3;
-const ROOM_MIN_WIDTH = AGENT_SLOT * 2 + ROOM_PADDING * 2;
+// Extra width reserved on every room's right edge for a corner plant.
+const PLANT_COLUMN_W = 28;
+const ROOM_MIN_WIDTH = AGENT_SLOT_W * 2 + ROOM_PADDING * 2 + PLANT_COLUMN_W;
 
 /**
  * A deterministic grid "floor plan" — no force simulation needed, unlike
@@ -65,8 +75,8 @@ export function officeLayout(nodes: MapNode[], edges: MapEdge[], targetWidth = 9
     const companyAgents = agentsByCompany.get(company.id) ?? [];
     const cols = Math.max(1, Math.min(AGENTS_PER_ROW, companyAgents.length));
     const rows = Math.max(1, Math.ceil(companyAgents.length / AGENTS_PER_ROW));
-    const width = Math.max(ROOM_MIN_WIDTH, cols * AGENT_SLOT + ROOM_PADDING * 2);
-    const height = ROOM_HEADER + rows * AGENT_SLOT + ROOM_PADDING;
+    const width = Math.max(ROOM_MIN_WIDTH, cols * AGENT_SLOT_W + ROOM_PADDING * 2 + PLANT_COLUMN_W);
+    const height = ROOM_HEADER + rows * AGENT_SLOT_H + ROOM_PADDING;
 
     if (cursorX + width + ROOM_GAP > targetWidth && cursorX > ROOM_GAP) {
       cursorX = ROOM_GAP;
@@ -84,8 +94,8 @@ export function officeLayout(nodes: MapNode[], edges: MapEdge[], targetWidth = 9
         agentId: agent.id,
         companyId: company.id,
         label: agent.label,
-        x: room.x + ROOM_PADDING + col * AGENT_SLOT + AGENT_SLOT / 2,
-        y: room.y + ROOM_HEADER + row * AGENT_SLOT + AGENT_SLOT / 2,
+        x: room.x + ROOM_PADDING + col * AGENT_SLOT_W + AGENT_SLOT_W / 2,
+        y: room.y + ROOM_HEADER + row * AGENT_SLOT_H + AGENT_SLOT_H - 26,
         lastRunAt: agent.lastRunAt,
         lastRunStatus: agent.lastRunStatus,
         hasPendingApproval: agent.hasPendingApproval,
