@@ -5,21 +5,26 @@ import { withApiErrorHandling } from "@/lib/api-error";
 import { isDemoMode, demoActivity } from "@/lib/demo-mode";
 
 export const GET = withApiErrorHandling(async (request: Request) => {
-  const companyId = new URL(request.url).searchParams.get("companyId");
+  const url = new URL(request.url);
+  const companyId = url.searchParams.get("companyId");
+  const agentId = url.searchParams.get("agentId");
   if (!companyId) return NextResponse.json({ error: "companyId is required" }, { status: 400 });
 
-  if (isDemoMode()) return NextResponse.json(demoActivity());
+  if (isDemoMode()) return NextResponse.json(demoActivity(agentId));
 
   const supabase = await createClient();
   const scopedCompanyIds = await getScopedCompanyIds(supabase, companyId);
 
+  let runsQuery = supabase
+    .from("agent_runs")
+    .select("id, agent_id, created_at, status, model, input")
+    .in("company_id", scopedCompanyIds)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  if (agentId) runsQuery = runsQuery.eq("agent_id", agentId);
+
   const [runs, logs] = await Promise.all([
-    supabase
-      .from("agent_runs")
-      .select("id, created_at, status, model, input")
-      .in("company_id", scopedCompanyIds)
-      .order("created_at", { ascending: false })
-      .limit(30),
+    runsQuery,
     supabase
       .from("audit_log")
       .select("id, created_at, actor_type, action, target_type")

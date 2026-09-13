@@ -7,7 +7,7 @@ test.describe("Responsive layout", () => {
   test.use({ viewport: devices["iPhone 13"].viewport });
 
   test("mobile: nav is hidden behind a hamburger toggle", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/office");
     const nav = page.getByRole("link", { name: "Chat", exact: true });
     await expect(nav).toBeHidden();
 
@@ -19,14 +19,14 @@ test.describe("Responsive layout", () => {
   });
 
   test("mobile: company switcher moves below the header", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/office");
     // Both a desktop and mobile <select> exist in the DOM at all times
     // (CSS toggles which is shown) — :visible picks the active one.
     await expect(page.locator("select:visible")).toBeVisible();
   });
 
   test("no horizontal overflow at phone width", async ({ page }) => {
-    await page.goto("/dashboard");
+    await page.goto("/office");
     const hasOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
     );

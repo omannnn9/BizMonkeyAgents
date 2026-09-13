@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 const PAGES: Array<{ path: string; heading: RegExp }> = [
-  { path: "/dashboard", heading: /overview/i },
+  { path: "/office", heading: /^office$/i },
   { path: "/chat", heading: /^chat/i },
   { path: "/documents", heading: /^documents/i },
   { path: "/activity", heading: /^activity$/i },
@@ -19,9 +19,9 @@ test.describe("Navigation", () => {
     });
   }
 
-  test("sidebar links navigate between all five pages", async ({ page }) => {
-    await page.goto("/dashboard");
-    for (const label of ["Chat", "Documents", "Activity", "Approvals", "Dashboard"]) {
+  test("nav links navigate between the top-level and More pages", async ({ page }) => {
+    await page.goto("/office");
+    for (const label of ["Chat", "Documents", "Activity", "Approvals", "Office"]) {
       const link = page.getByRole("link", { name: label, exact: true });
       // On mobile the nav (and each link) is hidden behind the hamburger
       // toggle, and re-closes itself after every navigation.
@@ -37,6 +37,6 @@ test.describe("Navigation", () => {
     const response = await page.goto("/this-route-does-not-exist");
     expect(response?.status()).toBe(404);
     await expect(page.getByText("Page not found")).toBeVisible();
-    await expect(page.getByRole("link", { name: /go to dashboard/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /go to office/i })).toBeVisible();
   });
 });

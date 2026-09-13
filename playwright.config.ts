@@ -35,7 +35,7 @@ export default defineConfig({
   ],
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:3000/dashboard",
+    url: "http://localhost:3000/office",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
     env: {

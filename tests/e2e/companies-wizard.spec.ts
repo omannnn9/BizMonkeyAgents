@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Creator wizards (demo mode)", () => {
-  test("new company form round-trips and redirects to the dashboard", async ({ page }) => {
+  test("new company form round-trips and redirects to the office", async ({ page }) => {
     await page.goto("/companies/new");
     await expect(page.getByRole("heading", { name: "New company" })).toBeVisible();
 
@@ -9,7 +9,7 @@ test.describe("Creator wizards (demo mode)", () => {
     await expect(page.getByLabel("Slug")).toHaveValue("test-co");
     await page.getByRole("button", { name: "Create company" }).click();
 
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page).toHaveURL(/\/office$/);
   });
 
   test("new agent form round-trips and redirects to chat", async ({ page }) => {

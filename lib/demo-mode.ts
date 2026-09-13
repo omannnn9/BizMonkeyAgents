@@ -39,24 +39,27 @@ export function demoDashboard() {
   };
 }
 
-export function demoActivity() {
+export function demoActivity(agentId?: string | null) {
+  const runs = [
+    {
+      id: "r1",
+      agent_id: DEMO_AGENT_IDS.sales,
+      created_at: hoursAgo(2),
+      status: "success",
+      model: "claude-sonnet-5",
+      input: "What open tasks do we have for the MD follow-up?",
+    },
+    {
+      id: "r2",
+      agent_id: DEMO_AGENT_IDS.marketing,
+      created_at: hoursAgo(20),
+      status: "error",
+      model: "claude-sonnet-5",
+      input: "Draft an email to the MD about the Q3 numbers",
+    },
+  ];
   return {
-    runs: [
-      {
-        id: "r1",
-        created_at: hoursAgo(2),
-        status: "success",
-        model: "claude-sonnet-5",
-        input: "What open tasks do we have for the MD follow-up?",
-      },
-      {
-        id: "r2",
-        created_at: hoursAgo(6),
-        status: "success",
-        model: "claude-sonnet-5",
-        input: "Draft an email to the MD about the Q3 numbers",
-      },
-    ],
+    runs: agentId ? runs.filter((r) => r.agent_id === agentId) : runs,
     logs: [
       { id: "l1", created_at: hoursAgo(1), actor_type: "user", action: "approval:approved", target_type: "approval" },
       { id: "l2", created_at: hoursAgo(6), actor_type: "agent", action: "propose:send_email", target_type: "approval" },
@@ -65,31 +68,32 @@ export function demoActivity() {
   };
 }
 
-export function demoApprovals() {
-  return {
-    approvals: [
-      {
-        id: "a1",
-        action_type: "send_email",
-        payload: {
-          to: "md@example.com",
-          subject: "Q3 numbers follow-up",
-          body: "Hi — following up on the Q3 numbers review. Can we grab 15 minutes this week?",
-        },
-        risk_level: "medium",
-        status: "pending",
-        created_at: hoursAgo(6),
+export function demoApprovals(agentId?: string | null) {
+  const all = [
+    {
+      id: "a1",
+      proposed_by_agent_id: DEMO_AGENT_IDS.sales,
+      action_type: "send_email",
+      payload: {
+        to: "md@example.com",
+        subject: "Q3 numbers follow-up",
+        body: "Hi — following up on the Q3 numbers review. Can we grab 15 minutes this week?",
       },
-      {
-        id: "a2",
-        action_type: "send_email",
-        payload: { to: "partner@example.com", subject: "Welcome", body: "Thanks for joining ODAX." },
-        risk_level: "low",
-        status: "executed",
-        created_at: daysAgo(3),
-      },
-    ],
-  };
+      risk_level: "medium",
+      status: "pending",
+      created_at: hoursAgo(6),
+    },
+    {
+      id: "a2",
+      proposed_by_agent_id: DEMO_AGENT_IDS.sales,
+      action_type: "send_email",
+      payload: { to: "partner@example.com", subject: "Welcome", body: "Thanks for joining ODAX." },
+      risk_level: "low",
+      status: "executed",
+      created_at: daysAgo(3),
+    },
+  ];
+  return { approvals: agentId ? all.filter((a) => a.proposed_by_agent_id === agentId) : all };
 }
 
 export function demoDocuments() {
@@ -197,21 +201,44 @@ export function demoGraph() {
   return { nodes, edges };
 }
 
-/** Same structural shape as demoGraph(), plus a recent run on one agent so the glow/particle effect has something real (within demo mode) to show. */
+/**
+ * Same structural shape as demoGraph(), plus enough varied agent state
+ * (recent success, an error, a pending approval, and one plain idle agent)
+ * so the office view's sprite states all have something real (within demo
+ * mode) to show — every state below traces to a fixture value, not a
+ * fabricated animation.
+ */
 export function demoMap() {
   const [holdings, odax, tablo, nova] = DEMO_COMPANIES;
   const nodes = [
-    { id: `company:${holdings.id}`, type: "company" as const, label: holdings.name, lastRunAt: null },
-    { id: `company:${odax.id}`, type: "company" as const, label: odax.name, lastRunAt: null },
-    { id: `company:${tablo.id}`, type: "company" as const, label: tablo.name, lastRunAt: null },
-    { id: `company:${nova.id}`, type: "company" as const, label: nova.name, lastRunAt: null },
+    { id: `company:${holdings.id}`, type: "company" as const, label: holdings.name, lastRunAt: null, lastRunStatus: null, hasPendingApproval: false },
+    { id: `company:${odax.id}`, type: "company" as const, label: odax.name, lastRunAt: null, lastRunStatus: null, hasPendingApproval: false },
+    { id: `company:${tablo.id}`, type: "company" as const, label: tablo.name, lastRunAt: null, lastRunStatus: null, hasPendingApproval: false },
+    { id: `company:${nova.id}`, type: "company" as const, label: nova.name, lastRunAt: null, lastRunStatus: null, hasPendingApproval: false },
     {
       id: "agent:agent-sales",
       type: "agent" as const,
       label: "Sales Agent",
       lastRunAt: hoursAgo(2),
+      lastRunStatus: "success" as const,
+      hasPendingApproval: true,
     },
-    { id: "agent:agent-marketing", type: "agent" as const, label: "Marketing Agent", lastRunAt: null },
+    {
+      id: "agent:agent-marketing",
+      type: "agent" as const,
+      label: "Marketing Agent",
+      lastRunAt: hoursAgo(20),
+      lastRunStatus: "error" as const,
+      hasPendingApproval: false,
+    },
+    {
+      id: `agent:${DEMO_AGENT_IDS.groupCfo}`,
+      type: "agent" as const,
+      label: "Group CFO",
+      lastRunAt: null,
+      lastRunStatus: null,
+      hasPendingApproval: false,
+    },
   ];
   const edges = [
     { source: `company:${holdings.id}`, target: `company:${odax.id}`, relation: "owns" },
@@ -219,6 +246,7 @@ export function demoMap() {
     { source: `company:${holdings.id}`, target: `company:${nova.id}`, relation: "owns" },
     { source: `company:${odax.id}`, target: "agent:agent-sales", relation: "has_agent" },
     { source: `company:${odax.id}`, target: "agent:agent-marketing", relation: "has_agent" },
+    { source: `company:${holdings.id}`, target: `agent:${DEMO_AGENT_IDS.groupCfo}`, relation: "has_agent" },
   ];
   return { nodes, edges };
 }

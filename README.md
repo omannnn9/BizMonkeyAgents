@@ -31,58 +31,58 @@ the round-trip works); it disappears automatically the moment real env vars are 
 
 **Phase 1** (one CEO agent, cockpit UI, approval gate, audit log), **Phase 2** (Sales/Marketing
 department agents, the knowledge-graph view, scheduled briefings), **Phase 3** (Tablo/NOVA onboarded
-the same way, group-scope agents, memory promotion, the living-system map, company/agent creator
-wizards, OKRs/board-report generation), and a scoped-down **Phase 4** (a 3D preview of the same data
-at `/hq`) are all built — everything that doesn't require a live Supabase project passes
-`npm run build` / `npm run lint`. **Nothing has been applied to a live database or run end-to-end
-yet** — that's blocked on a Supabase project existing (see below). Until then, treat the agents'
-tool behavior as reviewed-but-unverified, not tested. `/dashboard`'s layout (no redirect, no login)
-was visually verified in a real browser with placeholder Supabase credentials; the actual
-data-bearing pages weren't, since that needs a real database. `/hq` *was* visually verified
-end-to-end in a real headless browser (screenshot-checked, not just asserted) — see below for why
-that one page got the extra scrutiny.
+the same way, group-scope agents, memory promotion, company/agent creator wizards, OKRs/board-report
+generation), a scoped-down **Phase 4** (a 3D preview at `/hq`, since retired — see below), and
+**Phase 5** (the pixel-art `/office` view that replaced it) are all built — everything that doesn't
+require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been applied
+to a live database or run end-to-end yet** — that's blocked on a Supabase project existing (see
+below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested. `/office`'s
+layout (no redirect, no login) was visually verified in a real browser with placeholder Supabase
+credentials, including a real headless-browser screenshot confirming the tileset and sprites actually
+render (not just that the canvas element mounts) — the actual data-bearing pages weren't fully
+exercised, since that needs a real database.
 
-**On Phase 4 specifically:** the architecture doc's Part 16 makes the literal 3D headquarters
-conditional on Phases 1-3 being "genuinely in daily use" — which hasn't happened (nothing's
-deployed yet). That was flagged to the founder directly; the choice was to build it anyway rather
-than wait, and — after a second round — to also try sourcing a real animated character rather than
-stay with abstract markers. `/hq` reuses `/api/map`'s exact data (companies as low-poly platforms,
-the founder as a single non-human marker) rendered with `three` + `@react-three/fiber` +
-`@react-three/drei` — the one new runtime dependency added anywhere in this project; everywhere else
-deliberately avoided adding one. Agents are now **CesiumMan** (Khronos's standard rigged/skinned/
-animated reference character, [`glTF-Sample-Assets`](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan),
-CC BY 4.0 © 2017 Cesium — see `public/models/CesiumMan.LICENSE.md`) with a real playing walk-cycle
-animation, not custom character art and not a procedural approximation — genuine rigged animation,
-sourced rather than commissioned. The walk cycle itself is ambient scene life only (never a claim
-about a real event, same as `/map`'s idle-breathing nodes); the ring beneath each character is the
-actual signal, lighting up only on a real recent `agent_runs` timestamp. Building and
-`npm run lint`/`build` passing wasn't enough proof here: this is the one page where "does it
-actually render (and actually animate)" isn't verifiable by reading the code, so both rounds were
-independently checked with a real headless-browser screenshot before being called done — each
-round's first attempt actually failed silently (see below), which is exactly the kind of thing
-static checks don't catch.
+**On Phase 5 (`/office`) specifically:** the 3D `/hq` view from Phase 4 was retired outright rather
+than iterated on — it was real-data-driven but visually read as a tech demo (a stock rigged humanoid
+on plain platforms), and the app had sprawled into nine equal-weight nav destinations that read as an
+admin panel rather than an "ecosystem." `/office` replaces `/hq`, `/map`, and `/dashboard` as the new
+home view: one canvas, each company as its own room, each agent a small pixel-art sprite. It's a
+pure rendering/navigation change — `/api/map` (extended additively with `lastRunStatus` and
+`hasPendingApproval`), `/api/dashboard`, `/api/activity`, `/api/approvals`, and `useCompany()` are
+all reused as-is, not rebuilt. Rendered with a small hand-rolled Canvas 2D renderer
+(`components/OfficeScene.tsx`) — no new runtime dependency, same preference this project already had
+for hand-rolling small renderers (`lib/graph-layout.ts`'s force layout) over pulling in a library.
+Room/agent placement is a deterministic grid (`lib/office-layout.ts`), not a physics simulation —
+company areas need to read as distinct rooms, not a floating network.
 
-**Two real bugs worth knowing about if you touch `/hq`:**
-- It originally used `drei`'s `<Text>` for in-scene labels, which fetches a font file over the
-  network by default (via `troika-three-text`). In network-restricted environments (this build
-  sandbox included) that fetch silently fails and can break the whole scene without throwing
-  anywhere visible in the UI. Labels now use `drei`'s `<Html>` instead — a plain DOM overlay using
-  the app's own CSS, no network dependency. If you ever reach for `<Text>` again here, know why it
-  was avoided.
-- The initial character scale (computed from the model's raw bounding box without checking for a
-  root-node axis correction) rendered CesiumMan as a barely-visible sliver — technically present
-  (canvas mounted, no console error) but effectively invisible. Only caught by actually looking at a
-  screenshot, not by any automated check. Fixed by reading the GLB's own accessor bounds and node
-  transforms directly to compute the real on-screen scale, then re-verified visually. If `/hq` ever
-  looks "empty" again after a model or scale change, screenshot it before assuming the plumbing is
-  broken — it might just be sized wrong.
+Tiles and character sprites are Kenney's **RPG Urban Pack** (CC0 1.0 Universal — see
+`public/sprites/office-tilemap.LICENSE.md`), sourced from a public mirror since kenney.nl/itch.io
+weren't reachable from this build sandbox; license independently confirmed via a second public
+source before use. Each agent sprite's visual state is a pure function of real rows, checked in this
+order: **working** (blue — this browser has a chat request in flight to that agent right now; the one
+state that is deliberately client-side-only, since no data anywhere records "an agent is mid-turn" —
+`agent_runs` rows are written only after a turn completes, so there is nothing durable to poll for
+this), **error** (red — the agent's last run failed), **needs-approval** (amber — a pending row in
+`approvals`), **delivering** (green — a successful run in roughly the last two minutes), else idle.
+Nothing here is a decorative animation that isn't gated by one of those checks; the only ambient
+motion is a shared idle sprite-frame bob, the same category as `/map`'s old idle-breathing nodes —
+cosmetic life, never itself a claim about a real event.
 
-One deliberate deviation from the architecture doc: the Part 9 living-system map (`/map`) polls
-`/api/map` on an interval instead of subscribing to Supabase Realtime. There's no browser-side
-Supabase client anywhere in this app by design (no login — the service role key must never reach
-the browser), and Realtime needs exactly that; even the anon key would see nothing, since RLS is
-keyed on `auth.uid()`, which is always null with no session. Polling is "near-live," not literally
-push-driven, but it's consistent with the no-login decision rather than quietly reopening it.
+`/graph`, `/documents`, `/memories`, `/activity`, and `/approvals` remain full pages, reachable from
+a "More" section in the sidebar rather than sitting as equal-weight items next to Office/Chat.
+Clicking a company's room calls the same `setActiveCompanyId()` the header's company switcher
+already used (both stay in sync); clicking an agent's sprite opens an overlay with its chat
+(`components/AgentChatPanel.tsx`, extracted out of `/chat` so there's one chat implementation, not
+two — `/chat` uses the same component), recent runs, and pending approvals, without navigating away
+from the scene.
+
+One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
+`/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no
+browser-side Supabase client anywhere in this app by design (no login — the service role key must
+never reach the browser), and Realtime needs exactly that; even the anon key would see nothing,
+since RLS is keyed on `auth.uid()`, which is always null with no session. Polling is "near-live," not
+literally push-driven, but it's consistent with the no-login decision rather than quietly reopening
+it.
 
 Known stubs — each fails loudly with a clear "not connected" error instead of pretending to act,
 same pattern throughout:
@@ -102,8 +102,8 @@ the app needs its own API key for each, same as Gmail. Approving an `enrich_lead
 
 Also fixed this pass: a real race condition in `documents`, `approvals`, and `memories` — a slow,
 now-stale fetch for the previously active company could resolve after a fast company switch and
-clobber the new company's already-rendered data. All three now guard against it (`dashboard` and
-`activity` already did).
+clobber the new company's already-rendered data. All three now guard against it (`/api/dashboard`'s
+consumer and `activity` already did).
 
 **Document parsing now includes PDF and DOCX**, not just plain text/Markdown/CSV — `pdfjs-dist`
 (its Node/legacy build, text-extraction only, so it never touches its own optional
@@ -158,10 +158,10 @@ alongside this feature.
    Sales and Marketing agents propose `enrich_lead` / `generate_creative_asset` the same
    approval-gated way, then fail loudly since those integrations aren't connected. At OD Holdings,
    try Group CFO / Group Strategy — ask for a board report, or whether there are any cross-company
-   synergies worth flagging. Check `/graph` for the full relationship explorer and `/map` for the
-   animated version. Visit `/memories` and promote a company-scope memory to group. Try
-   `/companies/new` and `/agents/new`. Try `/hq` for the 3D preview, with real animated agent
-   characters — drag to orbit, scroll to zoom.
+   synergies worth flagging. `/office` (the home page) is the pixel-art view of all of this at
+   once — click a company's room to focus it, click an agent's sprite to open its chat/runs/
+   approvals overlay. Check `/graph` for the full relationship explorer. Visit `/memories` and
+   promote a company-scope memory to group. Try `/companies/new` and `/agents/new`.
 
 ## Deploying
 
@@ -191,15 +191,12 @@ that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn'
 | `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
 | `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO, Sales, Marketing, and Group CFO agents — including promote_memory, generate_board_report, and detect_synergies. |
-| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — 60 checks across dashboard, chat (incl. both agent switchers), documents, activity, approvals, the knowledge graph, the living-system map, the 3D HQ preview (incl. its CesiumMan attribution), memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed. Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
+| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — 54 checks across the `/office` pixel-art view (canvas render, company-room focus, agent-sprite overlay), chat (incl. both agent switchers), documents, activity, approvals, the knowledge graph, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed. Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
 
 ## What's genuinely not built yet
 
-Project-scope agents in practice (the schema supports them; nothing creates one), and true
-game-engine-grade polish for `/hq` (pathing between locations, multiple distinct characters,
-environment art) beyond the real-but-simple animated character it now has — see the architecture
-doc's Part 16 for the full phased roadmap. Also still pending: the real OSL lead database/scoring
-model, real API keys for Gmail/Apollo.io/Higgsfield, actually deploying the daily-briefing Edge
-Function + its `pg_cron` schedule, and end-to-end verification of real PDF/DOCX extraction through
-the live upload route (see "Status" above) — all blocked on a live Supabase project and/or real
-credentials, not on any unwritten code.
+Project-scope agents in practice (the schema supports them; nothing creates one). Also still
+pending: the real OSL lead database/scoring model, real API keys for Gmail/Apollo.io/Higgsfield,
+actually deploying the daily-briefing Edge Function + its `pg_cron` schedule, and end-to-end
+verification of real PDF/DOCX extraction through the live upload route (see "Status" above) — all
+blocked on a live Supabase project and/or real credentials, not on any unwritten code.

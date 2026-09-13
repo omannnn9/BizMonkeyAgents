@@ -36,7 +36,7 @@ export default function NewCompanyPage() {
 
     await refreshCompanies();
     if (body.company?.id) setActiveCompanyId(body.company.id);
-    router.push("/dashboard");
+    router.push("/office");
   }
 
   return (
