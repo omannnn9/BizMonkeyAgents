@@ -14,14 +14,15 @@ npm run test:e2e     # playwright test
 
 Runs the full suite against `next dev` in demo mode (no `.env.local`
 needed), across desktop Chromium and a mobile viewport. As of the current
-mission-control `/office` pass: **53 passed, 1 skipped** (the skip is a
-desktop-only assertion intentionally skipped at mobile viewport width — see
+Hierarchy Map pass: **61 passed, 1 skipped** (the skip is a desktop-only
+assertion intentionally skipped at mobile viewport width — see
 `tests/e2e/office.spec.ts`). This is the check that actually runs in CI/
 locally without any external dependency.
 
 | File | Covers |
 |---|---|
-| `office.spec.ts` | The `/office` mission-control shell: the 3D scene mounts (`getByRole("img", {name: "Office scene"})`), the category row navigates to real pages, the terminal strip streams real `agent_run`/`audit` lines, and (desktop only) the left nav + activity feed show real fixture data (agent name, real output text) — never placeholders. |
+| `office.spec.ts` | The `/office` Colony shell: the 3D scene mounts (`getByRole("img", {name: "Colony scene"})`), the category row navigates to real pages, the terminal strip streams real `agent_run`/`audit` lines, and (desktop only) the left nav + activity feed show real fixture data (Operator name and rank, real output text) — never placeholders. |
+| `hierarchy.spec.ts` | The `/hierarchy` tree renders Founder/companies/real rank labels; clicking a company switches the active company; clicking an Operator node opens `OfficeAgentPanel` with real pending approvals and run data — fully automated, unlike the colony world's 3D clicks, since SVG nodes need no camera-projection math to click. |
 | `chat.spec.ts` | Sending a message returns a labeled demo reply with a citation; the group agent switcher (OD Holdings: CEO/Group CFO/Group Strategy) and company agent switcher (ODAX: Sales/Marketing) both work; input clears and the send button disables while empty. |
 | `approvals.spec.ts` | The pending `send_email` approval renders a readable payload; approve round-trips without erroring; decided approvals show under History. |
 | `graph.spec.ts` | The graph loads and renders nodes; clicking a node shows its detail panel with real connections. |

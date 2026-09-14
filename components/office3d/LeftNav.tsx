@@ -13,6 +13,7 @@ interface RecentItem {
 // pages for labels with nothing real behind them.
 const SURFACES = [
   { href: "/graph", label: "Graph" },
+  { href: "/hierarchy", label: "Hierarchy" },
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
   { href: "/approvals", label: "Approvals" },

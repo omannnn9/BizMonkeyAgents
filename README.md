@@ -35,8 +35,8 @@ department agents, the knowledge-graph view, scheduled briefings), **Phase 3** (
 the same way, group-scope agents, memory promotion, company/agent creator wizards, OKRs/board-report
 generation), a scoped-down **Phase 4** (a 3D preview at `/hq`, since retired), a **Phase 5** 2D
 pixel-art `/office` (also since retired — two visual passes, "Night Shift," both superseded), and
-**Phase 6** (the mission-control `/office`) and **Phase 7** (the OD Cortex rebrand + colony world,
-described below) are all built — everything that
+**Phase 6** (the mission-control `/office`), **Phase 7** (the OD Cortex rebrand + colony world), and
+**Phase 8** (the `/hierarchy` organizational tree, both described below) are all built — everything that
 doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
 applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
 (see below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested.
@@ -141,11 +141,32 @@ and no name of its own. This pass is presentation-layer only — no migration, n
   selects `status`, the only API surface this pass touched). **Meeting** was not built — no
   multi-agent feature exists to back it with a real event, and this project doesn't fabricate signals
   that aren't backed by one; it becomes real if that feature ever exists.
-- **Deferred, on purpose** (see the plan file this pass used, or ask for the roadmap): a Hierarchy
-  Map and an AI Brain knowledge visualization, each as their own route; a Founder Command Mode
-  (a zoomed-out camera state within the same colony scene); and tweened camera transitions on
-  district switch. Each gets its own visual-verification pass when built, the same discipline that
-  caught the Phase 6 scale bug below.
+- **Deferred, on purpose** at the time (see the plan file this pass used, or ask for the roadmap):
+  a Hierarchy Map and an AI Brain knowledge visualization, each as their own route; a Founder Command
+  Mode (a zoomed-out camera state within the same colony scene); and tweened camera transitions on
+  district switch. The Hierarchy Map shipped next, as **Phase 8** below; the AI Brain and Founder
+  Command Mode are still deferred. Each gets its own visual-verification pass when built, the same
+  discipline that caught the Phase 6 scale bug below.
+
+**Phase 8 (`/hierarchy`)** is the founder's brief's most concrete ask fulfilled literally: *"I want
+to instantly understand Founder → Group Executives → Company Executives → Department Leads →
+Specialists... a living organizational tree. Animated. Interactive. Beautiful."* Built entirely from
+data `/api/map` already returns (no new route, no new fetch) via a new deterministic **tree** layout,
+`lib/hierarchy-layout.ts` — deliberately not `/graph`'s force-directed `forceLayout()`, since a
+hierarchy shouldn't visibly jitter into place or allow crossing edges. Founder sits at the root (a
+real label, not a fabricated row — there's no "founder" table, this position is the human user),
+above the company with no parent, which fans out into its own agents and child companies, each
+showing `lib/agent-title.ts`'s `deriveAgentRank()` — the same "Group Executive"/"Company
+Executive"/"`{Department}` Lead" language the colony world already uses, so rank means the same thing
+everywhere. Rendered as an SVG using `/graph`'s proven hologram glow system (same filter, same grid
+background) but with elbow bezier connectors instead of bowed circuit traces, so the two pages read
+as the same design system while staying structurally distinct — a tree next to a network, not two
+networks. Nodes fade in staggered by depth on load (**Animated**); clicking a company switches the
+active company, clicking an Operator opens the same `OfficeAgentPanel` overlay `/office` already uses,
+with real chat/runs/pending-approvals (**Interactive**) — reusing an existing component, not a new
+one. Caught and fixed one real bug via a screenshot before calling this done: the root node's own
+top half was clipped by the SVG `viewBox` starting at `y=0` instead of accounting for the node's own
+height above its center point.
 
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no
@@ -263,7 +284,7 @@ that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn'
 | `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
 | `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO, Sales, Marketing, and Group CFO agents — including promote_memory, generate_board_report, and detect_synergies. |
-| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — checks across the `/office` Colony shell (3D scene mounts, left nav/category row navigation, activity feed and terminal strip render real data), chat (incl. both agent switchers), documents, approvals, the knowledge graph, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed (a 3D-click-to-open-agent-panel check is deliberately not automated — see the office page's test file header — and is instead verified with real headless-browser screenshots). Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
+| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — checks across the `/office` Colony shell (3D scene mounts, left nav/category row navigation, activity feed and terminal strip render real data), the `/hierarchy` tree (including a fully-automated Operator-click → agent-panel check), chat (incl. both agent switchers), documents, approvals, the knowledge graph, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed (a 3D-click-to-open-agent-panel check on the colony world specifically is deliberately not automated — see the office page's test file header — and is instead verified with real headless-browser screenshots). Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
 
 ## What's genuinely not built yet
 

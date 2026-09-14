@@ -213,3 +213,50 @@ correctness (camera framing, district/Operator rendering, the state glow)
 and the click → active-company / click → agent-overlay interactions were
 verified manually via real headless-browser screenshots — see
 `tests/e2e/office.spec.ts`'s header comment and [`TESTING.md`](./TESTING.md).
+
+## Hierarchy Map (`/hierarchy`)
+
+The founder's org-chart ask fulfilled literally: Founder → Group Executives
+→ Company Executives → Department Leads, as a real tree rather than a
+force-directed network. Built entirely from `/api/map`'s existing response
+— no new route, no new fetch.
+
+- **`lib/hierarchy-layout.ts`** — a deterministic top-down tree layout
+  (`hierarchyLayout(nodes, edges)`), deliberately **not**
+  `graph-layout.ts`'s force-directed `forceLayout()`: a hierarchy shouldn't
+  visibly jitter into place or allow crossing edges. Two-pass algorithm —
+  post-order to compute each subtree's width, pre-order to center each
+  node under its children's span. Builds the tree from the same
+  `MapNode`/`MapEdge` shape `/api/map` already returns: a synthetic
+  `"founder"` root (a real label, not a fabricated row — there's no
+  "founder" table, this position is the human user) above the company with
+  no parent, which fans out into its own agents and child companies, each
+  child company's own agents beneath it. Every agent node carries
+  `lib/agent-title.ts`'s `deriveAgentRank()` label — the identical
+  "Group Executive"/"Company Executive"/"`{Department}` Lead" language the
+  colony world and `ActivityFeed` already use.
+- **`app/(cockpit)/hierarchy/page.tsx`** — fetches `/api/map` once (the
+  exact same call `/graph` makes), runs it through `hierarchyLayout()`,
+  renders an SVG reusing `/graph`'s proven hologram glow system (the same
+  `feGaussianBlur`+`feMerge` filter and grid `<pattern>` background,
+  copied rather than extracted into a shared component — a little
+  duplication between two small pages over a premature shared primitive)
+  with **elbow bezier connectors** between a parent's bottom edge and each
+  child's top edge instead of `/graph`'s bowed circuit-trace edges — reads
+  as an org chart, not a network, while staying visually related to
+  `/graph`. Agent nodes show two lines (name, then rank in a smaller/dimmer
+  line, the same pattern the colony world's character labels use); the
+  Founder node gets a distinct gold/amber border since it's the one node
+  that isn't a data row. Nodes fade in staggered by tree depth on load (a
+  plain CSS `transition-delay`, no animation library). Clicking a company
+  node calls the same `setActiveCompanyId` every other company-switching
+  interaction in the app already uses; clicking an agent node opens the
+  **existing** `components/OfficeAgentPanel.tsx` overlay unchanged — real
+  chat, pending approvals, and recent runs, from a component that already
+  existed rather than a new one.
+
+Unlike the colony world's 3D character clicks, `/hierarchy`'s node clicks
+are plain SVG `<g role="button">` elements — fully automatable, no camera
+projection math to duplicate — so `tests/e2e/hierarchy.spec.ts` covers the
+agent-click → `OfficeAgentPanel` interaction directly, real data included,
+rather than deferring it to a manual screenshot check.

@@ -17,6 +17,7 @@ const NAV = [
 // the old /dashboard and /map pages went through.
 const MORE_NAV = [
   { href: "/graph", label: "Graph" },
+  { href: "/hierarchy", label: "Hierarchy" },
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
   { href: "/approvals", label: "Approvals" },
