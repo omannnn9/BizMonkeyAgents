@@ -23,12 +23,12 @@ export function LeftNav({ companyName, recentItems }: { companyName: string; rec
   return (
     <div className="flex h-full flex-col gap-6 border-r border-border bg-surface/60 p-4 text-sm">
       <div>
-        <p className="text-[10px] uppercase tracking-wide text-muted">Room</p>
+        <p className="label-caps">District</p>
         <p className="font-medium text-foreground">{companyName}</p>
       </div>
 
       <div>
-        <p className="mb-2 text-[10px] uppercase tracking-wide text-muted">Recent</p>
+        <p className="label-caps mb-2">Recent</p>
         {recentItems.length === 0 ? (
           <p className="text-xs text-muted">Nothing recent yet.</p>
         ) : (
@@ -43,13 +43,13 @@ export function LeftNav({ companyName, recentItems }: { companyName: string; rec
       </div>
 
       <nav aria-label="Surfaces">
-        <p className="mb-2 text-[10px] uppercase tracking-wide text-muted">Surfaces</p>
+        <p className="label-caps mb-2">Surfaces</p>
         <ul className="flex flex-col gap-1">
           {SURFACES.map((s) => (
             <li key={s.href}>
               <Link
                 href={s.href}
-                className="block rounded-md px-2 py-1.5 text-foreground hover:bg-surface-raised"
+                className="transition-cortex block rounded-md px-2 py-1.5 text-foreground hover:bg-surface-raised hover:glow-accent"
               >
                 {s.label}
               </Link>

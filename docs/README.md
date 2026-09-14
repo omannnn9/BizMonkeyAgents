@@ -1,4 +1,4 @@
-# OD Group Cockpit — documentation
+# OD Cortex — documentation
 
 Full technical documentation for the app. The root [`README.md`](../README.md)
 covers what exists and how to bring it online at a glance (setup steps,
@@ -16,9 +16,9 @@ actually works.
 - **[API reference](./API_REFERENCE.md)** — every route under `app/api/`:
   method, params, request/response shape, demo-mode behavior.
 - **[Frontend](./FRONTEND.md)** — every page and shared component,
-  including a full breakdown of the `/office` mission-control shell (the
-  3D viewport, left nav, activity feed, terminal strip) and `/graph`'s
-  hologram treatment.
+  including a full breakdown of the Colony (`/office`, the 3D viewport,
+  left nav, activity feed, terminal strip) and `/graph`'s hologram
+  treatment.
 - **[Testing](./TESTING.md)** — the Playwright e2e suite (runs against demo
   mode, no backend needed) and the scripted checks that need a live
   Supabase project.
@@ -37,9 +37,9 @@ actually works.
   [Agents & tools](./AGENTS_AND_TOOLS.md) first; nothing there requires new
   code beyond the tool implementation itself (a new agent is a new
   `agents` row — see [Data model](./DATA_MODEL.md#agents)).
-- Changing anything in `/office` → read
-  [Frontend § Office mission-control](./FRONTEND.md#office-mission-control)
-  before touching `OfficeScene3D.tsx` — it documents real bugs (an
-  invisible-character scale bug, a font-fetch trap) already hit and fixed
-  across three visual passes.
+- Changing anything in the Colony (`/office`) → read
+  [Frontend § The Colony](./FRONTEND.md#the-colony-office) before touching
+  `OfficeScene3D.tsx` — it documents real bugs (an invisible-character
+  scale bug, a font-fetch trap, a camera-framing bug specific to a radial
+  layout) already hit and fixed across four visual passes.
 - Deploying or debugging production → [Deployment](./DEPLOYMENT.md).

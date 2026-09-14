@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OD Group Cockpit",
-  description: "Internal AI command center for OD Group",
+  title: "OD Cortex",
+  description: "OD Cortex — an operating system for companies. Internal AI command center for OD Group.",
   robots: { index: false, follow: false },
 };
 

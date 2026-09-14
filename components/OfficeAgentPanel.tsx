@@ -31,6 +31,7 @@ export function OfficeAgentPanel({
   companyId,
   agentId,
   agentLabel,
+  agentRank,
   onClose,
   onSendStart,
   onSendEnd,
@@ -38,6 +39,7 @@ export function OfficeAgentPanel({
   companyId: string;
   agentId: string;
   agentLabel: string;
+  agentRank?: string;
   onClose: () => void;
   onSendStart?: () => void;
   onSendEnd?: () => void;
@@ -83,7 +85,10 @@ export function OfficeAgentPanel({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">{agentLabel}</h2>
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">{agentLabel}</h2>
+            {agentRank && <p className="label-caps">{agentRank}</p>}
+          </div>
           <button
             onClick={onClose}
             aria-label="Close"

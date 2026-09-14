@@ -7,16 +7,16 @@ import { test, expect } from "@playwright/test";
 // buy. What's covered here is everything DOM-based: the scene mounting,
 // the left nav / category row navigation, and the activity feed/terminal
 // actually rendering real fixture data. The scene's own visual correctness
-// (camera framing, character/room rendering, the state glow) is verified
+// (camera framing, district/Operator rendering, the state glow) is verified
 // with a real headless-browser screenshot instead — see the session notes
 // for this pass.
-test.describe("Office (demo mode)", () => {
+test.describe("Colony (demo mode)", () => {
   test("loads, shows the demo banner, and mounts the 3D scene", async ({ page }) => {
     const response = await page.goto("/office");
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "Office" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Colony" })).toBeVisible();
     await expect(page.getByText("Demo mode")).toBeVisible();
-    await expect(page.getByRole("img", { name: "Office scene" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("img", { name: "Colony scene" })).toBeVisible({ timeout: 10_000 });
   });
 
   test("the category row links to the app's real surfaces", async ({ page }) => {
@@ -45,17 +45,18 @@ test.describe("Office (demo mode)", () => {
     await page.goto("/office");
     if ((page.viewportSize()?.width ?? 0) < 768) test.skip();
 
-    await expect(page.getByText("Room")).toBeVisible();
+    await expect(page.getByText("District")).toBeVisible();
     const surfaces = page.getByRole("navigation", { name: "Surfaces" });
     await expect(surfaces.getByRole("link", { name: "Graph" })).toBeVisible();
     await expect(surfaces.getByRole("link", { name: "Memories" })).toBeVisible();
 
     // The demo Sales Agent run has real output text (lib/demo-mode.ts) —
-    // the feed must show it, attributed by name, not a placeholder. "Sales"
-    // also appears in the terminal strip's raw log lines, so scope to the
-    // feed itself.
+    // the feed must show it, attributed by name and rank, not a
+    // placeholder. "Sales" also appears in the terminal strip's raw log
+    // lines, so scope to the feed itself.
     const feed = page.getByTestId("activity-feed");
     await expect(feed.getByText("Sales Agent")).toBeVisible();
+    await expect(feed.getByText("Sales Lead")).toBeVisible();
     await expect(feed.getByText(/confirm the pricing tier/)).toBeVisible();
   });
 });

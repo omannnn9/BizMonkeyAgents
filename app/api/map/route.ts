@@ -8,10 +8,17 @@ export interface MapNode {
   type: "company" | "agent";
   label: string;
   lastRunAt: string | null;
-  // Agent-only — the office view's sprite state depends on these; always
+  // Agent-only — the colony view's Operator state depends on these; always
   // null/false on company nodes.
   lastRunStatus: "success" | "error" | "pending" | null;
   hasPendingApproval: boolean;
+  // Agent-only, additive — power the "sleeping" state and rank labels
+  // (deriveAgentState / deriveAgentRank). All four columns already existed
+  // on `agents`; this just returns them where they weren't selected before.
+  status: string | null;
+  scope: string | null;
+  departmentId: string | null;
+  roleTitle: string | null;
 }
 
 export interface MapEdge {
@@ -49,7 +56,7 @@ export const GET = withApiErrorHandling(async () => {
       ? supabase.from("companies").select("id, name").in("id", [...companyIds])
       : Promise.resolve({ data: [] }),
     agentIds.size
-      ? supabase.from("agents").select("id, name").in("id", [...agentIds])
+      ? supabase.from("agents").select("id, name, status, scope, department_id, role_title").in("id", [...agentIds])
       : Promise.resolve({ data: [] }),
     agentIds.size
       ? supabase
@@ -82,6 +89,10 @@ export const GET = withApiErrorHandling(async () => {
       lastRunAt: null,
       lastRunStatus: null,
       hasPendingApproval: false,
+      status: null,
+      scope: null,
+      departmentId: null,
+      roleTitle: null,
     })),
     ...(agents ?? []).map((a) => ({
       id: `agent:${a.id}`,
@@ -90,6 +101,10 @@ export const GET = withApiErrorHandling(async () => {
       lastRunAt: lastRunByAgent.get(a.id)?.created_at ?? null,
       lastRunStatus: (lastRunByAgent.get(a.id)?.status as MapNode["lastRunStatus"]) ?? null,
       hasPendingApproval: pendingApprovalAgentIds.has(a.id),
+      status: a.status,
+      scope: a.scope,
+      departmentId: a.department_id,
+      roleTitle: a.role_title,
     })),
   ];
 

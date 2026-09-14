@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
+import { Panel } from "@/components/ui/Panel";
 
 interface DocRow {
   id: string;
@@ -69,7 +70,7 @@ export default function DocumentsPage() {
         Documents {activeCompany ? `— ${activeCompany.name}` : ""}
       </h1>
 
-      <div className="rounded-lg border border-border bg-surface p-4">
+      <Panel>
         <p className="mb-2 text-sm text-muted">
           Plain text, Markdown, CSV, PDF, and DOCX.
         </p>
@@ -83,13 +84,13 @@ export default function DocumentsPage() {
           <button
             onClick={upload}
             disabled={uploading}
-            className="shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="transition-cortex shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
             {uploading ? "Uploading…" : "Upload"}
           </button>
         </div>
         {message && <p className="mt-2 text-sm text-muted">{message}</p>}
-      </div>
+      </Panel>
 
       <div className="flex flex-col gap-2">
         {loading ? (
@@ -98,7 +99,7 @@ export default function DocumentsPage() {
           <p className="text-sm text-muted">No documents uploaded for this company yet.</p>
         ) : (
           docs.map((d) => (
-            <div key={d.id} className="flex items-center justify-between rounded-md border border-border px-4 py-2">
+            <Panel key={d.id} glow className="flex items-center justify-between py-2">
               <div>
                 <p className="text-sm text-foreground">{d.title}</p>
                 {d.tags.length > 0 && (
@@ -106,7 +107,7 @@ export default function DocumentsPage() {
                 )}
               </div>
               <span className="text-xs text-muted">{new Date(d.created_at).toLocaleDateString()}</span>
-            </div>
+            </Panel>
           ))
         )}
       </div>

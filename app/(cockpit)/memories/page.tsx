@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
+import { Panel } from "@/components/ui/Panel";
 
 interface Memory {
   id: string;
@@ -78,30 +79,32 @@ export default function MemoriesPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {memories.map((m) => (
-            <li key={m.id} className="rounded-lg border border-border bg-surface p-4">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span
-                  className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-                    m.scope === "group"
-                      ? "bg-accent/20 text-accent"
-                      : "bg-surface-raised text-muted"
-                  }`}
-                >
-                  {m.scope}
-                  {m.source === "promoted" ? " · promoted" : ""}
-                </span>
-                <span className="text-xs text-muted">{new Date(m.created_at).toLocaleDateString()}</span>
-              </div>
-              <p className="text-sm text-foreground">{m.content}</p>
-              {m.scope === "company" && (
-                <button
-                  disabled={busyId === m.id}
-                  onClick={() => promote(m.id)}
-                  className="mt-3 rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:opacity-50"
-                >
-                  Promote to group
-                </button>
-              )}
+            <li key={m.id}>
+              <Panel glow>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
+                      m.scope === "group"
+                        ? "bg-accent/20 text-accent"
+                        : "bg-surface-raised text-muted"
+                    }`}
+                  >
+                    {m.scope}
+                    {m.source === "promoted" ? " · promoted" : ""}
+                  </span>
+                  <span className="text-xs text-muted">{new Date(m.created_at).toLocaleDateString()}</span>
+                </div>
+                <p className="text-sm text-foreground">{m.content}</p>
+                {m.scope === "company" && (
+                  <button
+                    disabled={busyId === m.id}
+                    onClick={() => promote(m.id)}
+                    className="transition-cortex mt-3 rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:opacity-50"
+                  >
+                    Promote to group
+                  </button>
+                )}
+              </Panel>
             </li>
           ))}
         </ul>

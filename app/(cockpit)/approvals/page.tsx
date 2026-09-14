@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
+import { Panel } from "@/components/ui/Panel";
 
 interface Approval {
   id: string;
@@ -98,7 +99,7 @@ export default function ApprovalsPage() {
           <p className="text-sm text-muted">Nothing waiting on you.</p>
         ) : (
           pending.map((a) => (
-            <div key={a.id} className="rounded-lg border border-border bg-surface p-4">
+            <Panel key={a.id} glow>
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-medium text-foreground">{a.action_type}</span>
                 <span
@@ -118,19 +119,19 @@ export default function ApprovalsPage() {
                 <button
                   disabled={busyId === a.id}
                   onClick={() => decide(a.id, "approved")}
-                  className="rounded-md bg-success px-3 py-1.5 text-xs font-medium text-black disabled:opacity-50"
+                  className="transition-cortex rounded-md bg-success px-3 py-1.5 text-xs font-medium text-black disabled:opacity-50"
                 >
                   Approve
                 </button>
                 <button
                   disabled={busyId === a.id}
                   onClick={() => decide(a.id, "rejected")}
-                  className="rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:opacity-50"
+                  className="transition-cortex rounded-md border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:opacity-50"
                 >
                   Reject
                 </button>
               </div>
-            </div>
+            </Panel>
           ))
         )}
       </section>

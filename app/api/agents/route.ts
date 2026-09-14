@@ -17,7 +17,7 @@ export const GET = withApiErrorHandling(async (request: Request) => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("agents")
-    .select("id, name, role_title")
+    .select("id, name, role_title, scope, department_id")
     .eq("company_id", companyId)
     .eq("status", "active")
     .order("name");

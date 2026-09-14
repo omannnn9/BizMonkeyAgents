@@ -108,15 +108,17 @@ importing the registry into a client component, since the registry pulls
 in server-only Supabase logic through its tool implementations) — every
 tool name it can submit is validated server-side regardless.
 
-## Office mission-control (`/office`)
+## The Colony (`/office`)
 
-The home page (`app/page.tsx` redirects `/` → `/office`). This is the
-richest surface in the app — a dense, four-zone shell rebuilt across three
-passes (2D pixel art → a "Night Shift" dark re-theme → the current
-mission-control shell with a real 3D viewport), documented in full in the
-root [`README.md`](../README.md#status). `app/(cockpit)/office/page.tsx`
-polls `/api/map`, `/api/dashboard`, and `/api/activity` every 20s and lays
-out:
+The home page (`app/page.tsx` redirects `/` → `/office`; the nav label is
+"Colony" — the route path stayed `/office` on purpose, a URL slug being a
+technical detail rather than brand-facing). This is the richest surface in
+the app — a dense, four-zone shell rebuilt across four passes (2D pixel art
+→ a "Night Shift" dark re-theme → a mission-control shell with a
+grid-of-rooms 3D viewport → the current OD Cortex radial colony world),
+documented in full in the root [`README.md`](../README.md#status).
+`app/(cockpit)/office/page.tsx` polls `/api/map`, `/api/dashboard`, and
+`/api/activity` every 20s and lays out:
 
 ```
 ┌───────────┬─────────────────────────┬──────────────┐
@@ -131,63 +133,83 @@ out:
 ```
 
 - **`components/office3d/OfficeScene3D.tsx`** — the `@react-three/fiber`
-  viewport, the only place in the app using 3D (reintroduced a third time
-  specifically for this pass, after being removed twice before — once
-  after the original `/hq` prototype, once when 2D pixel art replaced it —
-  each time to avoid the dependency weight until a reference genuinely
-  called for real 3D depth again). Reuses `lib/office-layout.ts`'s
-  deterministic per-company grid coordinates unchanged, read as a 3D floor
-  plan (`SCALE = 40` world units per layout pixel — see the file's own
-  comment for the invisible-character bug this value was tuned to fix) instead
-  of canvas pixels — `office-layout.ts` itself has no knowledge of 3D.
-  Each company is a room (two walls, open toward a fixed camera — no
-  `OrbitControls`); each agent is a flat-colored capsule+sphere figure
-  (color hashed from the agent id) seated at a desk with a monitor that's
-  actually lit once the agent has ever produced a run (not decorative). A
-  glowing colored halo above each character's head is
-  `lib/agent-visual-state.ts`'s `deriveAgentState()` — the same
-  working/error/needs-approval/delivering/idle logic every visual pass of
-  this page has used, now centralized so it doesn't get reimplemented per
-  renderer. Text labels use drei's `<Html>` (a DOM overlay), **never**
-  drei's `<Text>` (troika-three-text), which fetches a font file over the
-  network and silently breaks in a network-restricted sandbox — a lesson
-  carried over from the retired `/hq` prototype. Clicking a room calls
-  `onSelectCompany`; clicking a character calls `onSelectAgent`, both via
+  viewport, the only place in the app using 3D. Reads `lib/office-layout.ts`'s
+  **radial colony layout** (`SCALE = 40` world units per layout unit — see
+  the file's own comments for two real bugs this pass's camera math hit and
+  fixed, caught by screenshots rather than by the math alone). OD Holdings
+  (the company with no parent) is the **Central Command District** at the
+  origin; every other company orbits it as its own tinted platform, sized by
+  how many Operators are stationed there, connected to the center by a
+  glowing bridge drawn from the same real `owns` edges `/graph` already
+  visualizes (the bridge glows brighter when that company is active — real
+  UI state, not decoration). Each Operator is a flat-colored capsule+sphere
+  figure (color hashed from the agent id, desaturated when `sleeping`)
+  standing at a HUD-styled console whose screen is lit once the agent has
+  ever produced a run. A glowing colored halo above each figure's head is
+  `lib/agent-visual-state.ts`'s `deriveAgentState()` (`executing` / `blocked`
+  / `approval` / `delivered` / `sleeping` / `idle` — six real states, see
+  below) and a two-line label under drei's `<Html>` shows the Operator's
+  name plus its rank via `lib/agent-title.ts`'s `deriveAgentRank()`. The
+  camera is fixed and steep/near-overhead (no `OrbitControls`) — a full
+  360° radial layout needs a much steeper angle than the old left-to-right
+  grid did to avoid clipping whichever district happens to orbit nearest
+  the lens; a modest 3/4 angle (the old grid's working value) visibly
+  clipped districts here, caught on a screenshot and fixed by raising the
+  camera rather than by adding user controls. Text labels use drei's
+  `<Html>` (a DOM overlay) and the starfield atmosphere is a hand-rolled
+  point cloud seeded with a deterministic PRNG, **never** drei's `<Text>`
+  or `<Stars>` — an unfamiliar component's asset/randomness behavior isn't
+  worth verifying fresh in a network-restricted sandbox when a same-effect
+  primitive is cheap to hand-roll. Clicking a district calls
+  `onSelectCompany`; clicking an Operator calls `onSelectAgent`, both via
   r3f's built-in mesh `onClick` raycasting.
-- **`components/office3d/LeftNav.tsx`** — active company name, a "recent"
-  list (`/api/dashboard`'s `recentDecisions`), and a `Surfaces` nav
-  (Graph/Documents/Memories/Approvals/Chat) — the real equivalents of a
-  generic reference's Whiteboard/Design Board/Builder/Chats/Projects/
-  Workflows labels, remapped rather than inventing pages for labels with
-  nothing real behind them.
+- **`components/office3d/LeftNav.tsx`** — active company name (labeled
+  "District"), a "recent" list (`/api/dashboard`'s `recentDecisions`), and
+  a `Surfaces` nav (Graph/Documents/Memories/Approvals/Chat) — the real
+  equivalents of a generic reference's Whiteboard/Design Board/Builder/
+  Chats/Projects/Workflows labels, remapped rather than inventing pages for
+  labels with nothing real behind them.
 - **`components/office3d/ActivityFeed.tsx`** — real `agent_runs.output`,
-  attributed by agent name (via a `Map` built from `/api/map`'s node list,
-  not a second lookup). An agent with no output yet shows its last real
-  status, never invented dialogue.
+  attributed by Operator name **and rank** (`deriveAgentRank`, via an
+  `agentInfoById` map built from `/api/map`'s node list, not a second
+  lookup). An Operator with no output yet shows its last real status, never
+  invented dialogue.
 - **`components/office3d/TerminalStrip.tsx`** — the same `agent_runs`/
   `audit_log` rows the feed already fetched, re-presented as raw
   auto-scrolling monospace log lines (`[HH:MM:SS] agent_run agent=... `/
   `[HH:MM:SS] audit actor=...`). No second data source.
 - **Category row** — `Documents`/`Memories`/`Graph`/`Approvals`/`+New
   company`/`+New agent`, plain links.
-- **`components/OfficeAgentPanel.tsx`** — the click-a-character overlay:
-  `AgentChatPanel` (the same chat implementation `/chat` uses), pending
-  approvals for that one agent (Approve/Reject, reusing
-  `POST /api/approvals/:id`), and recent runs.
+- **`components/OfficeAgentPanel.tsx`** — the click-an-Operator overlay:
+  a header showing the Operator's name and rank, `AgentChatPanel` (the same
+  chat implementation `/chat` uses), pending approvals for that one agent
+  (Approve/Reject, reusing `POST /api/approvals/:id`), and recent runs.
 
 `/office`'s `/activity` predecessor page is retired entirely — its job is
 now this feed + terminal strip, the same "fold into `/office`, keep the API
 route" pattern the earlier `/dashboard` and `/map` pages went through.
 
+### Operator rank
+
+`lib/agent-title.ts`'s `deriveAgentRank()` maps an agent's existing `scope`/
+`department_id` columns onto the founder-facing hierarchy language (no
+schema change, no new API field beyond what `/api/map` and `/api/agents`
+already needed to additionally select): `scope="group"` → **Group
+Executive**; `scope="company"` with no department → **Company Executive**
+(the CEO-style agents); `scope="company"` with a department → **`{role_title}`
+Lead** (e.g. "Sales Lead"). Every surface that shows an agent's role — the
+colony world's character labels, `ActivityFeed`, `OfficeAgentPanel`, and
+`AgentSwitcher` — calls this instead of displaying raw `role_title`.
+
 ### Testing note
 
-Clicking a specific 3D character isn't covered by the automated Playwright
-suite — computing the exact screen coordinate for a given character would
-mean duplicating r3f's camera projection math just to compute a click
-point, which isn't worth it for what it'd buy. Everything DOM-based (scene
+Clicking a specific 3D district or Operator isn't covered by the automated
+Playwright suite — computing the exact screen coordinate would mean
+duplicating r3f's camera projection math just to compute a click point,
+which isn't worth it for what it'd buy. Everything DOM-based (scene
 mounting, left nav/category row navigation, activity feed/terminal
 rendering real fixture data) has real e2e coverage. The scene's own visual
-correctness (camera framing, character/room rendering, the state glow) and
-the click → agent-overlay interaction were verified manually via real
-headless-browser screenshots — see `tests/e2e/office.spec.ts`'s header
-comment and [`TESTING.md`](./TESTING.md).
+correctness (camera framing, district/Operator rendering, the state glow)
+and the click → active-company / click → agent-overlay interactions were
+verified manually via real headless-browser screenshots — see
+`tests/e2e/office.spec.ts`'s header comment and [`TESTING.md`](./TESTING.md).

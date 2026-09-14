@@ -115,7 +115,7 @@ export function AgentChatPanel({
       >
         {messages.length === 0 && (
           <p className="text-sm text-muted">
-            Ask {agentLabel ?? "the agent"} anything — it can look up tasks and decisions and search
+            Ask {agentLabel ?? "the Operator"} anything — it can look up tasks and decisions and search
             uploaded documents. Anything it tries to *do* always goes to your approval queue first.
           </p>
         )}

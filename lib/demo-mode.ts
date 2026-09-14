@@ -123,13 +123,27 @@ const DEMO_AGENT_IDS = {
  * frontend preview.
  */
 export function demoAgents(companyId: string) {
-  const base = [{ id: DEMO_AGENT_IDS.ceo, name: "CEO Agent", role_title: "Chief of Staff" }];
+  const base = [
+    { id: DEMO_AGENT_IDS.ceo, name: "CEO Agent", role_title: "Chief of Staff", scope: "company", department_id: null },
+  ];
   if (companyId === DEMO_COMPANIES[0].id) {
     return {
       agents: [
         ...base,
-        { id: DEMO_AGENT_IDS.groupCfo, name: "Group CFO", role_title: "Chief Financial Officer" },
-        { id: DEMO_AGENT_IDS.groupStrategy, name: "Group Strategy", role_title: "Head of Strategy" },
+        {
+          id: DEMO_AGENT_IDS.groupCfo,
+          name: "Group CFO",
+          role_title: "Chief Financial Officer",
+          scope: "group",
+          department_id: null,
+        },
+        {
+          id: DEMO_AGENT_IDS.groupStrategy,
+          name: "Group Strategy",
+          role_title: "Head of Strategy",
+          scope: "group",
+          department_id: null,
+        },
       ],
     };
   }
@@ -137,8 +151,20 @@ export function demoAgents(companyId: string) {
     return {
       agents: [
         ...base,
-        { id: DEMO_AGENT_IDS.sales, name: "Sales Agent", role_title: "Sales" },
-        { id: DEMO_AGENT_IDS.marketing, name: "Marketing Agent", role_title: "Marketing / Creative" },
+        {
+          id: DEMO_AGENT_IDS.sales,
+          name: "Sales Agent",
+          role_title: "Sales",
+          scope: "company",
+          department_id: "demo-dept-sales",
+        },
+        {
+          id: DEMO_AGENT_IDS.marketing,
+          name: "Marketing Agent",
+          role_title: "Marketing / Creative",
+          scope: "company",
+          department_id: "demo-dept-marketing",
+        },
       ],
     };
   }
@@ -212,11 +238,23 @@ export function demoGraph() {
  */
 export function demoMap() {
   const [holdings, odax, tablo, nova] = DEMO_COMPANIES;
+  const companyNode = (c: { id: string; name: string }) => ({
+    id: `company:${c.id}`,
+    type: "company" as const,
+    label: c.name,
+    lastRunAt: null,
+    lastRunStatus: null,
+    hasPendingApproval: false,
+    status: null,
+    scope: null,
+    departmentId: null,
+    roleTitle: null,
+  });
   const nodes = [
-    { id: `company:${holdings.id}`, type: "company" as const, label: holdings.name, lastRunAt: null, lastRunStatus: null, hasPendingApproval: false },
-    { id: `company:${odax.id}`, type: "company" as const, label: odax.name, lastRunAt: null, lastRunStatus: null, hasPendingApproval: false },
-    { id: `company:${tablo.id}`, type: "company" as const, label: tablo.name, lastRunAt: null, lastRunStatus: null, hasPendingApproval: false },
-    { id: `company:${nova.id}`, type: "company" as const, label: nova.name, lastRunAt: null, lastRunStatus: null, hasPendingApproval: false },
+    companyNode(holdings),
+    companyNode(odax),
+    companyNode(tablo),
+    companyNode(nova),
     {
       id: "agent:agent-sales",
       type: "agent" as const,
@@ -224,6 +262,10 @@ export function demoMap() {
       lastRunAt: hoursAgo(2),
       lastRunStatus: "success" as const,
       hasPendingApproval: true,
+      status: "active",
+      scope: "company",
+      departmentId: "demo-dept-sales",
+      roleTitle: "Sales",
     },
     {
       id: "agent:agent-marketing",
@@ -232,14 +274,26 @@ export function demoMap() {
       lastRunAt: hoursAgo(20),
       lastRunStatus: "error" as const,
       hasPendingApproval: false,
+      status: "active",
+      scope: "company",
+      departmentId: "demo-dept-marketing",
+      roleTitle: "Marketing / Creative",
     },
     {
       id: `agent:${DEMO_AGENT_IDS.groupCfo}`,
       type: "agent" as const,
       label: "Group CFO",
+      // No run yet — flows through the same real deriveAgentState logic as
+      // a live deployment would, landing on "sleeping" rather than a
+      // fabricated state, so the demo shows all 6 real states without
+      // inventing one just for the fixture.
       lastRunAt: null,
       lastRunStatus: null,
       hasPendingApproval: false,
+      status: "active",
+      scope: "group",
+      departmentId: null,
+      roleTitle: "Chief Financial Officer",
     },
   ];
   const edges = [

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 const PAGES: Array<{ path: string; heading: RegExp }> = [
-  { path: "/office", heading: /^office$/i },
+  { path: "/office", heading: /^colony$/i },
   { path: "/chat", heading: /^chat/i },
   { path: "/documents", heading: /^documents/i },
   { path: "/approvals", heading: /^approvals$/i },
@@ -21,8 +21,15 @@ test.describe("Navigation", () => {
   test("sidebar nav links navigate between the top-level and More pages", async ({ page }) => {
     // /office suppresses this sidebar in favor of its own left column (see
     // office.spec.ts) — every other page keeps it, so exercise it from one.
+    // "Colony" is the nav label but the route path stays /office (a URL
+    // slug is a technical detail, not brand-facing) — pathRegex is given
+    // explicitly rather than derived from the label for that one entry.
     await page.goto("/chat");
-    for (const label of ["Documents", "Approvals", "Office"]) {
+    for (const { label, pathRegex } of [
+      { label: "Documents", pathRegex: /\/documents/ },
+      { label: "Approvals", pathRegex: /\/approvals/ },
+      { label: "Colony", pathRegex: /\/office/ },
+    ]) {
       const link = page.getByRole("link", { name: label, exact: true });
       // On mobile the nav (and each link) is hidden behind the hamburger
       // toggle, and re-closes itself after every navigation.
@@ -30,7 +37,7 @@ test.describe("Navigation", () => {
         await page.getByRole("button", { name: "Toggle navigation" }).click();
       }
       await link.click();
-      await expect(page).toHaveURL(new RegExp(`/${label.toLowerCase()}`));
+      await expect(page).toHaveURL(pathRegex);
     }
   });
 
@@ -38,6 +45,6 @@ test.describe("Navigation", () => {
     const response = await page.goto("/this-route-does-not-exist");
     expect(response?.status()).toBe(404);
     await expect(page.getByText("Page not found")).toBeVisible();
-    await expect(page.getByRole("link", { name: /go to office/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /go to colony/i })).toBeVisible();
   });
 });

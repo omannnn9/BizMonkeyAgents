@@ -2,7 +2,7 @@
 
 ## What this is
 
-OD Group Cockpit is an internal AI command center for OD Group — OD Holdings
+OD Cortex is an internal AI command center for OD Group — OD Holdings
 (the group level) and its three companies, ODAX, Tablo, and NOVA. Each
 company gets one or more AI agents (built on the Anthropic Messages API) that
 can read the company's structured data, search its uploaded documents, and

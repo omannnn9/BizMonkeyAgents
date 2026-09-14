@@ -28,7 +28,10 @@ follow-up step. Writes an `audit_log` row (`create_company`).
 
 ## `GET /api/agents?companyId=`
 
-Lists active agents for a company (`id, name, role_title`).
+Lists active agents for a company (`id, name, role_title, scope,
+department_id`). The last two, added this pass, feed
+`lib/agent-title.ts`'s `deriveAgentRank()` — the display rank shown in
+`AgentSwitcher` instead of raw `role_title`.
 
 ## `POST /api/agents`
 
@@ -156,16 +159,22 @@ target, relation}>}` — `id` is `"{type}:{uuid}"`.
 
 ## `GET /api/map`
 
-A narrower slice of the same graph, purpose-built for the `/office` 3D
+A narrower slice of the same graph, purpose-built for the `/office` colony
 viewport: only `company`→`company`/`agent` edges, each agent node enriched
-with `lastRunAt`/`lastRunStatus`/`hasPendingApproval` so the scene can
-derive its state-glow signal without a second round trip.
+with everything the scene needs without a second round trip — the
+state-glow signal, and (added this pass) the fields
+`lib/agent-title.ts`'s `deriveAgentRank()` needs for the colony's rank
+labels.
 
 **Response:** same node/edge shape as `/api/graph`, plus on agent nodes:
 ```
 lastRunAt: string | null
 lastRunStatus: "success" | "error" | "pending" | null
 hasPendingApproval: boolean
+status: string | null          // agents.status — powers the "sleeping" state
+scope: string | null           // agents.scope
+departmentId: string | null    // agents.department_id
+roleTitle: string | null       // agents.role_title
 ```
 
 ## `GET /api/memories?companyId=`

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useCompany } from "@/lib/company-context";
 import { officeLayout } from "@/lib/office-layout";
+import { deriveAgentRank } from "@/lib/agent-title";
 import { LeftNav } from "@/components/office3d/LeftNav";
 import { ActivityFeed } from "@/components/office3d/ActivityFeed";
 import { TerminalStrip } from "@/components/office3d/TerminalStrip";
@@ -58,10 +59,10 @@ const CATEGORY_LINKS = [
 ];
 
 /**
- * Mission control: the home view. A left nav, a 3D viewport where every
- * company is a room and every agent a character whose state is a pure
- * function of real `agent_runs`/`approvals` rows, a right-side feed of what
- * agents actually said, and a bottom strip of raw activity lines — all
+ * The Colony: the home view. A left nav, a 3D viewport where every company
+ * is a district and every agent an Operator whose state is a pure function
+ * of real `agent_runs`/`approvals` rows, a right-side feed of what
+ * Operators actually said, and a bottom strip of raw activity lines — all
  * fed by the same /api/map, /api/activity, and /api/dashboard routes the
  * rest of this app already uses, reused unchanged.
  */
@@ -138,20 +139,25 @@ export default function OfficePage() {
     () => layout.agents.find((a) => a.agentId === selectedAgentId) ?? null,
     [layout.agents, selectedAgentId],
   );
-  const agentNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const a of layout.agents) map.set(a.agentId.replace(/^agent:/, ""), a.label);
+  const agentInfoById = useMemo(() => {
+    const map = new Map<string, { name: string; rank: string }>();
+    for (const a of layout.agents) {
+      map.set(a.agentId.replace(/^agent:/, ""), {
+        name: a.label,
+        rank: deriveAgentRank({ scope: a.scope ?? "company", departmentId: a.departmentId, roleTitle: a.roleTitle }),
+      });
+    }
     return map;
   }, [layout.agents]);
 
   return (
     <div className="flex h-[calc(100vh-6rem)] flex-col gap-3 p-3 sm:h-[calc(100vh-4rem)]">
       <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-sm font-semibold text-foreground">Office</h1>
+        <h1 className="text-sm font-semibold text-foreground">Colony</h1>
         <p className="hidden text-xs text-muted sm:block">
-          Rooms are companies, characters are agents. A glow above a character&apos;s head is always real:
-          blue while a message is in flight, red on a failed run, amber on a pending approval, green just
-          after a successful one.
+          Districts are companies, Operators are your AI teammates. A glow above an Operator&apos;s head
+          is always real: blue while executing, amber waiting on approval, red when blocked, green just
+          delivered, muted grey when sleeping.
         </p>
       </div>
 
@@ -184,7 +190,7 @@ export default function OfficePage() {
             </div>
 
             <div className="hidden md:block">
-              <ActivityFeed runs={runs} agentNameById={agentNameById} />
+              <ActivityFeed runs={runs} agentInfoById={agentInfoById} />
             </div>
           </div>
 
@@ -193,7 +199,7 @@ export default function OfficePage() {
               <Link
                 key={c.href}
                 href={c.href}
-                className="rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground hover:bg-surface-raised"
+                className="transition-cortex rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-foreground hover:bg-surface-raised hover:glow-accent"
               >
                 {c.label}
               </Link>
@@ -211,6 +217,11 @@ export default function OfficePage() {
           companyId={selectedAgent.companyId.replace(/^company:/, "")}
           agentId={selectedAgent.agentId.replace(/^agent:/, "")}
           agentLabel={selectedAgent.label}
+          agentRank={deriveAgentRank({
+            scope: selectedAgent.scope ?? "company",
+            departmentId: selectedAgent.departmentId,
+            roleTitle: selectedAgent.roleTitle,
+          })}
           onClose={() => setSelectedAgentId(null)}
           onSendStart={() => setWorkingAgentIds((prev) => new Set(prev).add(selectedAgent.agentId))}
           onSendEnd={() =>

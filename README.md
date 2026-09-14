@@ -1,4 +1,4 @@
-# OD Group Cockpit
+# OD Cortex
 
 Internal AI command center for OD Group (ODAX, Tablo, NOVA, OD Holdings). See the original build
 prompt and architecture doc for full context; this README covers what exists and how to bring it
@@ -35,7 +35,8 @@ department agents, the knowledge-graph view, scheduled briefings), **Phase 3** (
 the same way, group-scope agents, memory promotion, company/agent creator wizards, OKRs/board-report
 generation), a scoped-down **Phase 4** (a 3D preview at `/hq`, since retired), a **Phase 5** 2D
 pixel-art `/office` (also since retired — two visual passes, "Night Shift," both superseded), and
-**Phase 6** (the current mission-control `/office`, described below) are all built — everything that
+**Phase 6** (the mission-control `/office`) and **Phase 7** (the OD Cortex rebrand + colony world,
+described below) are all built — everything that
 doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
 applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
 (see below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested.
@@ -107,6 +108,44 @@ screenshots and an actual simulated click, not just a green test suite. (The fir
 3D scene, using a smaller world-unit scale for the layout-pixel-to-3D conversion, rendered every
 character as an invisible sub-pixel sliver — caught only by looking at a screenshot, the same lesson
 this project's `/hq` work learned once already.)
+
+**On Phase 7 (the OD Cortex rebrand) specifically:** an audit against a much higher visual bar
+("Arc Browser × Linear × an AI civilization sim," scored 38/100 going in) found the app real and
+correct underneath but generic everywhere it wasn't `/office` or `/graph` — one flat accent color, no
+motion system, plain `<select>` switchers, a repeated bordered-card pattern on every secondary page,
+and no name of its own. This pass is presentation-layer only — no migration, no change to
+`lib/agent/*`, no new API contract beyond one additive field — split across:
+
+- **The rebrand.** "OD Group Cockpit" → **OD Cortex** ("An operating system for companies"),
+  everywhere including this README and `docs/`. Agents get a rank instead of raw `role_title`,
+  derived from data that already existed (`lib/agent-title.ts`'s `deriveAgentRank()`: `scope`/
+  `department_id` → Group Executive / Company Executive / `{Department}` Lead) — mapped onto the
+  founder's requested hierarchy language with zero schema change. The collective term for an agent
+  anywhere none is named specifically is "Operator."
+- **Design tokens.** `app/globals.css` gained formalized state colors, glow utilities (applied only
+  to genuinely live elements — an active nav item, a state ring — never blanket), and motion timing
+  tokens most pages had none of before. `components/ui/Panel.tsx` is a new shared "instrument panel"
+  primitive, now used on Documents/Approvals/Memories, replacing the raw bordered-card div repeated
+  across each.
+- **The colony world.** `/office`'s 3D viewport and `lib/office-layout.ts` were rewritten from a
+  left-to-right wrapping grid of rooms into a radial layout: OD Holdings becomes the **Central
+  Command District** at the origin, every other company orbits it, connected by a glowing bridge
+  drawn from the same real `owns` edges `/graph` already visualizes — the hierarchy is now visible
+  spatially, not just implied. Districts are tinted platforms (not rooms with walls); Operators stand
+  at HUD-styled consoles instead of literal desks.
+- **A richer, still 100%-real state system.** The founder's brief asked for 8 Operator states.
+  Reconciled honestly rather than fabricated: Idle, Executing (now with two cosmetic animation
+  motifs — a particle swirl and a data-stream — cycling on the one real in-flight signal, not three
+  separate fake states), Waiting Approval, Blocked, Delivered are the prior 5, relabeled. **Sleeping**
+  is new and real (`agents.status !== "active"`, or no run in 24h+ — `/api/map` now additionally
+  selects `status`, the only API surface this pass touched). **Meeting** was not built — no
+  multi-agent feature exists to back it with a real event, and this project doesn't fabricate signals
+  that aren't backed by one; it becomes real if that feature ever exists.
+- **Deferred, on purpose** (see the plan file this pass used, or ask for the roadmap): a Hierarchy
+  Map and an AI Brain knowledge visualization, each as their own route; a Founder Command Mode
+  (a zoomed-out camera state within the same colony scene); and tweened camera transitions on
+  district switch. Each gets its own visual-verification pass when built, the same discipline that
+  caught the Phase 6 scale bug below.
 
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no
@@ -190,9 +229,9 @@ alongside this feature.
    Sales and Marketing agents propose `enrich_lead` / `generate_creative_asset` the same
    approval-gated way, then fail loudly since those integrations aren't connected. At OD Holdings,
    try Group CFO / Group Strategy — ask for a board report, or whether there are any cross-company
-   synergies worth flagging. `/office` (the home page) is the mission-control view of all of this
-   at once — click a company's room to focus it, click an agent's character to open its chat/runs/
-   approvals overlay. Check `/graph` for the full relationship explorer, now rendered as a glowing
+   synergies worth flagging. `/office` (the home page) is the Colony — a living view of all of this
+   at once — click a district to focus that company, click an Operator to open its chat/runs/
+   approvals overlay. Check `/graph` for the full relationship explorer, rendered as a glowing
    hologram schematic. Visit `/memories` and
    promote a company-scope memory to group. Try `/companies/new` and `/agents/new`.
 
@@ -224,7 +263,7 @@ that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn'
 | `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
 | `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO, Sales, Marketing, and Group CFO agents — including promote_memory, generate_board_report, and detect_synergies. |
-| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — checks across the `/office` mission-control shell (3D scene mounts, left nav/category row navigation, activity feed and terminal strip render real data), chat (incl. both agent switchers), documents, approvals, the knowledge graph, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed (a 3D-click-to-open-agent-panel check is deliberately not automated — see the office page's test file header — and is instead verified with real headless-browser screenshots). Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
+| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — checks across the `/office` Colony shell (3D scene mounts, left nav/category row navigation, activity feed and terminal strip render real data), chat (incl. both agent switchers), documents, approvals, the knowledge graph, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed (a 3D-click-to-open-agent-panel check is deliberately not automated — see the office page's test file header — and is instead verified with real headless-browser screenshots). Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
 
 ## What's genuinely not built yet
 

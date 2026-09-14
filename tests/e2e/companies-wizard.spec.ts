@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Creator wizards (demo mode)", () => {
-  test("new company form round-trips and redirects to the office", async ({ page }) => {
+  test("new company form round-trips and redirects to the colony", async ({ page }) => {
     await page.goto("/companies/new");
     await expect(page.getByRole("heading", { name: "New company" })).toBeVisible();
 

@@ -6,13 +6,13 @@ import { usePathname } from "next/navigation";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 
 const NAV = [
-  { href: "/office", label: "Office" },
+  { href: "/office", label: "Colony" },
   { href: "/chat", label: "Chat" },
 ];
 
-// Reachable, but not equal-weight with the office scene itself — these open
+// Reachable, but not equal-weight with the colony scene itself — these open
 // from a "More" disclosure instead of sitting in the primary nav. Activity
-// isn't here: its job is now the office page's own right-side feed and
+// isn't here: its job is now the colony page's own right-side feed and
 // terminal strip, same "fold into office, drop the standalone page" pattern
 // the old /dashboard and /map pages went through.
 const MORE_NAV = [
@@ -62,7 +62,10 @@ export function CockpitShell({
               </svg>
             </button>
           )}
-          <span className="text-sm font-semibold tracking-wide text-foreground">OD Group</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-semibold tracking-wide text-foreground">OD Cortex</span>
+            <span className="hidden text-[10px] text-muted lg:inline">An operating system for companies.</span>
+          </div>
           <div className="hidden sm:block">
             <CompanySwitcher />
           </div>
@@ -87,9 +90,9 @@ export function CockpitShell({
                   <Link
                     href={item.href}
                     onClick={() => setNavOpen(false)}
-                    className={`block rounded-md px-3 py-2 text-sm ${
+                    className={`transition-cortex block rounded-md px-3 py-2 text-sm ${
                       active
-                        ? "bg-surface-raised text-foreground"
+                        ? "glow-accent bg-surface-raised text-foreground"
                         : "text-muted hover:bg-surface-raised hover:text-foreground"
                     }`}
                   >
@@ -99,9 +102,7 @@ export function CockpitShell({
               );
             })}
           </ul>
-          <p className="mt-4 border-t border-border px-3 pt-4 text-[10px] uppercase tracking-wide text-muted">
-            More
-          </p>
+          <p className="label-caps mt-4 border-t border-border px-3 pt-4">More</p>
           <ul className="mt-1 flex flex-col gap-1">
             {MORE_NAV.map((item) => {
               const active = pathname === item.href;
@@ -110,9 +111,9 @@ export function CockpitShell({
                   <Link
                     href={item.href}
                     onClick={() => setNavOpen(false)}
-                    className={`block rounded-md px-3 py-2 text-sm ${
+                    className={`transition-cortex block rounded-md px-3 py-2 text-sm ${
                       active
-                        ? "bg-surface-raised text-foreground"
+                        ? "glow-accent bg-surface-raised text-foreground"
                         : "text-muted hover:bg-surface-raised hover:text-foreground"
                     }`}
                   >
@@ -131,9 +132,9 @@ export function CockpitShell({
                   <Link
                     href={item.href}
                     onClick={() => setNavOpen(false)}
-                    className={`block rounded-md px-3 py-2 text-sm ${
+                    className={`transition-cortex block rounded-md px-3 py-2 text-sm ${
                       active
-                        ? "bg-surface-raised text-foreground"
+                        ? "glow-accent bg-surface-raised text-foreground"
                         : "text-muted hover:bg-surface-raised hover:text-foreground"
                     }`}
                   >

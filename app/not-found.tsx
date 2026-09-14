@@ -6,13 +6,13 @@ export default function NotFound() {
       <p className="text-sm uppercase tracking-wide text-muted">404</p>
       <h1 className="text-lg font-semibold text-foreground">Page not found</h1>
       <p className="max-w-sm text-sm text-muted">
-        That page doesn&apos;t exist in the cockpit. Head back to the office.
+        That page doesn&apos;t exist in OD Cortex. Head back to the Colony.
       </p>
       <Link
         href="/office"
-        className="mt-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
+        className="transition-cortex mt-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:glow-accent"
       >
-        Go to office
+        Go to Colony
       </Link>
     </div>
   );

@@ -32,7 +32,7 @@ test.describe("Chat (demo mode)", () => {
     page,
   }) => {
     await page.goto("/chat");
-    const agentSwitcher = page.getByLabel("Active agent");
+    const agentSwitcher = page.getByLabel("Active Operator");
     await expect(agentSwitcher).toBeVisible();
     const options = await agentSwitcher.locator("option").allTextContents();
     expect(options.some((o) => o.includes("Group CFO"))).toBe(true);
@@ -41,7 +41,7 @@ test.describe("Chat (demo mode)", () => {
 
   test("asking the Group CFO for synergies calls detect_synergies in its demo reply", async ({ page }) => {
     await page.goto("/chat");
-    await page.getByLabel("Active agent").selectOption({ label: "Group CFO — Chief Financial Officer" });
+    await page.getByLabel("Active Operator").selectOption({ label: "Group CFO — Group Executive" });
     const input = page.getByPlaceholder(/Message the Group CFO/);
     await input.fill("Any cross-company synergies worth flagging?");
     await page.getByRole("button", { name: "Send" }).click();
@@ -55,13 +55,13 @@ test.describe("Chat (demo mode)", () => {
   }) => {
     await page.goto("/chat");
     await page.locator("select:visible").first().selectOption({ label: "ODAX" });
-    const agentSwitcher = page.getByLabel("Active agent");
+    const agentSwitcher = page.getByLabel("Active Operator");
     await expect(agentSwitcher).toBeVisible();
     const options = await agentSwitcher.locator("option").allTextContents();
     expect(options.some((o) => o.includes("Sales Agent"))).toBe(true);
     expect(options.some((o) => o.includes("Marketing Agent"))).toBe(true);
 
-    await agentSwitcher.selectOption({ label: "Sales Agent — Sales" });
+    await agentSwitcher.selectOption({ label: "Sales Agent — Sales Lead" });
     const input = page.getByPlaceholder(/Message the Sales Agent/);
     await input.fill("acme.com");
     await page.getByRole("button", { name: "Send" }).click();
