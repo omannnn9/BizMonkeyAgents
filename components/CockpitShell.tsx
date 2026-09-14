@@ -11,12 +11,14 @@ const NAV = [
 ];
 
 // Reachable, but not equal-weight with the office scene itself — these open
-// from a "More" disclosure instead of sitting in the primary nav.
+// from a "More" disclosure instead of sitting in the primary nav. Activity
+// isn't here: its job is now the office page's own right-side feed and
+// terminal strip, same "fold into office, drop the standalone page" pattern
+// the old /dashboard and /map pages went through.
 const MORE_NAV = [
   { href: "/graph", label: "Graph" },
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
-  { href: "/activity", label: "Activity" },
   { href: "/approvals", label: "Approvals" },
 ];
 
@@ -34,6 +36,11 @@ export function CockpitShell({
 }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
+  // /office has its own left column (components/office3d/LeftNav.tsx) that
+  // covers everything this sidebar does — including a link to every page
+  // below — so the sidebar (and its mobile toggle) would just be a second,
+  // redundant nav stacked on top of it.
+  const isMissionControl = pathname === "/office";
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -44,15 +51,17 @@ export function CockpitShell({
       )}
       <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3 sm:gap-6">
-          <button
-            onClick={() => setNavOpen((v) => !v)}
-            aria-label="Toggle navigation"
-            className="rounded-md border border-border p-1.5 text-muted hover:text-foreground md:hidden"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-              <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
+          {!isMissionControl && (
+            <button
+              onClick={() => setNavOpen((v) => !v)}
+              aria-label="Toggle navigation"
+              className="rounded-md border border-border p-1.5 text-muted hover:text-foreground md:hidden"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path d="M2 4h14M2 9h14M2 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
           <span className="text-sm font-semibold tracking-wide text-foreground">OD Group</span>
           <div className="hidden sm:block">
             <CompanySwitcher />
@@ -64,11 +73,12 @@ export function CockpitShell({
       </div>
 
       <div className="flex flex-1">
-        <nav
-          className={`${
-            navOpen ? "block" : "hidden"
-          } w-full shrink-0 border-b border-border bg-surface px-3 py-4 md:block md:w-48 md:border-b-0 md:border-r`}
-        >
+        {!isMissionControl && (
+          <nav
+            className={`${
+              navOpen ? "block" : "hidden"
+            } w-full shrink-0 border-b border-border bg-surface px-3 py-4 md:block md:w-48 md:border-b-0 md:border-r`}
+          >
           <ul className="flex flex-col gap-1">
             {NAV.map((item) => {
               const active = pathname === item.href;
@@ -134,8 +144,9 @@ export function CockpitShell({
             })}
           </ul>
         </nav>
+        )}
 
-        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
+        <main className={`min-w-0 flex-1 ${isMissionControl ? "" : "p-4 sm:p-6"}`}>{children}</main>
       </div>
     </div>
   );

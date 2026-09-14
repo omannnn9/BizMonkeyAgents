@@ -32,69 +32,80 @@ the round-trip works); it disappears automatically the moment real env vars are 
 **Phase 1** (one CEO agent, cockpit UI, approval gate, audit log), **Phase 2** (Sales/Marketing
 department agents, the knowledge-graph view, scheduled briefings), **Phase 3** (Tablo/NOVA onboarded
 the same way, group-scope agents, memory promotion, company/agent creator wizards, OKRs/board-report
-generation), a scoped-down **Phase 4** (a 3D preview at `/hq`, since retired — see below), and
-**Phase 5** (the pixel-art `/office` view that replaced it) are all built — everything that doesn't
-require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been applied
-to a live database or run end-to-end yet** — that's blocked on a Supabase project existing (see
-below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested. `/office`'s
-layout (no redirect, no login) was visually verified in a real browser with placeholder Supabase
-credentials, including a real headless-browser screenshot confirming the tileset and sprites actually
-render (not just that the canvas element mounts) — the actual data-bearing pages weren't fully
-exercised, since that needs a real database.
+generation), a scoped-down **Phase 4** (a 3D preview at `/hq`, since retired), a **Phase 5** 2D
+pixel-art `/office` (also since retired — two visual passes, "Night Shift," both superseded), and
+**Phase 6** (the current mission-control `/office`, described below) are all built — everything that
+doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
+applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
+(see below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested.
+`/office`'s layout (no redirect, no login) was visually verified in a real browser with placeholder
+Supabase credentials, including real headless-browser screenshots confirming the 3D scene actually
+renders and a full click-through (character click → agent overlay with real pending-approval and
+run data) — the actual data-bearing pages weren't fully exercised, since that needs a real database.
 
-**On Phase 5 (`/office`) specifically:** the 3D `/hq` view from Phase 4 was retired outright rather
-than iterated on — it was real-data-driven but visually read as a tech demo (a stock rigged humanoid
-on plain platforms), and the app had sprawled into nine equal-weight nav destinations that read as an
-admin panel rather than an "ecosystem." `/office` replaces `/hq`, `/map`, and `/dashboard` as the new
-home view: one canvas, each company as its own room, each agent a small pixel-art sprite. It's a
-pure rendering/navigation change — `/api/map` (extended additively with `lastRunStatus` and
-`hasPendingApproval`), `/api/dashboard`, `/api/activity`, `/api/approvals`, and `useCompany()` are
-all reused as-is, not rebuilt. Rendered with a small hand-rolled Canvas 2D renderer
-(`components/OfficeScene.tsx`) — no new runtime dependency, same preference this project already had
-for hand-rolling small renderers (`lib/graph-layout.ts`'s force layout) over pulling in a library.
-Room/agent placement is a deterministic grid (`lib/office-layout.ts`), not a physics simulation —
-company areas need to read as distinct rooms, not a floating network.
+**On Phase 6 (`/office`) specifically:** two prior visual passes at `/office` (a 2D pixel-art canvas,
+then a "Night Shift" dark/glow re-theme of it) missed the actual target — the founder's reference
+turned out to be a dense, multi-panel **mission-control app shell** with a real 3D viewport as its
+centerpiece, not 2D pixel art at all. Rather than guess a third time, this pass started by pulling
+real screenshots/source from five reference projects (`paulrobello/claude-office`,
+`ColdSlither/pixel-agents`, `fakeminjun7321/pixel-office`, `naolnegassa/StarOffice-UI`, a16z's
+AI Town), confirmed the structural read (left nav / 3D viewport / right activity feed / bottom
+terminal strip, plus a category-button row and a separately-styled `/graph`) with the founder before
+building anything, then built it. `/office` is now four zones:
 
-Character and furniture sprites (`public/sprites/office/`) come from
-[Pixel Agents](https://github.com/pixel-agents-hq/pixel-agents) (MIT — see
-`public/sprites/office/ATTRIBUTION.md`), a similar agent-visualization tool the founder pointed to
-as a visual reference; its own README credits the characters to the Metro City pack (JIK-A-4,
-itch.io). Its floor/wall PNGs turned out to be uncolored template tiles meant for a runtime HSL
-tinting pipeline we don't have (confirmed by inspecting them directly — one is a flat gray square,
-the other a khaki bitmask atlas), so those stayed out; floors and walls are plain canvas fills
-instead, which reads close enough to the reference without building an equivalent tinting system.
-Each agent's desk gets a real, not decorative, monitor: **on** once that agent has ever produced a
-run (`lastRunAt !== null`), **off** otherwise. Each agent sprite's visual *state ring* is a pure
-function of real rows, checked in this order: **working** (blue — this browser has a chat request in
-flight to that agent right now; the one state that is deliberately client-side-only, since no data
-anywhere records "an agent is mid-turn" — `agent_runs` rows are written only after a turn completes,
-so there is nothing durable to poll for this), **error** (red — the agent's last run failed),
-**needs-approval** (amber — a pending row in `approvals`), **delivering** (green — a successful run
-in roughly the last two minutes), else idle. Nothing here is a decorative animation that isn't gated
-by one of those checks; the only ambient motion is a shared idle sprite-frame bob, the same category
-as `/map`'s old idle-breathing nodes — cosmetic life, never itself a claim about a real event.
+- **Left nav** (`components/office3d/LeftNav.tsx`) — active company, a short "recent" list (reuses
+  `/api/dashboard`'s existing `recentDecisions`), and links to Graph/Documents/Memories/Approvals/
+  Chat — the real equivalents of the reference's generic Whiteboard/Design Board/Builder/Chats/
+  Projects/Workflows labels, not those labels themselves.
+- **3D viewport** (`components/office3d/OfficeScene3D.tsx`, `@react-three/fiber` + `@react-three/
+  drei`) — each company a room, each agent a simple capsule-and-sphere figure in one flat, saturated
+  color, seated at a box desk with a box monitor. `three`/`@react-three/fiber`/`@react-three/drei`
+  were removed from this project twice before (once after the original `/hq`, again when 2D pixel
+  art replaced it) specifically to avoid this dependency weight — reintroduced now only because the
+  confirmed reference genuinely calls for real 3D depth, and only for simple primitives (no rigging,
+  no custom modeling, no `OrbitControls` — a fixed camera frames the whole layout). Room/agent
+  placement still comes from the same deterministic grid (`lib/office-layout.ts`, unchanged), just
+  read as 3D world coordinates instead of canvas pixels. The monitor is real, not decorative: lit
+  once an agent has ever produced a run. Each agent's state signal
+  (`lib/agent-visual-state.ts`'s `deriveAgentState` — same logic as every visual pass before this
+  one, untouched) is a glowing colored halo above the character's head — **working** (blue, in-flight
+  chat request), **error** (red), **needs-approval** (amber), **delivering** (green, a successful run
+  in the last two minutes), else idle and dimmed so it recedes. Clicking a room calls the same
+  `setActiveCompanyId()` the header's company switcher already used; clicking a character opens the
+  same `components/OfficeAgentPanel.tsx` overlay (chat, recent runs, pending approvals) every prior
+  pass has used, unchanged.
+- **Right activity feed** (`ActivityFeed.tsx`) — real `agent_runs.output` (the column existed since
+  `0001_init.sql`, just never selected before `/api/activity/route.ts` picked it up here), attributed
+  by agent name. An agent with no output yet shows its last real status, never invented dialogue.
+- **Bottom terminal strip** (`TerminalStrip.tsx`) — the same `agent_runs`/`audit_log` rows the feed
+  already fetches, re-presented as raw monospace log lines. No second data source.
+- A **category row** below the viewport links to Documents/Memories/Graph/Approvals/+New company/+New
+  agent — the reference's generic Applications/Automation/Shared Packages/Knowledge/Verification/
+  Creative Assets row, remapped onto what this app actually has rather than inventing pages for
+  labels with nothing real behind them.
 
-**Look and feel ("Night Shift"):** the office is a near-black scene where color is spent only on
-whichever agent actually has something real to show — a glowing halo behind the character's head
-(not a mark at their feet), everything else (floor grid, decor, idle agents) dimmed to recede, one
-full-canvas vignette. This came out of a second design pass after the founder pointed at five other
-agent-office projects (`paulrobello/claude-office`, `ColdSlither/pixel-agents`,
-`fakeminjun7321/pixel-office` — self-described "dark first, glow second: ~85% near-black navy, neon
-is the spice" — `naolnegassa/StarOffice-UI`, and a16z's AI Town) and said the first pass, while
-data-correct, wasn't polished. Two competing static mockups (this dark/glow direction, and a warm
-"lived-in" alternative closer to StarOffice-UI's cluttered, lamp-lit look) were built and shown before
-either was implemented — this one was the one picked. The only genuinely new motion is each agent's
-"prominence" easing toward its target (dim when idle, bright when it has a real state) a little each
-frame, rather than snapping instantly — smoother, but it never changes *which* state is shown, only
-how the render catches up to one that already changed.
+The standalone `/activity` page is retired — its job is now this feed + terminal strip, the same
+"fold into `/office`, keep the API route" pattern the old `/dashboard` and `/map` pages went through.
+`CockpitShell`'s sidebar is suppressed specifically on `/office` (one `pathname === "/office"`
+conditional) since the left nav above covers the same ground; every other page's sidebar (including
+"More" → Graph/Documents/Memories/Approvals) is untouched.
 
-`/graph`, `/documents`, `/memories`, `/activity`, and `/approvals` remain full pages, reachable from
-a "More" section in the sidebar rather than sitting as equal-weight items next to Office/Chat.
-Clicking a company's room calls the same `setActiveCompanyId()` the header's company switcher
-already used (both stay in sync); clicking an agent's sprite opens an overlay with its chat
-(`components/AgentChatPanel.tsx`, extracted out of `/chat` so there's one chat implementation, not
-two — `/chat` uses the same component), recent runs, and pending approvals, without navigating away
-from the scene.
+`/graph` gets a matching "hologram" treatment — glowing rounded-panel nodes and curved, glowing edge
+lines on a dark blueprint-grid background (SVG `<filter>` blur behind a bright stroke) — on the
+exact same `lib/graph-layout.ts` force-layout positions as before, unchanged. A rendering-only change,
+not a second 3D scene: the reference calls this a differently-styled "companion screen," not a claim
+that it needs real depth too.
+
+**Testing note specific to this pass:** clicking a specific 3D character isn't covered by the
+automated e2e suite — computing the right screen coordinate would mean duplicating
+`@react-three/fiber`'s camera projection math just for a test. `tests/e2e/office.spec.ts` covers
+everything DOM-based (the scene mounting, left-nav/category-row navigation, the feed and terminal
+rendering real fixture data); the 3D scene's own correctness — camera framing, character/room
+rendering, the click → agent-overlay round trip — was verified manually with real headless-browser
+screenshots and an actual simulated click, not just a green test suite. (The first version of the
+3D scene, using a smaller world-unit scale for the layout-pixel-to-3D conversion, rendered every
+character as an invisible sub-pixel sliver — caught only by looking at a screenshot, the same lesson
+this project's `/hq` work learned once already.)
 
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no
@@ -178,9 +189,10 @@ alongside this feature.
    Sales and Marketing agents propose `enrich_lead` / `generate_creative_asset` the same
    approval-gated way, then fail loudly since those integrations aren't connected. At OD Holdings,
    try Group CFO / Group Strategy — ask for a board report, or whether there are any cross-company
-   synergies worth flagging. `/office` (the home page) is the pixel-art view of all of this at
-   once — click a company's room to focus it, click an agent's sprite to open its chat/runs/
-   approvals overlay. Check `/graph` for the full relationship explorer. Visit `/memories` and
+   synergies worth flagging. `/office` (the home page) is the mission-control view of all of this
+   at once — click a company's room to focus it, click an agent's character to open its chat/runs/
+   approvals overlay. Check `/graph` for the full relationship explorer, now rendered as a glowing
+   hologram schematic. Visit `/memories` and
    promote a company-scope memory to group. Try `/companies/new` and `/agents/new`.
 
 ## Deploying
@@ -211,7 +223,7 @@ that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn'
 | `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
 | `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO, Sales, Marketing, and Group CFO agents — including promote_memory, generate_board_report, and detect_synergies. |
-| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — 54 checks across the `/office` pixel-art view (canvas render, company-room focus, agent-sprite overlay), chat (incl. both agent switchers), documents, activity, approvals, the knowledge graph, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed. Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
+| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — checks across the `/office` mission-control shell (3D scene mounts, left nav/category row navigation, activity feed and terminal strip render real data), chat (incl. both agent switchers), documents, approvals, the knowledge graph, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed (a 3D-click-to-open-agent-panel check is deliberately not automated — see the office page's test file header — and is instead verified with real headless-browser screenshots). Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
 
 ## What's genuinely not built yet
 

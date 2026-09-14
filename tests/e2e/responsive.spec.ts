@@ -7,15 +7,18 @@ test.describe("Responsive layout", () => {
   test.use({ viewport: devices["iPhone 13"].viewport });
 
   test("mobile: nav is hidden behind a hamburger toggle", async ({ page }) => {
-    await page.goto("/office");
-    const nav = page.getByRole("link", { name: "Chat", exact: true });
+    // /office suppresses this sidebar for its own left column, so this
+    // exercises it from a page that still has it — see office.spec.ts for
+    // /office's own mobile behavior.
+    await page.goto("/chat");
+    const nav = page.getByRole("link", { name: "Documents", exact: true });
     await expect(nav).toBeHidden();
 
     await page.getByRole("button", { name: "Toggle navigation" }).click();
     await expect(nav).toBeVisible();
 
     await nav.click();
-    await expect(page).toHaveURL(/\/chat/);
+    await expect(page).toHaveURL(/\/documents/);
   });
 
   test("mobile: company switcher moves below the header", async ({ page }) => {

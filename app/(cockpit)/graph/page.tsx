@@ -58,48 +58,87 @@ export default function GraphPage() {
         <div className="flex flex-col gap-4 lg:flex-row">
           <svg
             viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-            className="w-full flex-1 rounded-lg border border-border bg-surface"
+            className="w-full flex-1 rounded-lg border border-border"
+            style={{ background: "radial-gradient(120% 90% at 50% -10%, #0d1530 0%, #05070f 60%)" }}
             role="img"
             aria-label="Knowledge graph"
           >
+            <defs>
+              <filter id="hologram-glow" x="-60%" y="-60%" width="220%" height="220%">
+                <feGaussianBlur stdDeviation="3.2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <pattern id="hologram-grid" width="28" height="28" patternUnits="userSpaceOnUse">
+                <path d="M28 0H0V28" fill="none" stroke="#1c2b55" strokeWidth="0.5" opacity="0.35" />
+              </pattern>
+            </defs>
+
+            <rect x={0} y={0} width={WIDTH} height={HEIGHT} fill="url(#hologram-grid)" />
+
             {edges.map((e, i) => {
               const a = byId.get(e.source);
               const b = byId.get(e.target);
               if (!a || !b) return null;
+              // A gentle curve, not a straight line — reads as a circuit
+              // trace rather than a wireframe diagram. Offset perpendicular
+              // to the segment, same amount every time (deterministic, not
+              // physics) so the same graph always draws the same way.
+              const mx = (a.x + b.x) / 2;
+              const my = (a.y + b.y) / 2;
+              const dx = b.x - a.x;
+              const dy = b.y - a.y;
+              const len = Math.max(Math.hypot(dx, dy), 1);
+              const bow = Math.min(len * 0.12, 24);
+              const cx = mx + (-dy / len) * bow;
+              const cy = my + (dx / len) * bow;
               return (
-                <line
+                <path
                   key={i}
-                  x1={a.x}
-                  y1={a.y}
-                  x2={b.x}
-                  y2={b.y}
-                  stroke="currentColor"
-                  className="text-border"
-                  strokeWidth={1.5}
+                  d={`M ${a.x} ${a.y} Q ${cx} ${cy} ${b.x} ${b.y}`}
+                  fill="none"
+                  stroke="#5ad4ff"
+                  strokeOpacity={0.55}
+                  strokeWidth={1.3}
+                  filter="url(#hologram-glow)"
                 />
               );
             })}
-            {positioned.map((n) => (
-              <g
-                key={n.id}
-                onClick={() => setSelectedId(n.id)}
-                className="cursor-pointer"
-                role="button"
-                aria-label={n.label}
-              >
-                <circle
-                  cx={n.x}
-                  cy={n.y}
-                  r={selectedId === n.id ? 12 : 9}
-                  fill={colorForNodeType(n.type)}
-                  stroke={selectedId === n.id ? "#fff" : "none"}
-                  strokeWidth={2}
-                />
-                <text x={n.x} y={n.y + 20} textAnchor="middle" className="fill-foreground text-[10px]">
-                  {n.label}
-                </text>
-              </g>
-            ))}
+
+            {positioned.map((n) => {
+              const color = colorForNodeType(n.type);
+              const selected = selectedId === n.id;
+              const w = Math.max(64, n.label.length * 6.5 + 16);
+              const h = 26;
+              return (
+                <g
+                  key={n.id}
+                  onClick={() => setSelectedId(n.id)}
+                  className="cursor-pointer"
+                  role="button"
+                  aria-label={n.label}
+                >
+                  <rect
+                    x={n.x - w / 2}
+                    y={n.y - h / 2}
+                    width={w}
+                    height={h}
+                    rx={7}
+                    fill="#0a1226"
+                    fillOpacity={0.85}
+                    stroke={color}
+                    strokeWidth={selected ? 2 : 1.2}
+                    filter="url(#hologram-glow)"
+                  />
+                  <circle cx={n.x - w / 2 + 9} cy={n.y} r={2.5} fill={color} filter="url(#hologram-glow)" />
+                  <text x={n.x + 4} y={n.y + 3.5} textAnchor="middle" fontSize={9} fill="#dbe6ff">
+                    {n.label}
+                  </text>
+                </g>
+              );
+            })}
           </svg>
 
           <div

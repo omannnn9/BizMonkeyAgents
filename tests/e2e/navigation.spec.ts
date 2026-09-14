@@ -4,7 +4,6 @@ const PAGES: Array<{ path: string; heading: RegExp }> = [
   { path: "/office", heading: /^office$/i },
   { path: "/chat", heading: /^chat/i },
   { path: "/documents", heading: /^documents/i },
-  { path: "/activity", heading: /^activity$/i },
   { path: "/approvals", heading: /^approvals$/i },
 ];
 
@@ -19,9 +18,11 @@ test.describe("Navigation", () => {
     });
   }
 
-  test("nav links navigate between the top-level and More pages", async ({ page }) => {
-    await page.goto("/office");
-    for (const label of ["Chat", "Documents", "Activity", "Approvals", "Office"]) {
+  test("sidebar nav links navigate between the top-level and More pages", async ({ page }) => {
+    // /office suppresses this sidebar in favor of its own left column (see
+    // office.spec.ts) — every other page keeps it, so exercise it from one.
+    await page.goto("/chat");
+    for (const label of ["Documents", "Approvals", "Office"]) {
       const link = page.getByRole("link", { name: label, exact: true });
       // On mobile the nav (and each link) is hidden behind the hamburger
       // toggle, and re-closes itself after every navigation.

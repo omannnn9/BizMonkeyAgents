@@ -48,6 +48,7 @@ export function demoActivity(agentId?: string | null) {
       status: "success",
       model: "claude-sonnet-5",
       input: "What open tasks do we have for the MD follow-up?",
+      output: "Two open: confirm the pricing tier with the MD, and send the updated proposal by Friday.",
     },
     {
       id: "r2",
@@ -56,6 +57,7 @@ export function demoActivity(agentId?: string | null) {
       status: "error",
       model: "claude-sonnet-5",
       input: "Draft an email to the MD about the Q3 numbers",
+      output: null,
     },
   ];
   return {
