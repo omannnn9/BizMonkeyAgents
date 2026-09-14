@@ -2,7 +2,8 @@
 
 Internal AI command center for OD Group (ODAX, Tablo, NOVA, OD Holdings). See the original build
 prompt and architecture doc for full context; this README covers what exists and how to bring it
-online.
+online. For a deeper technical reference — the data model, the agent runtime and every tool, the
+full API surface, and a per-page frontend breakdown — see **[`docs/`](./docs/README.md)**.
 
 ## No login, by design
 
