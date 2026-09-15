@@ -36,8 +36,9 @@ the same way, group-scope agents, memory promotion, company/agent creator wizard
 generation), a scoped-down **Phase 4** (a 3D preview at `/hq`, since retired), a **Phase 5** 2D
 pixel-art `/office` (also since retired — two visual passes, "Night Shift," both superseded), and
 **Phase 6** (the mission-control `/office`), **Phase 7** (the OD Cortex rebrand + colony world),
-**Phase 8** (the `/hierarchy` organizational tree), and **Phase 9** (the `/brain` AI Brain, all
-described below) are all built — everything that
+**Phase 8** (the `/hierarchy` organizational tree), **Phase 9** (the `/brain` AI Brain), and
+**Phase 10** (Founder Command Mode + district-switch camera transitions, all described below) are
+all built — everything that
 doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
 applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
 (see below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested.
@@ -145,10 +146,10 @@ and no name of its own. This pass is presentation-layer only — no migration, n
 - **Deferred, on purpose** at the time (see the plan file this pass used, or ask for the roadmap):
   a Hierarchy Map and an AI Brain knowledge visualization, each as their own route; a Founder Command
   Mode (a zoomed-out camera state within the same colony scene); and tweened camera transitions on
-  district switch. The Hierarchy Map shipped next as **Phase 8**, and the AI Brain as **Phase 9**
-  (both below). Founder Command Mode and district-switch camera transitions are still deferred. Each
-  gets its own visual-verification pass when built, the same discipline that caught the Phase 6 scale
-  bug below.
+  district switch. The Hierarchy Map shipped next as **Phase 8**, the AI Brain as **Phase 9**, and
+  Founder Command Mode + the camera transitions as **Phase 10** (all below) — closing out the
+  original roadmap. Each gets its own visual-verification pass when built, the same discipline that
+  caught the Phase 6 scale bug below.
 
 **Phase 8 (`/hierarchy`)** is the founder's brief's most concrete ask fulfilled literally: *"I want
 to instantly understand Founder → Group Executives → Company Executives → Department Leads →
@@ -194,6 +195,24 @@ screenshot-tune-reshoot cycle as every prior 3D pass: the first render was a fla
 sphere with too much empty margin, fixed with layered transparent glow-halo shells (a cheap stand-in
 for a real bloom pass this app's pipeline doesn't have) and a re-derived, explicitly margin-checked
 camera distance. See [`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
+
+**Phase 10** closes out the original roadmap's last two deferred items — **Founder Command Mode**
+and **tweened camera transitions on district switch** — by making them one feature. The colony's
+camera was fully static until now (set once on mount; react-three-fiber never repositions an
+already-created camera from prop changes), always framed to fit the whole colony, so switching
+companies only ever highlighted a ring — the camera never moved. Now a `CameraRig` inside the scene
+lerps the real camera toward a target every frame: by default, tightly framed on whichever company is
+active (switching companies now visibly *means* something in 3D space); or, with an explicit "Command
+Mode" toggle, pulled back to frame the entire colony — which is exactly the original fixed shot, made
+reachable on demand instead of the only option. Command Mode also raises a real metrics HUD (district
+count, Operator count, pending approvals, and a live state breakdown) computed entirely client-side
+from data the page already has in memory — **zero new fetch, zero new API route**, an even stronger
+position than the last two passes (the Hierarchy Map reused an existing route; the AI Brain justified
+one new one). Caught one real bug via a screenshot before calling this done: the HUD first rendered
+hundreds of pixels below the viewport instead of floating over the scene, because `Panel`'s own
+hardcoded `relative` class fought an `absolute` override passed alongside it through Tailwind's
+class-order cascade — fixed by wrapping `Panel` in its own positioned element instead. See
+[`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
 
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no

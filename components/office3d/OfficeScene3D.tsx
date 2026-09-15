@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import type * as THREE from "three";
+import * as THREE from "three";
 import type { OfficeAgentPosition, OfficeDistrict, OfficeLayout } from "@/lib/office-layout";
 import { deriveAgentState, STATE_COLOR, type AgentVisualState } from "@/lib/agent-visual-state";
 import { deriveAgentRank } from "@/lib/agent-title";
@@ -34,6 +34,88 @@ function hashToIndex(id: string, mod: number): number {
 // character palette above, over a distinct hue set so districts read as
 // visually separate zones on sight rather than identical grey platforms.
 const DISTRICT_TINTS = ["#1d2a45", "#1f3a33", "#3a2440", "#402a1f", "#233a40"];
+
+// The angled-overhead ratios the fixed camera already used, factored out so
+// both the initial static camera prop and the per-frame rig below stay in
+// sync — one source of truth for "what this camera's shot looks like",
+// never two numbers that can drift apart.
+const CAMERA_HEIGHT_RATIO = 1.6;
+const CAMERA_BACK_RATIO = 0.75;
+const CAMERA_LERP_SPEED = 2.4;
+
+// A district's own radius is much smaller than the whole colony's extent,
+// so framing just one needs its own margin ratio relative to itself —
+// tuned by a real screenshot before calling this done, the same discipline
+// that already caught three camera-framing bugs in this project (colony
+// world twice, the AI Brain once).
+const FOCUS_DIST_MULTIPLIER = 4.5;
+const FOCUS_MIN_DIST = 3.4;
+
+function cameraPositionFor(cx: number, cz: number, dist: number): [number, number, number] {
+  return [cx, dist * CAMERA_HEIGHT_RATIO, cz + dist * CAMERA_BACK_RATIO];
+}
+
+function colonyDist(layout: OfficeLayout): number {
+  // Layout width/height are already a full diameter (office-layout.ts
+  // computes them as 2x the farthest district's extent from the origin).
+  return Math.max(Math.max(layout.width, layout.height) / SCALE, 6);
+}
+
+/** Command Mode always frames the whole colony (today's original fixed
+ *  shot, made explicit and reachable on demand). Otherwise, frame just the
+ *  active district tightly — falling back to the central district if none
+ *  resolves, so the camera never has nothing to look at. */
+function cameraTargetFor(
+  layout: OfficeLayout,
+  activeCompanyId: string | null,
+  commandMode: boolean,
+): { center: [number, number]; dist: number } {
+  if (!commandMode) {
+    const activeDistrict =
+      layout.districts.find((d) => d.companyId === `company:${activeCompanyId}`) ??
+      layout.districts.find((d) => d.isCentral) ??
+      layout.districts[0];
+    if (activeDistrict) {
+      const dist = Math.max((activeDistrict.radius / SCALE) * FOCUS_DIST_MULTIPLIER, FOCUS_MIN_DIST);
+      return { center: [activeDistrict.x / SCALE, activeDistrict.y / SCALE], dist };
+    }
+  }
+  return { center: [0, 0], dist: colonyDist(layout) };
+}
+
+/** Lives inside the Canvas and lerps the real camera toward its current
+ *  target every frame, calling lookAt each frame — the standard R3F rig
+ *  pattern for a camera that must move after mount: changing the `camera`
+ *  prop on <Canvas> never repositions an already-created camera (r3f only
+ *  calls camera.lookAt(0,0,0) once, on initial creation). */
+function CameraRig({
+  layout,
+  activeCompanyId,
+  commandMode,
+}: {
+  layout: OfficeLayout;
+  activeCompanyId: string | null;
+  commandMode: boolean;
+}) {
+  const { camera } = useThree();
+  const targetPosition = useRef(new THREE.Vector3());
+  const targetLookAt = useRef(new THREE.Vector3());
+  const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
+
+  useFrame((_state, delta) => {
+    const { center, dist } = cameraTargetFor(layout, activeCompanyId, commandMode);
+    const [px, py, pz] = cameraPositionFor(center[0], center[1], dist);
+    targetPosition.current.set(px, py, pz);
+    targetLookAt.current.set(center[0], 0, center[1]);
+
+    const t = Math.min(1, delta * CAMERA_LERP_SPEED);
+    camera.position.lerp(targetPosition.current, t);
+    currentLookAt.current.lerp(targetLookAt.current, t);
+    camera.lookAt(currentLookAt.current);
+  });
+
+  return null;
+}
 
 function Label({ children, color = "#cfd3da" }: { children: React.ReactNode; color?: string }) {
   // A DOM overlay (the app's own CSS/fonts), not drei's <Text> — <Text>
@@ -381,6 +463,7 @@ export function OfficeScene3D({
   workingAgentIds,
   selectedAgentId,
   activeCompanyId,
+  commandMode,
   onSelectAgent,
   onSelectCompany,
 }: {
@@ -388,18 +471,11 @@ export function OfficeScene3D({
   workingAgentIds: Set<string>;
   selectedAgentId: string | null;
   activeCompanyId: string | null;
+  commandMode: boolean;
   onSelectAgent: (agentId: string) => void;
   onSelectCompany: (companyId: string) => void;
 }) {
-  // `layout.width`/`height` are already a full diameter (office-layout.ts
-  // computes them as 2x the farthest district's extent from the origin) —
-  // "dist" needs that same full-diameter quantity, not a radius, to match
-  // the proven camera-framing ratios below. Halving it here was the exact
-  // shape of the invisible-character bug this project already hit once on
-  // the old grid layout — caught again this pass by actually looking at a
-  // screenshot before calling the colony rewrite done, not by the math
-  // alone. See app/globals.css's SCALE comment above for the earlier story.
-  const dist = Math.max(Math.max(layout.width, layout.height) / SCALE, 6);
+  const dist = colonyDist(layout);
 
   // A ticking clock in state, not a direct Date.now() read during render —
   // only needs to be fresh enough to flip the "delivered"/"sleeping"
@@ -422,7 +498,11 @@ export function OfficeScene3D({
       // better) sees the full circle evenly regardless of which way a
       // district happens to orbit — caught by actually looking at a
       // screenshot with the old 3/4 angle first, not by the math alone.
-      camera={{ position: [0, dist * 1.6, dist * 0.75], fov: 42 }}
+      // This is also exactly Command Mode's own framing (colonyDist over
+      // the whole layout, centered on the origin) — the initial shot IS
+      // the Command Mode shot; CameraRig below takes over from here and
+      // moves it every frame based on the real active district / mode.
+      camera={{ position: cameraPositionFor(0, 0, dist), fov: 42 }}
       gl={{ antialias: true }}
       role="img"
       aria-label="Colony scene"
@@ -431,6 +511,8 @@ export function OfficeScene3D({
       <fog attach="fog" args={["#05060a", dist * 1.9, dist * 4.6]} />
       <ambientLight intensity={0.5} />
       <directionalLight position={[dist * 0.4, dist * 0.9, dist * 0.3]} intensity={0.65} />
+
+      <CameraRig layout={layout} activeCompanyId={activeCompanyId} commandMode={commandMode} />
 
       <SceneContents
         layout={layout}

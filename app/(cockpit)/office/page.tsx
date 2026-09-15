@@ -9,6 +9,7 @@ import { deriveAgentRank } from "@/lib/agent-title";
 import { LeftNav } from "@/components/office3d/LeftNav";
 import { ActivityFeed } from "@/components/office3d/ActivityFeed";
 import { TerminalStrip } from "@/components/office3d/TerminalStrip";
+import { CommandHUD } from "@/components/office3d/CommandHUD";
 import { OfficeAgentPanel } from "@/components/OfficeAgentPanel";
 import type { MapEdge, MapNode } from "@/app/api/map/route";
 
@@ -79,6 +80,16 @@ export default function OfficePage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
+  const [commandMode, setCommandMode] = useState(false);
+
+  // Command Mode's HUD lives outside the Canvas (a plain DOM overlay), so
+  // it needs its own ticking clock to flip the same "delivered"/"sleeping"
+  // windows OfficeScene3D's internal clock already drives for the 3D glows.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 5_000);
+    return () => clearInterval(tick);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -155,7 +166,21 @@ export default function OfficePage() {
   return (
     <div className="flex h-[calc(100vh-6rem)] flex-col gap-3 p-3 sm:h-[calc(100vh-4rem)]">
       <div className="flex items-baseline justify-between gap-3">
-        <h1 className="text-sm font-semibold text-foreground">Colony</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-foreground">Colony</h1>
+          <button
+            type="button"
+            aria-pressed={commandMode}
+            onClick={() => setCommandMode((v) => !v)}
+            className={`transition-cortex rounded-md border px-2.5 py-1 text-xs ${
+              commandMode
+                ? "border-accent bg-accent/15 text-foreground glow-accent"
+                : "border-border bg-surface text-muted hover:bg-surface-raised hover:text-foreground"
+            }`}
+          >
+            Command Mode
+          </button>
+        </div>
         <p className="hidden text-xs text-muted sm:block">
           Districts are companies, Operators are your AI teammates. A glow above an Operator&apos;s head
           is always real: blue while executing, amber waiting on approval, red when blocked, green just
@@ -180,15 +205,17 @@ export default function OfficePage() {
               />
             </div>
 
-            <div className="min-h-[320px]">
+            <div className="relative min-h-[320px]">
               <OfficeScene3D
                 layout={layout}
                 workingAgentIds={workingAgentIds}
                 selectedAgentId={selectedAgentId}
                 activeCompanyId={activeCompanyId || null}
+                commandMode={commandMode}
                 onSelectAgent={setSelectedAgentId}
                 onSelectCompany={setActiveCompanyId}
               />
+              {commandMode && <CommandHUD layout={layout} workingAgentIds={workingAgentIds} now={now} />}
             </div>
 
             <div className="hidden md:block">

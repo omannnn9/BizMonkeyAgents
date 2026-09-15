@@ -39,3 +39,41 @@ export const STATE_COLOR: Record<AgentVisualState, string | null> = {
   sleeping: "#6b7a99",
   idle: null,
 };
+
+/** The same state names, in the founder-facing phrasing the colony's own
+ *  header copy already uses ("amber waiting on approval", "red when
+ *  blocked", ...) — reused by Command Mode's HUD so a state means the same
+ *  thing everywhere it's shown. */
+export const STATE_LABEL: Record<AgentVisualState, string> = {
+  executing: "executing",
+  approval: "awaiting approval",
+  blocked: "blocked",
+  delivered: "delivered",
+  sleeping: "sleeping",
+  idle: "idle",
+};
+
+/** Sums `deriveAgentState()` across every Operator in the org — not a new
+ *  signal, the exact same per-character function every glow in the colony
+ *  already calls, just aggregated. Used by Command Mode's HUD to show a
+ *  real org-wide breakdown instead of one character at a time. */
+export function summarizeAgentStates(
+  agents: Array<
+    Pick<OfficeAgentPosition, "agentId" | "lastRunAt" | "lastRunStatus" | "hasPendingApproval" | "status">
+  >,
+  workingAgentIds: Set<string>,
+  now: number,
+): Record<AgentVisualState, number> {
+  const counts: Record<AgentVisualState, number> = {
+    executing: 0,
+    blocked: 0,
+    approval: 0,
+    delivered: 0,
+    sleeping: 0,
+    idle: 0,
+  };
+  for (const agent of agents) {
+    counts[deriveAgentState(agent, workingAgentIds.has(agent.agentId), now)]++;
+  }
+  return counts;
+}

@@ -41,6 +41,28 @@ test.describe("Colony (demo mode)", () => {
     await expect(terminal.getByText(/audit/).first()).toBeVisible();
   });
 
+  test("Command Mode HUD shows real org-wide counts", async ({ page }) => {
+    await page.goto("/office");
+    const toggle = page.getByRole("button", { name: "Command Mode" });
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    // demoMap() (lib/demo-mode.ts) seeds 4 companies and 3 agents, unscoped
+    // by whichever company happens to be active in the switcher — the HUD
+    // reads the same org-wide /api/map data the whole scene already loads.
+    const hud = page.getByTestId("command-hud");
+    await expect(hud.getByText("4", { exact: true })).toBeVisible();
+    await expect(hud.getByText("3", { exact: true })).toBeVisible();
+    // Sales Agent has hasPendingApproval: true and a successful last run ->
+    // "awaiting approval"; Marketing Agent's last run errored -> "blocked";
+    // the Group CFO has never run -> "sleeping". Real, distinct fixture
+    // states, not invented ones.
+    await expect(hud.getByText(/awaiting approval/)).toBeVisible();
+    await expect(hud.getByText(/blocked/)).toBeVisible();
+    await expect(hud.getByText(/sleeping/)).toBeVisible();
+  });
+
   test("desktop: left nav and activity feed show real data", async ({ page }) => {
     await page.goto("/office");
     if ((page.viewportSize()?.width ?? 0) < 768) test.skip();

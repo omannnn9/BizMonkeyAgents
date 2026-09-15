@@ -201,6 +201,52 @@ Lead** (e.g. "Sales Lead"). Every surface that shows an agent's role — the
 colony world's character labels, `ActivityFeed`, `OfficeAgentPanel`, and
 `AgentSwitcher` — calls this instead of displaying raw `role_title`.
 
+### Command Mode
+
+The colony's camera was fully static until this pass — set once via the
+`camera={{position: [...]}}` prop on `<Canvas>` (react-three-fiber only
+calls `camera.lookAt(0,0,0)` once, on initial mount; changing the `camera`
+prop afterward never repositions an already-created camera), always framed
+to fit the entire colony. Switching companies changed `activeCompanyId`
+and highlighted a ring, but the camera never moved. This pass makes
+company-switching and "seeing everything" two real, distinct camera
+states, connected by a smooth tween:
+
+- **`CameraRig`** (an internal, unexported component inside
+  `OfficeScene3D.tsx`) lives inside the `<Canvas>` and uses `useThree()` +
+  `useFrame()` to lerp the real camera's position toward a target every
+  frame, calling `camera.lookAt()` each frame — the standard r3f rig
+  pattern for a camera that must move after mount. `cameraTargetFor()`
+  computes that target purely from real layout geometry: focused on the
+  active district's own `x`/`y`/`radius` by default, or the whole colony's
+  extent (`colonyDist()` — the same computation the original fixed camera
+  always used) when Command Mode is on. Both share the same angled-overhead
+  ratios (`cameraPositionFor()`) so the two states read as one camera on a
+  dolly, not two different cameras.
+- **Founder Command Mode** is an explicit toggle (`office/page.tsx`'s
+  header button, `aria-pressed`) that pulls the camera back to frame the
+  whole colony and raises `components/office3d/CommandHUD.tsx`, a plain DOM
+  overlay (not a drei `<Html>` inside the Canvas — avoids z-index/event
+  complexity for something that isn't part of the 3D world) built on the
+  shared `Panel` primitive. Every number on it is computed client-side from
+  `layout.agents`/`layout.districts` — the same org-wide object
+  `officeLayout()` already produces from `/api/map`'s unscoped response —
+  so it's correct regardless of which company happens to be selected in
+  the switcher, with **zero new fetch and zero new API route**. The state
+  breakdown (executing/awaiting-approval/blocked/delivered/sleeping/idle
+  counts) reuses `lib/agent-visual-state.ts`'s existing `deriveAgentState()`
+  — the exact function `AgentFigure` already calls per-character — via a
+  new `summarizeAgentStates()` helper that sums it across every Operator in
+  the org; only non-zero chips render, no padding to look busier than the
+  fixture data actually is.
+- One real bug this pass caught only by looking at a screenshot: the HUD
+  first rendered hundreds of pixels below the viewport, in normal document
+  flow rather than floating over the scene — `Panel`'s own hardcoded
+  `relative` class was fighting an `absolute` override passed alongside it
+  through Tailwind's class-order (not DOM-order) cascade. Fixed by wrapping
+  `Panel` in its own positioned `<div>` instead of overriding its
+  className directly.
+
 ### Testing note
 
 Clicking a specific 3D district or Operator isn't covered by the automated
@@ -208,11 +254,13 @@ Playwright suite — computing the exact screen coordinate would mean
 duplicating r3f's camera projection math just to compute a click point,
 which isn't worth it for what it'd buy. Everything DOM-based (scene
 mounting, left nav/category row navigation, activity feed/terminal
-rendering real fixture data) has real e2e coverage. The scene's own visual
-correctness (camera framing, district/Operator rendering, the state glow)
-and the click → active-company / click → agent-overlay interactions were
-verified manually via real headless-browser screenshots — see
-`tests/e2e/office.spec.ts`'s header comment and [`TESTING.md`](./TESTING.md).
+rendering real fixture data, and — new this pass — Command Mode's HUD
+counts and state chips) has real e2e coverage. The scene's own visual
+correctness (camera framing, district/Operator rendering, the state glow,
+and the camera tween itself) and the click → active-company / click →
+agent-overlay interactions were verified manually via real
+headless-browser screenshots — see `tests/e2e/office.spec.ts`'s header
+comment and [`TESTING.md`](./TESTING.md).
 
 ## Hierarchy Map (`/hierarchy`)
 
