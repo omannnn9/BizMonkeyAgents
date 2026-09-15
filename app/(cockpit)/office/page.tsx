@@ -54,6 +54,7 @@ const CATEGORY_LINKS = [
   { href: "/memories", label: "Memories" },
   { href: "/graph", label: "Graph" },
   { href: "/hierarchy", label: "Hierarchy" },
+  { href: "/brain", label: "Brain" },
   { href: "/approvals", label: "Approvals" },
   { href: "/companies/new", label: "+ New company" },
   { href: "/agents/new", label: "+ New agent" },

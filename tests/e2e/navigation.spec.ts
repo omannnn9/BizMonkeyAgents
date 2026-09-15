@@ -6,6 +6,7 @@ const PAGES: Array<{ path: string; heading: RegExp }> = [
   { path: "/documents", heading: /^documents/i },
   { path: "/approvals", heading: /^approvals$/i },
   { path: "/hierarchy", heading: /^hierarchy$/i },
+  { path: "/brain", heading: /^ai brain$/i },
 ];
 
 test.describe("Navigation", () => {

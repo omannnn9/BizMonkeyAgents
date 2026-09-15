@@ -14,6 +14,7 @@ interface RecentItem {
 const SURFACES = [
   { href: "/graph", label: "Graph" },
   { href: "/hierarchy", label: "Hierarchy" },
+  { href: "/brain", label: "Brain" },
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
   { href: "/approvals", label: "Approvals" },

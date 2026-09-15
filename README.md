@@ -35,8 +35,9 @@ department agents, the knowledge-graph view, scheduled briefings), **Phase 3** (
 the same way, group-scope agents, memory promotion, company/agent creator wizards, OKRs/board-report
 generation), a scoped-down **Phase 4** (a 3D preview at `/hq`, since retired), a **Phase 5** 2D
 pixel-art `/office` (also since retired — two visual passes, "Night Shift," both superseded), and
-**Phase 6** (the mission-control `/office`), **Phase 7** (the OD Cortex rebrand + colony world), and
-**Phase 8** (the `/hierarchy` organizational tree, both described below) are all built — everything that
+**Phase 6** (the mission-control `/office`), **Phase 7** (the OD Cortex rebrand + colony world),
+**Phase 8** (the `/hierarchy` organizational tree), and **Phase 9** (the `/brain` AI Brain, all
+described below) are all built — everything that
 doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
 applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
 (see below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested.
@@ -144,9 +145,10 @@ and no name of its own. This pass is presentation-layer only — no migration, n
 - **Deferred, on purpose** at the time (see the plan file this pass used, or ask for the roadmap):
   a Hierarchy Map and an AI Brain knowledge visualization, each as their own route; a Founder Command
   Mode (a zoomed-out camera state within the same colony scene); and tweened camera transitions on
-  district switch. The Hierarchy Map shipped next, as **Phase 8** below; the AI Brain and Founder
-  Command Mode are still deferred. Each gets its own visual-verification pass when built, the same
-  discipline that caught the Phase 6 scale bug below.
+  district switch. The Hierarchy Map shipped next as **Phase 8**, and the AI Brain as **Phase 9**
+  (both below). Founder Command Mode and district-switch camera transitions are still deferred. Each
+  gets its own visual-verification pass when built, the same discipline that caught the Phase 6 scale
+  bug below.
 
 **Phase 8 (`/hierarchy`)** is the founder's brief's most concrete ask fulfilled literally: *"I want
 to instantly understand Founder → Group Executives → Company Executives → Department Leads →
@@ -167,6 +169,31 @@ with real chat/runs/pending-approvals (**Interactive**) — reusing an existing 
 one. Caught and fixed one real bug via a screenshot before calling this done: the root node's own
 top half was clipped by the SVG `viewBox` starting at `y=0` instead of accounting for the node's own
 height above its center point.
+
+**Phase 9 (`/brain`)** is the founder's other concrete ask: *"a large glowing neural sphere...
+When memories are created, connections appear. When documents are uploaded, knowledge flows into
+the core. The AI Brain should become visibly larger and richer over time."* Reconciled with this
+project's real-data-only discipline rather than fabricated: the core's radius is a real function of
+an actual `count(*)` query against `memories` (small right now, since this app has almost no seeded
+memory data — the honest state, not a minimum chosen to look impressive), individual memory nodes
+are real rows (capped at 200, newest first), and "connections" are exclusively the output of
+`match_cross_company_memories` — the same RPC `detect_synergies` already calls, nothing invented.
+There is no fabricated live "packet traveling into the core" animation on document upload, since
+this app has no Realtime infrastructure by design (no browser-side Supabase client); what's real and
+does animate is the page's existing 20s poll diffing this cycle's memory-id set against the last
+one, giving any genuinely new id a one-time arrival animation. This is also the one deliberate
+exception to the "no new API surface" discipline the last two passes held to exactly:
+`GET /api/brain` (see [`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md)) is a small, read-only,
+additive route, justified because every other route is scoped to a single company on purpose and the
+Brain is explicitly org-wide. Rendered with `@react-three/fiber` — like the colony world, a genuinely
+volumetric idea that would read flat in 2D SVG — with memory nodes distributed on a shell around the
+core via a Fibonacci-sphere formula, colored by scope, connected by glowing synergy arcs. Clicking a
+node opens an inline detail panel with a "Promote to group" action for company-scope memories, reusing
+the existing `POST /api/memories/:id/promote` endpoint unchanged. Went through the same iterative
+screenshot-tune-reshoot cycle as every prior 3D pass: the first render was a flat, underwhelming solid
+sphere with too much empty margin, fixed with layered transparent glow-halo shells (a cheap stand-in
+for a real bloom pass this app's pipeline doesn't have) and a re-derived, explicitly margin-checked
+camera distance. See [`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
 
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no

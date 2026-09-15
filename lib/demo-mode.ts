@@ -208,6 +208,66 @@ export function demoMemories(companyId: string) {
   };
 }
 
+/**
+ * The AI Brain's org-wide view — built from the exact same memories
+ * `demoMemories()` already defines (plus one addition, below), not a
+ * separate invented fixture. `mem-company-2` and its synergy pairing are
+ * new here, but not new *content*: they're the Tablo-side counterpart to
+ * the ODAX finding `demoChatReply()`'s Group CFO branch already claims a
+ * real `detect_synergies` call would surface (same similarity, same
+ * wording) — so the Brain, the memories page, and the chat demo all tell
+ * the same consistent story instead of three different ones.
+ */
+export function demoBrain() {
+  const [holdings, odax, tablo] = DEMO_COMPANIES;
+  const memories = [
+    {
+      id: "mem-group-1",
+      scope: "group",
+      scopeId: holdings.id,
+      scopeLabel: "Group",
+      content:
+        "Most F&B leads prospected so far turned out to be home-based producers, not dine-in " +
+        "restaurants — re-qualify before outreach on any new food & beverage segment.",
+      importance: 0.75,
+      confidence: 0.8,
+      source: "promoted",
+      createdAt: daysAgo(1),
+    },
+    {
+      id: "mem-company-1",
+      scope: "company",
+      scopeId: odax.id,
+      scopeLabel: odax.name,
+      content: "Most F&B leads prospected so far turned out to be home-based producers, not dine-in restaurants.",
+      importance: 0.65,
+      confidence: 0.8,
+      source: "manual",
+      createdAt: daysAgo(3),
+    },
+    {
+      id: "mem-company-2",
+      scope: "company",
+      scopeId: tablo.id,
+      scopeLabel: tablo.name,
+      content: "Tablo's own F&B outreach has hit the same home-based-producer mismatch.",
+      importance: 0.6,
+      confidence: 0.75,
+      source: "manual",
+      createdAt: daysAgo(2),
+    },
+  ];
+  return {
+    totalMemoryCount: memories.length,
+    memories,
+    // Matches demoDocuments()'s two fixture documents, attributed to ODAX
+    // (the pricing-notes one clearly is; the board update reads group-wide
+    // but this fixture doesn't need to split hairs to stay honest).
+    documentCounts: [{ companyId: odax.id, companyName: odax.name, count: 2 }],
+    synergies: [{ memoryAId: "mem-company-1", memoryBId: "mem-company-2", similarity: 0.891 }],
+  };
+}
+
 /** Matches the structural edges seeded by migration 0004_phase2.sql — real org structure, not fabricated activity. */
 export function demoGraph() {
   const [holdings, odax, tablo, nova] = DEMO_COMPANIES;

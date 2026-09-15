@@ -260,3 +260,73 @@ are plain SVG `<g role="button">` elements — fully automatable, no camera
 projection math to duplicate — so `tests/e2e/hierarchy.spec.ts` covers the
 agent-click → `OfficeAgentPanel` interaction directly, real data included,
 rather than deferring it to a manual screenshot check.
+
+## AI Brain (`/brain`)
+
+The founder's central-intelligence-core ask: *"a large glowing neural
+sphere... When memories are created, connections appear. When documents
+are uploaded, knowledge flows into the core. The AI Brain should become
+visibly larger and richer over time."* Unlike the Hierarchy Map, this is a
+genuinely volumetric idea that reads flat in 2D SVG, so it's the one other
+place besides the colony world that earns real 3D depth
+(`@react-three/fiber`, already a dependency).
+
+- **`GET /api/brain`** (new route — see [`API_REFERENCE.md`](./API_REFERENCE.md))
+  aggregates across every company at once, since every other route is
+  deliberately per-company-scoped for the per-company pages. Demo-mode-aware
+  like every other route: `lib/demo-mode.ts`'s `demoBrain()` is built from
+  the same fixture memories `demoMemories()` and `demoChatReply()`'s Group
+  CFO synergy example already define, not new invented content.
+- **What's honestly real, decided up front:** the core's size is a real
+  function of an actual `count(*)` query (`base + log(count + 1) * factor`
+  — small now, since this app has almost no seeded memory data, and that's
+  the honest state to show rather than a minimum chosen to look impressive).
+  Individual memory nodes are real rows (capped at 200, newest first, the
+  same `.limit()` precedent `/api/map` already sets). Connections between
+  nodes are exclusively `match_cross_company_memories` output — the same
+  RPC `detect_synergies` already calls — and if it returns nothing for a
+  small dataset, the Brain shows no arcs and says so in the stat row
+  ("real result, not a failure," the same phrasing `detect_synergies`'s own
+  tool description already uses). There is no fabricated live "packet
+  traveling into the core" animation — this app has no Realtime
+  infrastructure (no browser-side Supabase client, by design). What *is*
+  real and safe to animate: the page polls `/api/brain` on the same 20s
+  interval `/office` already uses, diffs this poll's memory-id set against
+  the previous one, and gives any genuinely new id a one-time scale-in
+  arrival animation — event-driven off a real diff, not a looping decoration.
+- **`components/brain/BrainScene.tsx`** — the core is a layered
+  wireframe/glow sphere (several transparent `meshBasicMaterial` halo
+  shells at increasing radius/decreasing opacity, a cheap stand-in for a
+  real bloom pass this app's pipeline doesn't have). Memory nodes sit on a
+  shell around the core, positioned via a Fibonacci-sphere formula
+  (deterministic, even coverage, no physics simulation and no new
+  dependency — the same "hand-roll it for a few dozen items" precedent
+  `graph-layout.ts`'s `forceLayout` and `hierarchy-layout.ts`'s tree layout
+  already set, extended to 3D), colored by scope (group/founder get fixed
+  colors; company-scope memories are tinted per company using the same
+  `hashToIndex` palette approach `OfficeScene3D.tsx` already uses for
+  districts). Synergy connections render as glowing bezier arcs through 3D
+  space between the two real memory nodes in each pair. Camera distance is
+  computed from the shell radius with generous margin, verified with a real
+  screenshot before calling this done — the same discipline that already
+  caught camera-framing bugs in the colony world (twice) and the Hierarchy
+  Map's `viewBox` (once).
+- **`app/(cockpit)/brain/page.tsx`** — polls `/api/brain` every 20s, tracks
+  the previous poll's memory-id set in a ref to compute arrivals, and shows
+  a stat row (memories retained / documents indexed / cross-company
+  connections, or the honest "no connections yet" message). Clicking a
+  memory node opens an inline detail panel — own to this page, not
+  `OfficeAgentPanel` (that component is agent-specific and doesn't fit a
+  memory) — showing content/scope/importance/confidence/source, and for a
+  `company`-scope memory, a "Promote to group" button that calls the
+  **existing** `POST /api/memories/:id/promote` endpoint unchanged.
+
+### Testing note
+
+Same trade-off as the colony world: clicking a specific memory node isn't
+covered by the automated suite — duplicating r3f's camera projection math
+to compute a screen point isn't worth it for what it'd buy.
+`tests/e2e/brain.spec.ts` covers everything DOM-based (the scene mounting,
+the real stat counts, the honest empty-synergy message); the click →
+detail-panel interaction, and the core/node visual correctness, were
+verified manually with real headless-browser screenshots instead.

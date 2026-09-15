@@ -191,3 +191,26 @@ The founder's manual promotion from `/memories` (mirrors the
 `promote_memory` tool, but `actor_type: "user"` in the audit log instead of
 `"agent"`). No body. Copies the memory to `group` scope, bumps importance
 by +0.1 (capped at 1). **Response:** `{promoted: true, newMemoryId}`.
+
+## `GET /api/brain`
+
+The one new route the AI Brain (`/brain`) pass added — every other route is
+scoped to a single `companyId` by design (the per-company pages), and there
+was genuinely no existing endpoint that aggregates memories/documents/
+connections across every company at once. Read-only, additive, no new
+tables: `memories`/`documents` plus the existing `match_cross_company_memories`
+RPC (the same one `detect_synergies` already calls).
+
+**Response:**
+```
+{
+  totalMemoryCount: number,          // count(*) from memories — drives the core's size
+  memories: Array<{
+    id, scope, scopeId, scopeLabel,  // scopeLabel resolved server-side:
+    content, importance, confidence, // "Group" / "Founder" / the company's name
+    source, createdAt,
+  }>,                                 // newest 200
+  documentCounts: Array<{companyId, companyName, count}>,  // only companies with >0
+  synergies: Array<{memoryAId, memoryBId, similarity}>,    // match_cross_company_memories, capped at 20
+}
+```
