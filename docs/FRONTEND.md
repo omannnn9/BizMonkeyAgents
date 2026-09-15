@@ -118,8 +118,12 @@ shows its connections in a side panel (`data-testid="graph-detail-panel"`).
 ## Company/agent creator wizards
 
 `/companies/new` and `/agents/new` are plain controlled forms posting to
-`POST /api/companies`/`POST /api/agents` respectively. The agent wizard's
-`AVAILABLE_TOOLS` list is a small hardcoded mirror of
+`POST /api/companies`/`POST /api/agents` respectively, wrapped in the
+shared `Panel` and built from **NEW `components/ui/Field.tsx`**'s `Field`
+label-wrapper and `fieldInputClass` — both pages had been copy-pasting an
+identical local `Field` component and an identical input className since
+before the Phase 7 rebrand's Panel migration, which missed these two. The
+agent wizard's `AVAILABLE_TOOLS` list is a small hardcoded mirror of
 `lib/agent/tools/registry.ts`'s `ALL_TOOLS` (kept separate rather than
 importing the registry into a client component, since the registry pulls
 in server-only Supabase logic through its tool implementations) — every

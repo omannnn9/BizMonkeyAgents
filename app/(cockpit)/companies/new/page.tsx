@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCompany } from "@/lib/company-context";
+import { Panel } from "@/components/ui/Panel";
+import { Field, fieldInputClass } from "@/components/ui/Field";
 
 export default function NewCompanyPage() {
   const router = useRouter();
@@ -47,7 +49,7 @@ export default function NewCompanyPage() {
         existing company has.
       </p>
 
-      <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+      <Panel className="flex flex-col gap-4">
         <Field label="Name">
           <input
             value={name}
@@ -55,22 +57,14 @@ export default function NewCompanyPage() {
               setName(e.target.value);
               if (!slug) setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
             }}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+            className={fieldInputClass}
           />
         </Field>
         <Field label="Slug">
-          <input
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-          />
+          <input value={slug} onChange={(e) => setSlug(e.target.value)} className={fieldInputClass} />
         </Field>
         <Field label="Parent (group)">
-          <select
-            value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-          >
+          <select value={parentId} onChange={(e) => setParentId(e.target.value)} className={fieldInputClass}>
             <option value="">None (a new group-level company)</option>
             {companies.map((c) => (
               <option key={c.id} value={c.id}>
@@ -80,11 +74,7 @@ export default function NewCompanyPage() {
           </select>
         </Field>
         <Field label="Industry (optional)">
-          <input
-            value={industry}
-            onChange={(e) => setIndustry(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-          />
+          <input value={industry} onChange={(e) => setIndustry(e.target.value)} className={fieldInputClass} />
         </Field>
 
         {error && <p className="text-sm text-danger">{error}</p>}
@@ -95,16 +85,7 @@ export default function NewCompanyPage() {
         >
           {submitting ? "Creating…" : "Create company"}
         </button>
-      </div>
+      </Panel>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-muted">{label}</span>
-      {children}
-    </label>
   );
 }

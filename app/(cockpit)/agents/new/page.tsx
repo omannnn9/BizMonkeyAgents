@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCompany } from "@/lib/company-context";
+import { Panel } from "@/components/ui/Panel";
+import { Field, fieldInputClass } from "@/components/ui/Field";
 
 // Mirrors lib/agent/tools/registry.ts's ALL_TOOLS — kept as a small
 // hardcoded list here rather than importing that module into a client
@@ -64,27 +66,15 @@ export default function NewAgentPage() {
         action — not agent-proposed, so it isn&apos;t approval-gated.
       </p>
 
-      <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+      <Panel className="flex flex-col gap-4">
         <Field label="Name">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-          />
+          <input value={name} onChange={(e) => setName(e.target.value)} className={fieldInputClass} />
         </Field>
         <Field label="Role title (optional)">
-          <input
-            value={roleTitle}
-            onChange={(e) => setRoleTitle(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-          />
+          <input value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} className={fieldInputClass} />
         </Field>
         <Field label="Company">
-          <select
-            value={companyId}
-            onChange={(e) => setCompanyId(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-          >
+          <select value={companyId} onChange={(e) => setCompanyId(e.target.value)} className={fieldInputClass}>
             {companies.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.parent_id === null ? `${c.name} (group)` : c.name}
@@ -96,7 +86,7 @@ export default function NewAgentPage() {
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as typeof scope)}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+            className={fieldInputClass}
           >
             <option value="company">company</option>
             <option value="group">group</option>
@@ -104,11 +94,7 @@ export default function NewAgentPage() {
           </select>
         </Field>
         <Field label="Model">
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
-          >
+          <select value={model} onChange={(e) => setModel(e.target.value)} className={fieldInputClass}>
             <option value="claude-sonnet-5">claude-sonnet-5 (default)</option>
             <option value="claude-opus-5">claude-opus-5 (strategic reasoning)</option>
             <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001 (cheap/fast)</option>
@@ -119,7 +105,7 @@ export default function NewAgentPage() {
             value={persona}
             onChange={(e) => setPersona(e.target.value)}
             rows={4}
-            className="w-full rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
+            className={fieldInputClass}
           />
         </Field>
         <div className="flex flex-col gap-2 text-sm">
@@ -145,16 +131,7 @@ export default function NewAgentPage() {
         >
           {submitting ? "Creating…" : "Create agent"}
         </button>
-      </div>
+      </Panel>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-sm">
-      <span className="text-muted">{label}</span>
-      {children}
-    </label>
   );
 }

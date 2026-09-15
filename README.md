@@ -226,6 +226,10 @@ scopes (`founder` gets the same amber color `/brain` and `/hierarchy` already us
 choice) instead of lumping founder in with company. `/approvals`'s History section was raw unstyled
 divs with every decided status in the same flat grey — now `Panel`-wrapped with the real status
 (`executed`/`approved`/`rejected`/`failed`) colored via the app's existing success/danger tokens.
+The creator wizards (`/companies/new`, `/agents/new`) had the same gap in the other direction — an
+identical local `Field` component and input className copy-pasted across both, predating the Panel
+migration — now factored into shared `components/ui/Field.tsx` and wrapped in `Panel` like every
+other page.
 
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no
