@@ -100,6 +100,12 @@ export function colorForNodeType(type: string): string {
       return "#e0b35c";
     case "decision":
       return "#d98cd8";
+    case "department":
+      return "#6ab8d6";
+    case "project":
+      return "#f2a65a";
+    case "task":
+      return "#a0d98c";
     default:
       return "#9aa4b2";
   }

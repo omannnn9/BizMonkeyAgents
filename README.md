@@ -255,6 +255,16 @@ just a per-company count) as cubes alongside memory spheres, sharing one Fibonac
 the two kinds never collide — one additive field on `GET /api/brain`, the only API surface this pass
 touched. See [`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
 
+**The Relationships layer went real 3D** as the next slice (the other two candidates offered after
+Phase 11 — a real financial data model, agent-to-agent collaboration — cross the schema/agent-runtime
+line and need a business decision only the founder can make, so they stayed deferred; this one didn't).
+Depth isn't decoration: every real node type `/api/graph` returns maps to a fixed z-band — companies/
+departments form a foundation layer, agents/projects/tasks a working layer, decisions/documents an
+output layer — while the x/y within each band still comes from the existing, unchanged `forceLayout()`.
+Hierarchy stays SVG on purpose: a tree's clarity comes from a clean top-down layout with non-crossing
+connectors, and forcing it into 3D would more likely hurt legibility than help it. See
+[`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
+
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no
 browser-side Supabase client anywhere in this app by design (no login — the service role key must

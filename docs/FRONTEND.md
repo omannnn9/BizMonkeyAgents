@@ -250,20 +250,43 @@ route" pattern the earlier `/dashboard` and `/map` pages went through.
 
 ### Relationships layer
 
-**`components/office3d/GraphLayer.tsx`** (the former standalone `/graph`
-page's body) is fed `nodes`/`edges` the shell lazily fetched from
-`/api/graph`, laid out via `lib/graph-layout.ts`'s `forceLayout()` (a small
-hand-rolled repulsion/spring/center-pull simulation, 300 fixed iterations —
-deliberately not a new dependency like d3-force or React Flow, since this
-is a few dozen nodes at most), and rendered as an SVG with a **glowing
-"hologram" treatment**: an `feGaussianBlur`+`feMerge` filter for the
-blur-behind-a-bright-core glow effect, a `<pattern>` grid background, edges
-as quadratic-bezier `<path>`s bowed perpendicular to their segment (reads as
-a circuit trace, not a wireframe diagram — the bow amount is deterministic,
-not physics-based, so the same graph always draws the same way), and nodes
-as glow-filtered rounded `<rect>` panels (width sized to label length) with
-a small colored dot per node type (`colorForNodeType()`). Clicking a node
-shows its connections in a side panel (`data-testid="graph-detail-panel"`).
+A real 3D scene now (`components/office3d/GraphScene.tsx`,
+`@react-three/fiber`, ssr:false) — the one layer besides Organization and
+Knowledge that earns real depth, and the reason is a genuine design idea,
+not decoration: **depth encodes what kind of thing a node is.** Every real
+node type `/api/graph` returns (`company`/`department`/`agent`/`project`/
+`task`/`decision`/`document` — all seven, `colorForNodeType()` in
+`lib/graph-layout.ts` now gives each its own color instead of lumping
+three of them into a generic grey fallback) maps to a fixed z-depth band:
+companies/departments form a foundation layer, agents/projects/tasks a
+working layer, decisions/documents an output layer. The x/y position
+within each band still comes from the **existing, unchanged**
+`forceLayout()` (the same hand-rolled repulsion/spring/center-pull
+simulation, 300 fixed iterations, that's always powered this view) — this
+pass only adds a `z` on top of it via a `TYPE_DEPTH` map, no new physics
+code. Nodes render as glow-halo spheres (the same halo-mesh technique
+`BrainScene.tsx`'s `MemoryNode` established) with a drei `<Html>` label
+for the real name — **never** drei's `<Text>`, the standing rule every 3D
+pass in this app holds to. Edges render as glowing 3D line segments (a raw
+three.js `<line>`, the same technique `BrainScene.tsx`'s `SynergyArc`
+uses). The camera is fixed, no `OrbitControls`, and deliberately flatter/
+more eye-level than the Organization layer's near-overhead angle — a
+steep top-down angle compresses the depth bands into near-invisibility,
+caught on the first real screenshot and fixed by lowering the elevation
+ratio, not by the math alone, the same discipline that's caught a real bug
+on every 3D pass this project has built. `components/office3d/GraphLayer.tsx`
+(the former standalone `/graph` page's body) keeps the exact same side
+detail panel (`data-testid="graph-detail-panel"`) and `selectedId` state
+it always had — only the viewport's rendering technology changed, not the
+interaction model or the data.
+
+Same trade-off as the Organization and Knowledge layers: clicking a
+specific node isn't covered by the automated suite — duplicating r3f's
+camera projection math to compute a screen point isn't worth it for what
+it'd buy. `tests/e2e/graph.spec.ts` covers everything DOM-based (the
+scene mounting, real node labels via drei's `<Html>` DOM output); the
+click → detail-panel interaction was verified manually with a real
+headless-browser screenshot instead.
 
 ### Hierarchy layer
 
