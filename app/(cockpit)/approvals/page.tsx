@@ -14,6 +14,17 @@ interface Approval {
   created_at: string;
 }
 
+// The real status values app/api/approvals/[id]/route.ts writes —
+// "executed"/"approved" are positive outcomes, "rejected"/"failed" are
+// not; anything else (there isn't one today) stays neutral rather than
+// guessing a color for it.
+const DECIDED_STATUS_CLASS: Record<string, string> = {
+  executed: "text-success",
+  approved: "text-success",
+  rejected: "text-danger",
+  failed: "text-danger",
+};
+
 function PayloadPreview({ actionType, payload }: { actionType: string; payload: Record<string, unknown> }) {
   if (actionType === "send_email" && typeof payload.to === "string") {
     return (
@@ -140,10 +151,10 @@ export default function ApprovalsPage() {
         <section className="flex flex-col gap-2">
           <h2 className="text-sm font-medium text-muted">History</h2>
           {decided.map((a) => (
-            <div key={a.id} className="flex justify-between rounded-md border border-border px-3 py-2 text-sm">
+            <Panel key={a.id} className="flex items-center justify-between py-2 text-sm">
               <span className="text-foreground">{a.action_type}</span>
-              <span className="text-muted">{a.status}</span>
-            </div>
+              <span className={DECIDED_STATUS_CLASS[a.status] ?? "text-muted"}>{a.status}</span>
+            </Panel>
           ))}
         </section>
       )}

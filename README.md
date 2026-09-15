@@ -214,6 +214,19 @@ hardcoded `relative` class fought an `absolute` override passed alongside it thr
 class-order cascade — fixed by wrapping `Panel` in its own positioned element instead. See
 [`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
 
+**A visual-consistency pass** (not a numbered phase — no new functionality, just closing gaps the
+rebrand didn't reach) brought Documents/Memories/Approvals up to the same instrument-panel visual
+language the rest of the app already uses, every addition traced to a real field these pages already
+fetch but didn't show. `/documents` was a bare list of thin bars with no e2e coverage at all — now a
+responsive card grid with a real type badge per document (derived from the actual `mime_type` column
+via new `lib/document-type.ts`), plus a new `tests/e2e/documents.spec.ts` closing the only real gap in
+the suite. `/memories` fetched `importance`/`confidence` per memory and discarded both — now a thin
+importance meter sits next to each memory's badge, and the badge itself distinguishes all three real
+scopes (`founder` gets the same amber color `/brain` and `/hierarchy` already use for it, not a new
+choice) instead of lumping founder in with company. `/approvals`'s History section was raw unstyled
+divs with every decided status in the same flat grey — now `Panel`-wrapped with the real status
+(`executed`/`approved`/`rejected`/`failed`) colored via the app's existing success/danger tokens.
+
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no
 browser-side Supabase client anywhere in this app by design (no login — the service role key must

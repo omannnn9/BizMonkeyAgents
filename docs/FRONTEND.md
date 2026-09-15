@@ -61,10 +61,16 @@ active company clobbering a faster switch that happened after it.
 ## Documents
 
 `app/(cockpit)/documents/page.tsx` — file input (accepts `.txt/.md/.csv/.pdf/.docx`)
-posting to `/api/documents/upload` as `FormData`, then a plain list of
-uploaded documents (title, tags, date) fetched from `/api/documents`. A
-`latestRequestedCompanyId` ref discards a slow response for a company the
-user has since switched away from.
+posting to `/api/documents/upload` as `FormData`, then a responsive card
+grid (`grid-cols-1 sm:grid-cols-2 lg:grid-cols-3`) of uploaded documents
+fetched from `/api/documents`, each a `Panel` showing a type badge, title,
+tags, and date. The badge comes from **NEW `lib/document-type.ts`**'s
+`documentTypeLabel(mimeType)` — a small pure mapping from the real
+`mime_type` column (`application/pdf` → `PDF`, the DOCX mime → `DOCX`,
+`text/csv` → `CSV`, `text/markdown` → `MD`, `text/plain`/null → `TXT`,
+anything else → `FILE`), the same small-caps pill styling Memories/
+Approvals already use. A `latestRequestedCompanyId` ref discards a slow
+response for a company the user has since switched away from.
 
 ## Approvals
 
@@ -74,13 +80,24 @@ subject/body) and falls back to a raw `JSON.stringify` for anything else.
 Approve/Reject posts to `/api/approvals/:id` and surfaces the real outcome,
 including the distinction between "approved" and "approved, but could not
 execute: {error}" (an unconnected integration stub failing loudly, not
-silently).
+silently). Each "History" row is a plain (non-glow — these are settled,
+not live) `Panel`, with its real decided status
+(`executed`/`approved`/`rejected`/`failed`, the values
+`app/api/approvals/[id]/route.ts` actually writes) colored via the app's
+existing `--success`/`--danger` tokens instead of flat muted text.
 
 ## Memories
 
 `app/(cockpit)/memories/page.tsx` — lists memories for the active company
 (group + founder + company-scope), with a "Promote to group" button on any
-`company`-scope row (posts to `/api/memories/:id/promote`).
+`company`-scope row (posts to `/api/memories/:id/promote`). Each memory's
+scope badge distinguishes all three real scopes — `founder` gets the same
+amber `components/brain/BrainScene.tsx`'s `FOUNDER_COLOR` and
+`/hierarchy`'s founder-node border already use, `group` the accent color,
+`company` stays neutral — and a thin importance meter (a filled bar sized
+to the real `importance` value, plus the number) sits next to the badge,
+surfacing a field the page's own fetch already returned but previously
+discarded.
 
 ## Knowledge graph (`/graph`)
 

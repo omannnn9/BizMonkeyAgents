@@ -17,6 +17,14 @@ interface Memory {
   promoted_from_id: string | null;
 }
 
+// The same amber `components/brain/BrainScene.tsx`'s FOUNDER_COLOR and
+// `/hierarchy`'s founder-node border already use — founder means the same
+// visual thing everywhere it appears, not a new color choice here.
+const SCOPE_BADGE_CLASS: Record<string, string> = {
+  founder: "bg-[#ffd166]/20 text-[#ffd166]",
+  group: "bg-accent/20 text-accent",
+};
+
 export default function MemoriesPage() {
   const { activeCompanyId } = useCompany();
   const [memories, setMemories] = useState<Memory[]>([]);
@@ -84,15 +92,23 @@ export default function MemoriesPage() {
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span
                     className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-                      m.scope === "group"
-                        ? "bg-accent/20 text-accent"
-                        : "bg-surface-raised text-muted"
+                      SCOPE_BADGE_CLASS[m.scope] ?? "bg-surface-raised text-muted"
                     }`}
                   >
                     {m.scope}
                     {m.source === "promoted" ? " · promoted" : ""}
                   </span>
                   <span className="text-xs text-muted">{new Date(m.created_at).toLocaleDateString()}</span>
+                </div>
+                <div className="mb-2 flex items-center gap-2 text-[10px] text-muted">
+                  <span className="w-14 shrink-0">Importance</span>
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-surface-raised">
+                    <div
+                      className="h-full rounded-full bg-accent"
+                      style={{ width: `${Math.round(m.importance * 100)}%` }}
+                    />
+                  </div>
+                  <span className="w-8 shrink-0 text-right">{m.importance.toFixed(2)}</span>
                 </div>
                 <p className="text-sm text-foreground">{m.content}</p>
                 {m.scope === "company" && (

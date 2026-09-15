@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCompany } from "@/lib/company-context";
 import { Spinner } from "@/components/Spinner";
 import { Panel } from "@/components/ui/Panel";
+import { documentTypeLabel } from "@/lib/document-type";
 
 interface DocRow {
   id: string;
@@ -92,25 +93,28 @@ export default function DocumentsPage() {
         {message && <p className="mt-2 text-sm text-muted">{message}</p>}
       </Panel>
 
-      <div className="flex flex-col gap-2">
-        {loading ? (
-          <Spinner />
-        ) : docs.length === 0 ? (
-          <p className="text-sm text-muted">No documents uploaded for this company yet.</p>
-        ) : (
-          docs.map((d) => (
-            <Panel key={d.id} glow className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-sm text-foreground">{d.title}</p>
-                {d.tags.length > 0 && (
-                  <p className="text-xs text-muted">{d.tags.join(" · ")}</p>
-                )}
+      {loading ? (
+        <Spinner />
+      ) : docs.length === 0 ? (
+        <p className="text-sm text-muted">No documents uploaded for this company yet.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {docs.map((d) => (
+            <Panel key={d.id} glow className="flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-2">
+                <span className="rounded bg-surface-raised px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted">
+                  {documentTypeLabel(d.mime_type)}
+                </span>
+                <span className="shrink-0 text-xs text-muted">
+                  {new Date(d.created_at).toLocaleDateString()}
+                </span>
               </div>
-              <span className="text-xs text-muted">{new Date(d.created_at).toLocaleDateString()}</span>
+              <p className="text-sm text-foreground">{d.title}</p>
+              {d.tags.length > 0 && <p className="text-xs text-muted">{d.tags.join(" · ")}</p>}
             </Panel>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
