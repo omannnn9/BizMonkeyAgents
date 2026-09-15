@@ -10,11 +10,11 @@ interface RecentItem {
 
 // The reference's Whiteboard/Design Board/Builder/Chats/Projects/Workflows
 // section, remapped to what this app actually has rather than inventing
-// pages for labels with nothing real behind them.
+// pages for labels with nothing real behind them. Graph/Hierarchy/Brain
+// aren't real destinations from here anymore — this LeftNav lives inside
+// the World shell itself, where WorldLayerSwitcher is the way to reach
+// them (as layers, not a link that would redirect back into this same page).
 const SURFACES = [
-  { href: "/graph", label: "Graph" },
-  { href: "/hierarchy", label: "Hierarchy" },
-  { href: "/brain", label: "Brain" },
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
   { href: "/approvals", label: "Approvals" },

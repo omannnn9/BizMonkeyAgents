@@ -194,7 +194,8 @@ by +0.1 (capped at 1). **Response:** `{promoted: true, newMemoryId}`.
 
 ## `GET /api/brain`
 
-The one new route the AI Brain (`/brain`) pass added — every other route is
+The one new route the AI Brain pass added (the Knowledge layer inside the
+World shell since the layers rearchitecture) — every other route is
 scoped to a single `companyId` by design (the per-company pages), and there
 was genuinely no existing endpoint that aggregates memories/documents/
 connections across every company at once. Read-only, additive, no new
@@ -211,6 +212,10 @@ RPC (the same one `detect_synergies` already calls).
     source, createdAt,
   }>,                                 // newest 200
   documentCounts: Array<{companyId, companyName, count}>,  // only companies with >0
+  documents: Array<{                 // newest 100 — individual rows the
+    id, title, mimeType,             // Knowledge layer renders as document
+    companyId, companyName, createdAt, // nodes, distinct from documentCounts
+  }>,                                 // (an aggregate the stat row still uses)
   synergies: Array<{memoryAId, memoryBId, similarity}>,    // match_cross_company_memories, capped at 20
 }
 ```

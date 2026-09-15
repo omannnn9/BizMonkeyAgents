@@ -264,6 +264,27 @@ export function demoBrain() {
     // (the pricing-notes one clearly is; the board update reads group-wide
     // but this fixture doesn't need to split hairs to stay honest).
     documentCounts: [{ companyId: odax.id, companyName: odax.name, count: 2 }],
+    // Same two rows demoDocuments() defines (same ids, same titles/mime
+    // types) — the Knowledge layer's document nodes and /documents' own
+    // list agree on what's real, not two different fixture stories.
+    documents: [
+      {
+        id: "doc1",
+        title: "Q3 board update.md",
+        mimeType: "text/markdown",
+        companyId: odax.id,
+        companyName: odax.name,
+        createdAt: daysAgo(1),
+      },
+      {
+        id: "doc2",
+        title: "ODAX pricing notes.txt",
+        mimeType: "text/plain",
+        companyId: odax.id,
+        companyName: odax.name,
+        createdAt: daysAgo(4),
+      },
+    ],
     synergies: [{ memoryAId: "mem-company-1", memoryBId: "mem-company-2", similarity: 0.891 }],
   };
 }

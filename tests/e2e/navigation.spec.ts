@@ -5,8 +5,17 @@ const PAGES: Array<{ path: string; heading: RegExp }> = [
   { path: "/chat", heading: /^chat/i },
   { path: "/documents", heading: /^documents/i },
   { path: "/approvals", heading: /^approvals$/i },
-  { path: "/hierarchy", heading: /^hierarchy$/i },
-  { path: "/brain", heading: /^ai brain$/i },
+];
+
+// /graph, /hierarchy, and /brain are retired standalone routes — each is
+// now a layer inside the World shell (/office), reached via
+// WorldLayerSwitcher, not a page of its own. Kept as real redirects
+// (rather than deleted outright) so an existing bookmark still lands
+// somewhere real — this asserts each one actually does.
+const RETIRED_ROUTE_REDIRECTS: Array<{ path: string; layer: string; layerLabel: string }> = [
+  { path: "/graph", layer: "relationships", layerLabel: "Relationships" },
+  { path: "/hierarchy", layer: "hierarchy", layerLabel: "Hierarchy" },
+  { path: "/brain", layer: "knowledge", layerLabel: "Knowledge" },
 ];
 
 test.describe("Navigation", () => {
@@ -17,6 +26,16 @@ test.describe("Navigation", () => {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
       // Every page must show the demo banner while no Supabase project exists.
       await expect(page.getByText("Demo mode")).toBeVisible();
+    });
+  }
+
+  for (const { path, layer, layerLabel } of RETIRED_ROUTE_REDIRECTS) {
+    test(`${path} redirects into the World shell's ${layerLabel} layer`, async ({ page }) => {
+      const response = await page.goto(path);
+      expect(response?.status()).toBe(200);
+      await expect(page).toHaveURL(new RegExp(`/office\\?layer=${layer}`));
+      await expect(page.getByRole("heading", { name: "Colony" })).toBeVisible();
+      await expect(page.getByRole("button", { name: layerLabel })).toHaveAttribute("aria-pressed", "true");
     });
   }
 

@@ -22,6 +22,15 @@ export interface BrainDocumentCount {
   count: number;
 }
 
+export interface BrainDocument {
+  id: string;
+  title: string;
+  mimeType: string | null;
+  companyId: string;
+  companyName: string;
+  createdAt: string;
+}
+
 export interface BrainSynergy {
   memoryAId: string;
   memoryBId: string;
@@ -41,7 +50,7 @@ export const GET = withApiErrorHandling(async () => {
 
   const supabase = await createClient();
 
-  const [{ count: totalMemoryCount }, { data: memoryRows }, { data: companies }, { data: synergyRows }] =
+  const [{ count: totalMemoryCount }, { data: memoryRows }, { data: companies }, { data: synergyRows }, { data: documentRows }] =
     await Promise.all([
       supabase.from("memories").select("id", { count: "exact", head: true }),
       supabase
@@ -51,6 +60,13 @@ export const GET = withApiErrorHandling(async () => {
         .limit(200),
       supabase.from("companies").select("id, name"),
       supabase.rpc("match_cross_company_memories", { p_limit: 20 }),
+      // Same .limit() precedent memories above already sets — newest 100,
+      // not every document ever uploaded.
+      supabase
+        .from("documents")
+        .select("id, title, mime_type, company_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(100),
     ]);
 
   const companyNameById = new Map((companies ?? []).map((c) => [c.id, c.name]));
@@ -93,10 +109,20 @@ export const GET = withApiErrorHandling(async () => {
     similarity: s.similarity,
   }));
 
+  const documents: BrainDocument[] = (documentRows ?? []).map((d) => ({
+    id: d.id,
+    title: d.title,
+    mimeType: d.mime_type,
+    companyId: d.company_id,
+    companyName: companyNameById.get(d.company_id) ?? "Company",
+    createdAt: d.created_at,
+  }));
+
   return NextResponse.json({
     totalMemoryCount: totalMemoryCount ?? 0,
     memories,
     documentCounts,
+    documents,
     synergies,
   });
 });

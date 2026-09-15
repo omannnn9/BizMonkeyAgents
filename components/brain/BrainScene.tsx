@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import type * as THREE from "three";
-import type { BrainMemory, BrainSynergy } from "@/app/api/brain/route";
+import type { BrainDocument, BrainMemory, BrainSynergy } from "@/app/api/brain/route";
 
 // Absolute world units, not a layout-pixel scale like the colony world or
 // the hierarchy tree — there's no 2D layout step here, positions are
@@ -30,6 +30,13 @@ function colorForMemory(m: BrainMemory): string {
   if (m.scope === "founder") return FOUNDER_COLOR;
   if (m.scope === "group") return GROUP_COLOR;
   return SCOPE_PALETTE[hashToIndex(m.scopeId ?? m.id, SCOPE_PALETTE.length)];
+}
+
+/** Same per-company hash as memories, so a document and a memory from the
+ *  same company read as related at a glance — the shape (cube, not
+ *  sphere) is what marks a node as a document, not a separate palette. */
+function colorForDocument(d: BrainDocument): string {
+  return SCOPE_PALETTE[hashToIndex(d.companyId, SCOPE_PALETTE.length)];
 }
 
 /** Even coverage of a sphere with no physics simulation — a dozen-line
@@ -160,9 +167,57 @@ function MemoryNode({
   );
 }
 
+const DOCUMENT_NODE_SIZE = 0.055;
+
+/** Same halo/click/arrival-animation structure as MemoryNode, but a cube
+ *  instead of a sphere — documents are a different kind of thing than a
+ *  memory, so they read as one on sight, not just via a tooltip. */
+function DocumentNode({
+  document,
+  position,
+  isNew,
+}: {
+  document: BrainDocument;
+  position: [number, number, number];
+  isNew: boolean;
+}) {
+  const size = DOCUMENT_NODE_SIZE;
+  const color = colorForDocument(document);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const arrivalStartRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (isNew) arrivalStartRef.current = performance.now();
+  }, [isNew]);
+
+  useFrame(() => {
+    if (!meshRef.current) return;
+    let scale = size;
+    if (arrivalStartRef.current !== null) {
+      const t = Math.min(1, (performance.now() - arrivalStartRef.current) / 600);
+      scale = size * t;
+    }
+    meshRef.current.scale.setScalar(Math.max(scale, 0.001));
+  });
+
+  return (
+    <group position={position}>
+      <mesh>
+        <boxGeometry args={[size * 2.4, size * 2.4, size * 2.4]} />
+        <meshBasicMaterial color={color} transparent opacity={0.14} depthWrite={false} />
+      </mesh>
+      <mesh ref={meshRef}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
 export function BrainScene({
   totalMemoryCount,
   memories,
+  documents,
   synergies,
   newlyArrivedIds,
   selectedId,
@@ -170,6 +225,7 @@ export function BrainScene({
 }: {
   totalMemoryCount: number;
   memories: BrainMemory[];
+  documents: BrainDocument[];
   synergies: BrainSynergy[];
   newlyArrivedIds: Set<string>;
   selectedId: string | null;
@@ -179,11 +235,17 @@ export function BrainScene({
   const shellRadius = coreRadius * SHELL_RATIO;
   const dist = Math.max(shellRadius * 2.9, 5);
 
+  // Memories and documents share one Fibonacci-sphere index space (memory
+  // indices first, document indices after) rather than two independent
+  // distributions, so the two node kinds never land on top of each other
+  // regardless of their relative counts.
   const positionById = useMemo(() => {
     const map = new Map<string, [number, number, number]>();
-    memories.forEach((m, i) => map.set(m.id, fibonacciSpherePoint(i, memories.length, shellRadius)));
+    const total = memories.length + documents.length;
+    memories.forEach((m, i) => map.set(m.id, fibonacciSpherePoint(i, total, shellRadius)));
+    documents.forEach((d, i) => map.set(`doc:${d.id}`, fibonacciSpherePoint(memories.length + i, total, shellRadius)));
     return map;
-  }, [memories, shellRadius]);
+  }, [memories, documents, shellRadius]);
 
   return (
     <Canvas
@@ -218,6 +280,14 @@ export function BrainScene({
             selected={selectedId === m.id}
             onSelect={() => onSelect(m.id)}
           />
+        );
+      })}
+
+      {documents.map((d) => {
+        const position = positionById.get(`doc:${d.id}`);
+        if (!position) return null;
+        return (
+          <DocumentNode key={d.id} document={d} position={position} isNew={newlyArrivedIds.has(`doc:${d.id}`)} />
         );
       })}
     </Canvas>

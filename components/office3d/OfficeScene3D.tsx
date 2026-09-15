@@ -18,9 +18,10 @@ import { deriveAgentRank } from "@/lib/agent-title";
 // once; verified against a real screenshot again this pass, not just math.
 const SCALE = 40;
 
-// Lego-minifigure palette: one flat, saturated color per Operator, hashed
-// from the agent id. A paired, desaturated "sleeping" variant so a dormant
-// Operator visibly reads as dormant at a glance, not just via its halo.
+// Per-Operator chassis palette: one saturated color hashed from the agent
+// id, applied to the sleeker digital-operator silhouette below. A paired,
+// desaturated "sleeping" variant so a dormant Operator visibly reads as
+// dormant at a glance, not just via its halo.
 const CHARACTER_COLORS = ["#f2c14e", "#4d96ff", "#6bcb77", "#b57edc", "#ff8c5a", "#ff6b9d"];
 const CHARACTER_COLORS_SLEEP = ["#8a7a52", "#425a7a", "#4d6b55", "#6b5a7a", "#7a5a48", "#7a4d5e"];
 
@@ -346,7 +347,16 @@ function AgentFigure({
         />
       </mesh>
 
-      {/* Character */}
+      {/* Character — a sleeker digital-operator chassis, not a Lego
+          minifigure: a tapered, faceted (8-sided, not round) torso reads
+          more mechanical than the old capsule, angular shoulder pauldrons
+          broaden the silhouette, and a boxy visor head carries a thin
+          emissive strip lit with the real state glow color instead of a
+          separate decoration — the same signal, just built into the
+          character instead of floating above it. Same y-anchors as
+          before (0.62 torso center, 1.18 head, 1.42/1.45 label/glow) so
+          the selection ring, point light, ExecutingFX, and label below
+          don't need retuning. */}
       <group
         position={[0, 0, 0.35]}
         onClick={(e) => {
@@ -355,12 +365,24 @@ function AgentFigure({
         }}
       >
         <mesh position={[0, 0.62, 0]}>
-          <capsuleGeometry args={[0.25, 0.58, 4, 12]} />
-          <meshStandardMaterial color={bodyColor} />
+          <cylinderGeometry args={[0.16, 0.22, 0.62, 8]} />
+          <meshStandardMaterial color={bodyColor} metalness={0.35} roughness={0.5} />
+        </mesh>
+        <mesh position={[0.19, 0.92, 0]}>
+          <boxGeometry args={[0.14, 0.12, 0.18]} />
+          <meshStandardMaterial color={bodyColor} metalness={0.35} roughness={0.5} />
+        </mesh>
+        <mesh position={[-0.19, 0.92, 0]}>
+          <boxGeometry args={[0.14, 0.12, 0.18]} />
+          <meshStandardMaterial color={bodyColor} metalness={0.35} roughness={0.5} />
         </mesh>
         <mesh position={[0, 1.18, 0]}>
-          <sphereGeometry args={[0.22, 16, 16]} />
-          <meshStandardMaterial color={bodyColor} />
+          <boxGeometry args={[0.26, 0.24, 0.24]} />
+          <meshStandardMaterial color={bodyColor} metalness={0.35} roughness={0.5} />
+        </mesh>
+        <mesh position={[0, 1.18, 0.125]}>
+          <boxGeometry args={[0.18, 0.06, 0.01]} />
+          <meshBasicMaterial color={glowColor ?? "#3a4560"} />
         </mesh>
 
         {selected && (

@@ -5,11 +5,12 @@ import { test, expect } from "@playwright/test";
 // specific 3D character would mean duplicating the camera's projection
 // math just to compute a screen point, which isn't worth it for what it'd
 // buy. What's covered here is everything DOM-based: the scene mounting,
-// the left nav / category row navigation, and the activity feed/terminal
-// actually rendering real fixture data. The scene's own visual correctness
-// (camera framing, district/Operator rendering, the state glow) is verified
-// with a real headless-browser screenshot instead — see the session notes
-// for this pass.
+// the left nav / category row navigation, the World layer switcher, and
+// the activity feed/terminal actually rendering real fixture data. Each
+// spatial layer's own visual correctness (camera framing, district/
+// Operator rendering, the state glow) is verified with a real
+// headless-browser screenshot instead — see the session notes for this
+// pass.
 test.describe("Colony (demo mode)", () => {
   test("loads, shows the demo banner, and mounts the 3D scene", async ({ page }) => {
     const response = await page.goto("/office");
@@ -63,13 +64,49 @@ test.describe("Colony (demo mode)", () => {
     await expect(hud.getByText(/sleeping/)).toBeVisible();
   });
 
+  test("World layer switcher swaps the viewport without navigating away", async ({ page }) => {
+    await page.goto("/office");
+    const switcher = page.getByRole("navigation", { name: "World layers" });
+    const orgButton = switcher.getByRole("button", { name: "Organization" });
+    await expect(orgButton).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("img", { name: "Colony scene" })).toBeVisible({ timeout: 10_000 });
+
+    await switcher.getByRole("button", { name: "Relationships" }).click();
+    await expect(page).toHaveURL(/\/office\?layer=relationships/);
+    await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+    await expect(orgButton).toHaveAttribute("aria-pressed", "false");
+
+    await switcher.getByRole("button", { name: "Hierarchy" }).click();
+    await expect(page).toHaveURL(/\/office\?layer=hierarchy/);
+    await expect(page.getByRole("img", { name: "Hierarchy map" })).toBeVisible();
+
+    await switcher.getByRole("button", { name: "Knowledge" }).click();
+    await expect(page).toHaveURL(/\/office\?layer=knowledge/);
+    await expect(page.getByRole("img", { name: "AI Brain" })).toBeVisible({ timeout: 10_000 });
+
+    // Back to Organization: the URL loses its ?layer= param entirely
+    // rather than carrying an explicit "?layer=organization".
+    await switcher.getByRole("button", { name: "Organization" }).click();
+    await expect(page).toHaveURL(/\/office$/);
+    await expect(page.getByRole("img", { name: "Colony scene" })).toBeVisible();
+
+    // The World shell's chrome — the header, the layer switcher itself —
+    // never unmounted across any of those switches, unlike a real
+    // navigation. LeftNav is desktop-only, so this part only applies there.
+    // Exact match: "District" is also a substring of the Organization
+    // layer's own "Districts are companies..." description text.
+    if ((page.viewportSize()?.width ?? 0) >= 768) {
+      await expect(page.getByText("District", { exact: true })).toBeVisible();
+    }
+  });
+
   test("desktop: left nav and activity feed show real data", async ({ page }) => {
     await page.goto("/office");
     if ((page.viewportSize()?.width ?? 0) < 768) test.skip();
 
     await expect(page.getByText("District")).toBeVisible();
     const surfaces = page.getByRole("navigation", { name: "Surfaces" });
-    await expect(surfaces.getByRole("link", { name: "Graph" })).toBeVisible();
+    await expect(surfaces.getByRole("link", { name: "Documents" })).toBeVisible();
     await expect(surfaces.getByRole("link", { name: "Memories" })).toBeVisible();
 
     // The demo Sales Agent run has real output text (lib/demo-mode.ts) —

@@ -15,8 +15,10 @@ Defaults to the group-level company (`parent_id === null`) if present.
 
 `components/CockpitShell.tsx` renders the header (logo, demo-mode banner,
 `CompanySwitcher`) and the sidebar nav (`NAV`: Office/Chat; a `MORE_NAV`
-disclosure: Graph/Documents/Memories/Approvals; `CREATE_NAV`: +New
-company/+New agent). **One exception:** on `pathname === "/office"`, the
+disclosure: Documents/Memories/Approvals; `CREATE_NAV`: +New company/+New
+agent — Relationships/Hierarchy/Knowledge aren't here, since they're
+layers inside `/office`'s own World shell now, not separate destinations).
+**One exception:** on `pathname === "/office"`, the
 entire sidebar (and its mobile hamburger toggle) is suppressed — the office
 page's own `LeftNav` component covers the same ground, so stacking a second
 nav on top of it would be redundant. `<main>` padding also differs
@@ -92,28 +94,12 @@ existing `--success`/`--danger` tokens instead of flat muted text.
 (group + founder + company-scope), with a "Promote to group" button on any
 `company`-scope row (posts to `/api/memories/:id/promote`). Each memory's
 scope badge distinguishes all three real scopes — `founder` gets the same
-amber `components/brain/BrainScene.tsx`'s `FOUNDER_COLOR` and
-`/hierarchy`'s founder-node border already use, `group` the accent color,
+amber `components/brain/BrainScene.tsx`'s `FOUNDER_COLOR` and the
+Hierarchy layer's founder-node border already use, `group` the accent color,
 `company` stays neutral — and a thin importance meter (a filled bar sized
 to the real `importance` value, plus the number) sits next to the badge,
 surfacing a field the page's own fetch already returned but previously
 discarded.
-
-## Knowledge graph (`/graph`)
-
-`app/(cockpit)/graph/page.tsx` fetches `/api/graph` once, lays the
-nodes/edges out via `lib/graph-layout.ts`'s `forceLayout()` (a small
-hand-rolled repulsion/spring/center-pull simulation, 300 fixed iterations —
-deliberately not a new dependency like d3-force or React Flow, since this
-is a few dozen nodes at most), and renders an SVG with a **glowing
-"hologram" treatment**: an `feGaussianBlur`+`feMerge` filter for the
-blur-behind-a-bright-core glow effect, a `<pattern>` grid background, edges
-as quadratic-bezier `<path>`s bowed perpendicular to their segment (reads as
-a circuit trace, not a wireframe diagram — the bow amount is deterministic,
-not physics-based, so the same graph always draws the same way), and nodes
-as glow-filtered rounded `<rect>` panels (width sized to label length) with
-a small colored dot per node type (`colorForNodeType()`). Clicking a node
-shows its connections in a side panel (`data-testid="graph-detail-panel"`).
 
 ## Company/agent creator wizards
 
@@ -129,54 +115,106 @@ importing the registry into a client component, since the registry pulls
 in server-only Supabase logic through its tool implementations) — every
 tool name it can submit is validated server-side regardless.
 
-## The Colony (`/office`)
+## The World shell (`/office`)
 
 The home page (`app/page.tsx` redirects `/` → `/office`; the nav label is
 "Colony" — the route path stayed `/office` on purpose, a URL slug being a
 technical detail rather than brand-facing). This is the richest surface in
-the app — a dense, four-zone shell rebuilt across four passes (2D pixel art
+the app — a dense, four-zone shell rebuilt across many passes (2D pixel art
 → a "Night Shift" dark re-theme → a mission-control shell with a
-grid-of-rooms 3D viewport → the current OD Cortex radial colony world),
-documented in full in the root [`README.md`](../README.md#status).
-`app/(cockpit)/office/page.tsx` polls `/api/map`, `/api/dashboard`, and
-`/api/activity` every 20s and lays out:
+grid-of-rooms 3D viewport → the OD Cortex radial colony world → the current
+**World shell**, unifying every spatial/relational visualization into one
+persistent frame), documented in full in the root
+[`README.md`](../README.md#status). `app/(cockpit)/office/page.tsx` lays
+out:
 
 ```
 ┌───────────┬─────────────────────────┬──────────────┐
-│ LeftNav   │      OfficeScene3D       │ ActivityFeed │
-│ (desktop  │  (always visible)        │ (desktop     │
-│  only)    │                          │  only)       │
+│ LeftNav   │   Layer-switched         │ ActivityFeed │
+│ (desktop  │   viewport               │ (desktop     │
+│  only)    │   (always visible)       │  only)       │
 ├───────────┴─────────────────────────┴──────────────┤
-│  Category row (Documents/Memories/Graph/Approvals…) │
+│  WorldLayerSwitcher: Organization / Relationships /   │
+│  Hierarchy / Knowledge                                │
+├──────────────────────────────────────────────────────┤
+│  Category row (Documents/Memories/Approvals…)         │
 ├──────────────────────────────────────────────────────┤
 │  TerminalStrip                                        │
 └──────────────────────────────────────────────────────┘
 ```
 
+### The shell mechanism
+
+Until this pass, Colony/Relationships (`/graph`)/Hierarchy (`/hierarchy`)/
+Knowledge (`/brain`) were four separate routes and four separate page
+loads. They're now **layers** switched by client state inside one
+persistent shell — no navigation, no chrome unmount, between any of them:
+
+- **`components/office3d/WorldLayerSwitcher.tsx`** exports the `WorldLayer`
+  type (`"organization" | "relationships" | "hierarchy" | "knowledge"`),
+  a `LAYER_META` map (each layer's name and header description — one
+  source of truth for both the switcher's labels and the shell's header),
+  and the switcher control itself — a HUD-styled pill row, the same
+  pressed-state styling the Command Mode toggle already used.
+- `office/page.tsx`'s `activeLayer` state defaults to `"organization"` on
+  every render (server and client alike) and is synced from a real
+  `?layer=` URL param in a mount effect — reading `window.location.search`
+  synchronously during the initial render would risk a hydration mismatch
+  for a `"use client"` page with no `searchParams` prop threaded through,
+  so the sync happens one tick after mount instead (a one-frame flash to
+  Organization on a direct deep link, never a hydration error).
+  `selectLayer()` updates the URL via `window.history.replaceState` — a
+  raw browser API, not `next/navigation`'s router, so switching layers
+  never triggers an RSC round-trip.
+- Each layer's data is fetched by the shell, not by the layer component
+  itself, and reused where the data already overlaps: **Organization**
+  and **Hierarchy** both consume the exact same `/api/map` response the
+  shell already fetches for the colony (one fetch, two layouts —
+  `officeLayout()` and `hierarchy-layout.ts`'s `hierarchyLayout()`).
+  **Relationships** lazily fetches `/api/graph` the first time that layer
+  is activated, then caches it in shell state for the rest of the session.
+  **Knowledge** (`components/office3d/BrainLayer.tsx`) is the one
+  exception — it owns its complete fetch/poll/promote lifecycle
+  internally (unlike the others, nothing else on the page already has its
+  data), and unmounts/stops polling when you switch away, exactly like
+  navigating away from the old `/brain` route already did.
+- The retired routes (`/graph`, `/hierarchy`, `/brain`) are now thin
+  `redirect()` pages pointing at `/office?layer=...` — kept as real
+  redirects, not deleted outright, so an existing bookmark still lands
+  somewhere real, the same pattern this project used retiring `/hq`,
+  `/map`, `/dashboard`, and `/activity` in earlier passes.
+- Documents/Memories/Approvals/Chat deliberately **stay their own routed
+  pages** — real forms and lists, not spatial views, so forcing them into
+  "layers" would be a gimmick, not a clarity win. They're one click away
+  from the World shell via the category row and `LeftNav`'s `Surfaces`
+  list, same as before.
+
+### Organization layer (the colony)
+
 - **`components/office3d/OfficeScene3D.tsx`** — the `@react-three/fiber`
-  viewport, the only place in the app using 3D. Reads `lib/office-layout.ts`'s
-  **radial colony layout** (`SCALE = 40` world units per layout unit — see
-  the file's own comments for two real bugs this pass's camera math hit and
-  fixed, caught by screenshots rather than by the math alone). OD Holdings
-  (the company with no parent) is the **Central Command District** at the
-  origin; every other company orbits it as its own tinted platform, sized by
-  how many Operators are stationed there, connected to the center by a
-  glowing bridge drawn from the same real `owns` edges `/graph` already
-  visualizes (the bridge glows brighter when that company is active — real
-  UI state, not decoration). Each Operator is a flat-colored capsule+sphere
-  figure (color hashed from the agent id, desaturated when `sleeping`)
-  standing at a HUD-styled console whose screen is lit once the agent has
-  ever produced a run. A glowing colored halo above each figure's head is
-  `lib/agent-visual-state.ts`'s `deriveAgentState()` (`executing` / `blocked`
-  / `approval` / `delivered` / `sleeping` / `idle` — six real states, see
-  below) and a two-line label under drei's `<Html>` shows the Operator's
-  name plus its rank via `lib/agent-title.ts`'s `deriveAgentRank()`. The
-  camera is fixed and steep/near-overhead (no `OrbitControls`) — a full
-  360° radial layout needs a much steeper angle than the old left-to-right
-  grid did to avoid clipping whichever district happens to orbit nearest
-  the lens; a modest 3/4 angle (the old grid's working value) visibly
-  clipped districts here, caught on a screenshot and fixed by raising the
-  camera rather than by adding user controls. Text labels use drei's
+  viewport, the only place in the app using 3D for this layer. Reads
+  `lib/office-layout.ts`'s **radial colony layout** (`SCALE = 40` world
+  units per layout unit — see the file's own comments for two real bugs
+  this pass's camera math hit and fixed, caught by screenshots rather than
+  by the math alone). OD Holdings (the company with no parent) is the
+  **Central Command District** at the origin; every other company orbits
+  it as its own tinted platform, sized by how many Operators are
+  stationed there, connected to the center by a glowing bridge drawn from
+  the same real `owns` edges the Relationships layer already visualizes
+  (the bridge glows brighter when that company is active — real UI state,
+  not decoration). Each Operator is a **digital-operator chassis** — a
+  tapered, 8-sided (faceted, not round) torso, angular shoulder
+  pauldrons, and a boxy visor head carrying a thin emissive strip lit with
+  the real state glow color, replacing the original flat capsule+sphere
+  figure with something that reads more like a mechanical worker than a
+  Lego minifigure — standing at a HUD-styled console whose screen is lit
+  once the agent has ever produced a run. A glowing colored halo above
+  each figure's head is `lib/agent-visual-state.ts`'s `deriveAgentState()`
+  (`executing` / `blocked` / `approval` / `delivered` / `sleeping` /
+  `idle` — six real states, see below) and a two-line label under drei's
+  `<Html>` shows the Operator's name plus its rank via
+  `lib/agent-title.ts`'s `deriveAgentRank()`. The camera is a real
+  `CameraRig` (see Command Mode below), not fixed. Text labels use drei's
   `<Html>` (a DOM overlay) and the starfield atmosphere is a hand-rolled
   point cloud seeded with a deterministic PRNG, **never** drei's `<Text>`
   or `<Stars>` — an unfamiliar component's asset/randomness behavior isn't
@@ -186,29 +224,177 @@ documented in full in the root [`README.md`](../README.md#status).
   r3f's built-in mesh `onClick` raycasting.
 - **`components/office3d/LeftNav.tsx`** — active company name (labeled
   "District"), a "recent" list (`/api/dashboard`'s `recentDecisions`), and
-  a `Surfaces` nav (Graph/Documents/Memories/Approvals/Chat) — the real
-  equivalents of a generic reference's Whiteboard/Design Board/Builder/
-  Chats/Projects/Workflows labels, remapped rather than inventing pages for
-  labels with nothing real behind them.
+  a `Surfaces` nav (Documents/Memories/Approvals/Chat — Relationships/
+  Hierarchy/Knowledge aren't real destinations from here anymore, since
+  this component lives inside the World shell itself, where
+  `WorldLayerSwitcher` is the way to reach them).
 - **`components/office3d/ActivityFeed.tsx`** — real `agent_runs.output`,
   attributed by Operator name **and rank** (`deriveAgentRank`, via an
   `agentInfoById` map built from `/api/map`'s node list, not a second
   lookup). An Operator with no output yet shows its last real status, never
-  invented dialogue.
+  invented dialogue. Visible alongside every layer, not just Organization.
 - **`components/office3d/TerminalStrip.tsx`** — the same `agent_runs`/
   `audit_log` rows the feed already fetched, re-presented as raw
   auto-scrolling monospace log lines (`[HH:MM:SS] agent_run agent=... `/
-  `[HH:MM:SS] audit actor=...`). No second data source.
-- **Category row** — `Documents`/`Memories`/`Graph`/`Approvals`/`+New
-  company`/`+New agent`, plain links.
+  `[HH:MM:SS] audit actor=...`). No second data source. Also visible
+  alongside every layer.
 - **`components/OfficeAgentPanel.tsx`** — the click-an-Operator overlay:
   a header showing the Operator's name and rank, `AgentChatPanel` (the same
   chat implementation `/chat` uses), pending approvals for that one agent
   (Approve/Reject, reusing `POST /api/approvals/:id`), and recent runs.
+  Used by both the Organization and Hierarchy layers.
 
 `/office`'s `/activity` predecessor page is retired entirely — its job is
 now this feed + terminal strip, the same "fold into `/office`, keep the API
 route" pattern the earlier `/dashboard` and `/map` pages went through.
+
+### Relationships layer
+
+**`components/office3d/GraphLayer.tsx`** (the former standalone `/graph`
+page's body) is fed `nodes`/`edges` the shell lazily fetched from
+`/api/graph`, laid out via `lib/graph-layout.ts`'s `forceLayout()` (a small
+hand-rolled repulsion/spring/center-pull simulation, 300 fixed iterations —
+deliberately not a new dependency like d3-force or React Flow, since this
+is a few dozen nodes at most), and rendered as an SVG with a **glowing
+"hologram" treatment**: an `feGaussianBlur`+`feMerge` filter for the
+blur-behind-a-bright-core glow effect, a `<pattern>` grid background, edges
+as quadratic-bezier `<path>`s bowed perpendicular to their segment (reads as
+a circuit trace, not a wireframe diagram — the bow amount is deterministic,
+not physics-based, so the same graph always draws the same way), and nodes
+as glow-filtered rounded `<rect>` panels (width sized to label length) with
+a small colored dot per node type (`colorForNodeType()`). Clicking a node
+shows its connections in a side panel (`data-testid="graph-detail-panel"`).
+
+### Hierarchy layer
+
+The founder's org-chart ask fulfilled literally: Founder → Group Executives
+→ Company Executives → Department Leads, as a real tree rather than a
+force-directed network. Built entirely from the shell's own `/api/map`
+data — no separate fetch.
+
+- **`lib/hierarchy-layout.ts`** — a deterministic top-down tree layout
+  (`hierarchyLayout(nodes, edges)`), deliberately **not**
+  `graph-layout.ts`'s force-directed `forceLayout()`: a hierarchy shouldn't
+  visibly jitter into place or allow crossing edges. Two-pass algorithm —
+  post-order to compute each subtree's width, pre-order to center each
+  node under its children's span. Builds the tree from the same
+  `MapNode`/`MapEdge` shape the Organization layer's own fetch already
+  returns: a synthetic `"founder"` root (a real label, not a fabricated
+  row — there's no "founder" table, this position is the human user)
+  above the company with no parent, which fans out into its own agents
+  and child companies, each child company's own agents beneath it. Every
+  agent node carries `lib/agent-title.ts`'s `deriveAgentRank()` label —
+  the identical "Group Executive"/"Company Executive"/"`{Department}`
+  Lead" language the Organization layer and `ActivityFeed` already use.
+- **`components/office3d/HierarchyLayer.tsx`** (the former standalone
+  `/hierarchy` page's body) — takes the shell's already-fetched
+  `nodes`/`edges` as props (no fetch of its own), runs them through
+  `hierarchyLayout()`, and renders an SVG reusing the Relationships
+  layer's proven hologram glow system (the same `feGaussianBlur`+`feMerge`
+  filter and grid `<pattern>` background, copied rather than extracted
+  into a shared component — a little duplication between two small
+  layers over a premature shared primitive) with **elbow bezier
+  connectors** between a parent's bottom edge and each child's top edge
+  instead of the network's bowed circuit-trace edges — reads as an org
+  chart, not a network, while staying visually related to it. Agent nodes
+  show two lines (name, then rank in a smaller/dimmer line, the same
+  pattern the colony world's character labels use); the Founder node gets
+  a distinct gold/amber border since it's the one node that isn't a data
+  row. Nodes fade in staggered by tree depth on load (a plain CSS
+  `transition-delay`, no animation library). Clicking a company node
+  calls the same `setActiveCompanyId` every other company-switching
+  interaction in the app already uses; clicking an agent node opens the
+  **existing** `components/OfficeAgentPanel.tsx` overlay unchanged — real
+  chat, pending approvals, and recent runs, from a component that already
+  existed rather than a new one.
+
+Unlike the Organization layer's 3D character clicks, Hierarchy's node
+clicks are plain SVG `<g role="button">` elements — fully automatable, no
+camera projection math to duplicate — so `tests/e2e/hierarchy.spec.ts`
+covers the agent-click → `OfficeAgentPanel` interaction directly, real data
+included, rather than deferring it to a manual screenshot check.
+
+### Knowledge layer
+
+The founder's central-intelligence-core ask: *"a large glowing neural
+sphere... When memories are created, connections appear. When documents
+are uploaded, knowledge flows into the core. The AI Brain should become
+visibly larger and richer over time."* Unlike Relationships/Hierarchy,
+this is a genuinely volumetric idea that reads flat in 2D SVG, so it's the
+one other place besides the Organization layer that earns real 3D depth
+(`@react-three/fiber`, already a dependency).
+
+- **`GET /api/brain`** (see [`API_REFERENCE.md`](./API_REFERENCE.md))
+  aggregates across every company at once, since every other route is
+  deliberately per-company-scoped for the per-company pages — the one
+  deliberate exception to "reuse an existing route" the shell otherwise
+  holds to. Demo-mode-aware like every other route: `lib/demo-mode.ts`'s
+  `demoBrain()` is built from the same fixture memories `demoMemories()`,
+  `demoChatReply()`'s Group CFO synergy example, and (as of this pass)
+  `demoDocuments()`'s two fixture rows already define — not new invented
+  content.
+- **What's honestly real, decided up front:** the core's size is a real
+  function of an actual `count(*)` query (`base + log(count + 1) * factor`
+  — small now, since this app has almost no seeded memory data, and that's
+  the honest state to show rather than a minimum chosen to look impressive).
+  Individual memory *and document* nodes are real rows (capped at 200/100
+  respectively, newest first, the same `.limit()` precedent `/api/map`
+  already sets). Connections between nodes are exclusively
+  `match_cross_company_memories` output — the same RPC `detect_synergies`
+  already calls — and if it returns nothing for a small dataset, the Brain
+  shows no arcs and says so in the stat row ("real result, not a failure,"
+  the same phrasing `detect_synergies`'s own tool description already
+  uses). There is no fabricated live "packet traveling into the core"
+  animation — this app has no Realtime infrastructure (no browser-side
+  Supabase client, by design). What *is* real and safe to animate: the
+  layer polls `/api/brain` on the same 20s interval the rest of the shell
+  already uses, diffs this poll's combined memory+document id set against
+  the previous one, and gives any genuinely new id a one-time scale-in
+  arrival animation — event-driven off a real diff, not a looping
+  decoration.
+- **`components/brain/BrainScene.tsx`** — the core is a layered
+  wireframe/glow sphere (several transparent `meshBasicMaterial` halo
+  shells at increasing radius/decreasing opacity, a cheap stand-in for a
+  real bloom pass this app's pipeline doesn't have). Memory and document
+  nodes share one Fibonacci-sphere index space (memory indices first,
+  document indices after, so the two kinds never land on top of each
+  other regardless of their relative counts) — a deterministic, even
+  coverage formula, no physics simulation and no new dependency, the same
+  "hand-roll it for a few dozen items" precedent `graph-layout.ts`'s
+  `forceLayout` and `hierarchy-layout.ts`'s tree layout already set,
+  extended to 3D. Memories render as spheres colored by scope
+  (group/founder get fixed colors; company-scope memories are tinted per
+  company using the same `hashToIndex` palette approach
+  `OfficeScene3D.tsx` uses for districts); **documents render as cubes**
+  (same per-company palette, a different marker shape rather than a new
+  color language, so a document reads as a different *kind* of thing on
+  sight, not just a differently-colored dot) — display-only in this pass,
+  not clickable, since there's no document detail UI in the Brain yet.
+  Synergy connections render as glowing bezier arcs through 3D space
+  between the two real memory nodes in each pair. Camera distance is
+  computed from the shell radius with generous margin, verified with a real
+  screenshot before calling this done — the same discipline that already
+  caught camera-framing bugs in the colony world (twice) and the Hierarchy
+  layer's `viewBox` (once).
+- **`components/office3d/BrainLayer.tsx`** (the former standalone
+  `/brain` page's body) — polls `/api/brain` every 20s, tracks the
+  previous poll's combined memory+document id set in a ref to compute
+  arrivals, and shows a stat row (memories retained / documents indexed /
+  cross-company connections, or the honest "no connections yet" message).
+  Clicking a memory node opens an inline detail panel — own to this
+  layer, not `OfficeAgentPanel` (that component is agent-specific and
+  doesn't fit a memory) — showing content/scope/importance/confidence/
+  source, and for a `company`-scope memory, a "Promote to group" button
+  that calls the **existing** `POST /api/memories/:id/promote` endpoint
+  unchanged.
+
+Same trade-off as the Organization layer: clicking a specific memory or
+document node isn't covered by the automated suite — duplicating r3f's
+camera projection math to compute a screen point isn't worth it for what
+it'd buy. `tests/e2e/brain.spec.ts` covers everything DOM-based (the scene
+mounting, the real stat counts); the click → detail-panel interaction, and
+the core/node visual correctness, were verified manually with real
+headless-browser screenshots instead.
 
 ### Operator rank
 
@@ -283,119 +469,3 @@ agent-overlay interactions were verified manually via real
 headless-browser screenshots — see `tests/e2e/office.spec.ts`'s header
 comment and [`TESTING.md`](./TESTING.md).
 
-## Hierarchy Map (`/hierarchy`)
-
-The founder's org-chart ask fulfilled literally: Founder → Group Executives
-→ Company Executives → Department Leads, as a real tree rather than a
-force-directed network. Built entirely from `/api/map`'s existing response
-— no new route, no new fetch.
-
-- **`lib/hierarchy-layout.ts`** — a deterministic top-down tree layout
-  (`hierarchyLayout(nodes, edges)`), deliberately **not**
-  `graph-layout.ts`'s force-directed `forceLayout()`: a hierarchy shouldn't
-  visibly jitter into place or allow crossing edges. Two-pass algorithm —
-  post-order to compute each subtree's width, pre-order to center each
-  node under its children's span. Builds the tree from the same
-  `MapNode`/`MapEdge` shape `/api/map` already returns: a synthetic
-  `"founder"` root (a real label, not a fabricated row — there's no
-  "founder" table, this position is the human user) above the company with
-  no parent, which fans out into its own agents and child companies, each
-  child company's own agents beneath it. Every agent node carries
-  `lib/agent-title.ts`'s `deriveAgentRank()` label — the identical
-  "Group Executive"/"Company Executive"/"`{Department}` Lead" language the
-  colony world and `ActivityFeed` already use.
-- **`app/(cockpit)/hierarchy/page.tsx`** — fetches `/api/map` once (the
-  exact same call `/graph` makes), runs it through `hierarchyLayout()`,
-  renders an SVG reusing `/graph`'s proven hologram glow system (the same
-  `feGaussianBlur`+`feMerge` filter and grid `<pattern>` background,
-  copied rather than extracted into a shared component — a little
-  duplication between two small pages over a premature shared primitive)
-  with **elbow bezier connectors** between a parent's bottom edge and each
-  child's top edge instead of `/graph`'s bowed circuit-trace edges — reads
-  as an org chart, not a network, while staying visually related to
-  `/graph`. Agent nodes show two lines (name, then rank in a smaller/dimmer
-  line, the same pattern the colony world's character labels use); the
-  Founder node gets a distinct gold/amber border since it's the one node
-  that isn't a data row. Nodes fade in staggered by tree depth on load (a
-  plain CSS `transition-delay`, no animation library). Clicking a company
-  node calls the same `setActiveCompanyId` every other company-switching
-  interaction in the app already uses; clicking an agent node opens the
-  **existing** `components/OfficeAgentPanel.tsx` overlay unchanged — real
-  chat, pending approvals, and recent runs, from a component that already
-  existed rather than a new one.
-
-Unlike the colony world's 3D character clicks, `/hierarchy`'s node clicks
-are plain SVG `<g role="button">` elements — fully automatable, no camera
-projection math to duplicate — so `tests/e2e/hierarchy.spec.ts` covers the
-agent-click → `OfficeAgentPanel` interaction directly, real data included,
-rather than deferring it to a manual screenshot check.
-
-## AI Brain (`/brain`)
-
-The founder's central-intelligence-core ask: *"a large glowing neural
-sphere... When memories are created, connections appear. When documents
-are uploaded, knowledge flows into the core. The AI Brain should become
-visibly larger and richer over time."* Unlike the Hierarchy Map, this is a
-genuinely volumetric idea that reads flat in 2D SVG, so it's the one other
-place besides the colony world that earns real 3D depth
-(`@react-three/fiber`, already a dependency).
-
-- **`GET /api/brain`** (new route — see [`API_REFERENCE.md`](./API_REFERENCE.md))
-  aggregates across every company at once, since every other route is
-  deliberately per-company-scoped for the per-company pages. Demo-mode-aware
-  like every other route: `lib/demo-mode.ts`'s `demoBrain()` is built from
-  the same fixture memories `demoMemories()` and `demoChatReply()`'s Group
-  CFO synergy example already define, not new invented content.
-- **What's honestly real, decided up front:** the core's size is a real
-  function of an actual `count(*)` query (`base + log(count + 1) * factor`
-  — small now, since this app has almost no seeded memory data, and that's
-  the honest state to show rather than a minimum chosen to look impressive).
-  Individual memory nodes are real rows (capped at 200, newest first, the
-  same `.limit()` precedent `/api/map` already sets). Connections between
-  nodes are exclusively `match_cross_company_memories` output — the same
-  RPC `detect_synergies` already calls — and if it returns nothing for a
-  small dataset, the Brain shows no arcs and says so in the stat row
-  ("real result, not a failure," the same phrasing `detect_synergies`'s own
-  tool description already uses). There is no fabricated live "packet
-  traveling into the core" animation — this app has no Realtime
-  infrastructure (no browser-side Supabase client, by design). What *is*
-  real and safe to animate: the page polls `/api/brain` on the same 20s
-  interval `/office` already uses, diffs this poll's memory-id set against
-  the previous one, and gives any genuinely new id a one-time scale-in
-  arrival animation — event-driven off a real diff, not a looping decoration.
-- **`components/brain/BrainScene.tsx`** — the core is a layered
-  wireframe/glow sphere (several transparent `meshBasicMaterial` halo
-  shells at increasing radius/decreasing opacity, a cheap stand-in for a
-  real bloom pass this app's pipeline doesn't have). Memory nodes sit on a
-  shell around the core, positioned via a Fibonacci-sphere formula
-  (deterministic, even coverage, no physics simulation and no new
-  dependency — the same "hand-roll it for a few dozen items" precedent
-  `graph-layout.ts`'s `forceLayout` and `hierarchy-layout.ts`'s tree layout
-  already set, extended to 3D), colored by scope (group/founder get fixed
-  colors; company-scope memories are tinted per company using the same
-  `hashToIndex` palette approach `OfficeScene3D.tsx` already uses for
-  districts). Synergy connections render as glowing bezier arcs through 3D
-  space between the two real memory nodes in each pair. Camera distance is
-  computed from the shell radius with generous margin, verified with a real
-  screenshot before calling this done — the same discipline that already
-  caught camera-framing bugs in the colony world (twice) and the Hierarchy
-  Map's `viewBox` (once).
-- **`app/(cockpit)/brain/page.tsx`** — polls `/api/brain` every 20s, tracks
-  the previous poll's memory-id set in a ref to compute arrivals, and shows
-  a stat row (memories retained / documents indexed / cross-company
-  connections, or the honest "no connections yet" message). Clicking a
-  memory node opens an inline detail panel — own to this page, not
-  `OfficeAgentPanel` (that component is agent-specific and doesn't fit a
-  memory) — showing content/scope/importance/confidence/source, and for a
-  `company`-scope memory, a "Promote to group" button that calls the
-  **existing** `POST /api/memories/:id/promote` endpoint unchanged.
-
-### Testing note
-
-Same trade-off as the colony world: clicking a specific memory node isn't
-covered by the automated suite — duplicating r3f's camera projection math
-to compute a screen point isn't worth it for what it'd buy.
-`tests/e2e/brain.spec.ts` covers everything DOM-based (the scene mounting,
-the real stat counts, the honest empty-synergy message); the click →
-detail-panel interaction, and the core/node visual correctness, were
-verified manually with real headless-browser screenshots instead.

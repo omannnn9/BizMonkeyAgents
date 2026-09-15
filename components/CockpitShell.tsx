@@ -14,11 +14,11 @@ const NAV = [
 // from a "More" disclosure instead of sitting in the primary nav. Activity
 // isn't here: its job is now the colony page's own right-side feed and
 // terminal strip, same "fold into office, drop the standalone page" pattern
-// the old /dashboard and /map pages went through.
+// the old /dashboard and /map pages went through. Graph/Hierarchy/Brain
+// aren't here either, for the same reason one level up: they're layers
+// inside the World shell (/office's own WorldLayerSwitcher) now, not
+// separate destinations to link to.
 const MORE_NAV = [
-  { href: "/graph", label: "Graph" },
-  { href: "/hierarchy", label: "Hierarchy" },
-  { href: "/brain", label: "Brain" },
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
   { href: "/approvals", label: "Approvals" },

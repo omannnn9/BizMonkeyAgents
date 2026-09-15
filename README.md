@@ -36,8 +36,10 @@ the same way, group-scope agents, memory promotion, company/agent creator wizard
 generation), a scoped-down **Phase 4** (a 3D preview at `/hq`, since retired), a **Phase 5** 2D
 pixel-art `/office` (also since retired — two visual passes, "Night Shift," both superseded), and
 **Phase 6** (the mission-control `/office`), **Phase 7** (the OD Cortex rebrand + colony world),
-**Phase 8** (the `/hierarchy` organizational tree), **Phase 9** (the `/brain` AI Brain), and
-**Phase 10** (Founder Command Mode + district-switch camera transitions, all described below) are
+**Phase 8** (the `/hierarchy` organizational tree), **Phase 9** (the `/brain` AI Brain),
+**Phase 10** (Founder Command Mode + district-switch camera transitions), and **Phase 11**
+(the World shell — Colony/Relationships/Hierarchy/Knowledge unified into one persistent, layer-
+switchable frame instead of four separate routes, all described below) are
 all built — everything that
 doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
 applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
@@ -230,6 +232,28 @@ The creator wizards (`/companies/new`, `/agents/new`) had the same gap in the ot
 identical local `Field` component and input className copy-pasted across both, predating the Panel
 migration — now factored into shared `components/ui/Field.tsx` and wrapped in `Panel` like every
 other page.
+
+**Phase 11 — the World shell.** A founder-authored "OD Cortex Vision 3.0" brief asked for something
+closer to a living digital-headquarters world than a set of pages — audited honestly against that
+brief first (see the plan file this pass used, or ask for the audit): the underlying data model
+already supports it (every entity the brief asks for — companies, departments, agents, tasks,
+documents, memories, decisions, approvals — is a real table, already wired into `/graph`'s relationship
+graph), but three of the brief's asks (real financial flow layers, visible agent-to-agent
+collaboration, a predictive/time layer) have **no real data behind them today** — no financial tables
+exist at all, and no agent can hand work to another agent yet — so per explicit direction, those stay
+deferred rather than faked. What *is* real and shipped this pass: Colony, Relationships (the former
+`/graph`), Hierarchy, and Knowledge (the former `/brain`) are no longer four separate routes and four
+separate page loads — they're **layers** inside one persistent World shell (still `/office`), switched
+by client state via a new `WorldLayerSwitcher`, with zero navigation and zero chrome unmount between
+them. `/graph`, `/hierarchy`, and `/brain` are now thin redirects into `/office?layer=...`, the same
+clean-retirement pattern `/hq`/`/map`/`/dashboard`/`/activity` went through earlier. Command Mode's HUD
+grew two more real signals it already had the data for but didn't show (a per-company pending-approvals
+breakdown, a real recent-decisions list). Agents got a sleeker, more angular "digital operator" chassis
+(replacing the old capsule-and-sphere figure) with a visor strip lit by the real state glow color
+instead of a separate decoration. The AI Brain's Knowledge layer now renders real document nodes (not
+just a per-company count) as cubes alongside memory spheres, sharing one Fibonacci-sphere index space so
+the two kinds never collide — one additive field on `GET /api/brain`, the only API surface this pass
+touched. See [`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
 
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no

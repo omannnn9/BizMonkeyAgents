@@ -1,10 +1,18 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Hierarchy (demo mode)", () => {
-  test("loads, shows the demo banner, and renders the tree", async ({ page }) => {
+// Hierarchy is now a layer inside the World shell (/office), not a
+// standalone route — /hierarchy redirects into it. See office.spec.ts's
+// header comment for the layer-switching coverage and the 3D-click
+// trade-off shared across every spatial layer.
+test.describe("Hierarchy layer (demo mode)", () => {
+  test("the retired /hierarchy route redirects into the World shell's Hierarchy layer with the real tree", async ({
+    page,
+  }) => {
     const response = await page.goto("/hierarchy");
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: "Hierarchy" })).toBeVisible();
+    await expect(page).toHaveURL(/\/office\?layer=hierarchy/);
+    await expect(page.getByRole("heading", { name: "Colony" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Hierarchy" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("Demo mode")).toBeVisible();
 
     // demoMap() seeds OD Holdings + ODAX/Tablo/NOVA + Sales/Marketing agents
@@ -19,21 +27,23 @@ test.describe("Hierarchy (demo mode)", () => {
   });
 
   test("clicking an Operator opens its overlay with real data", async ({ page }) => {
-    await page.goto("/hierarchy");
+    await page.goto("/office?layer=hierarchy");
     await page.getByRole("button", { name: /Sales Agent — Sales Lead/ }).click();
 
-    // "Sales Lead" also appears in the tree node behind the overlay, so
-    // scope to the last match — the overlay renders after the tree in the
-    // DOM, same "duplicate label across two zones" situation navigation.spec.ts
-    // already handles for the office/colony page.
-    await expect(page.getByRole("heading", { name: "Sales Agent" })).toBeVisible();
-    await expect(page.getByText("Sales Lead").last()).toBeVisible();
-    await expect(page.getByText("Pending approvals (1)")).toBeVisible();
-    await expect(page.getByText("send_email")).toBeVisible();
+    // Now that Hierarchy is a layer inside the World shell, the right-hand
+    // ActivityFeed is visible at the same time and shows "Sales Agent"/
+    // "Sales Lead" too — scope to the overlay itself (a real data-testid,
+    // not a DOM-order guess) rather than the old page's "just grab the
+    // last match" trick, which the shell's extra chrome would now break.
+    const panel = page.getByTestId("office-agent-panel");
+    await expect(panel.getByRole("heading", { name: "Sales Agent" })).toBeVisible();
+    await expect(panel.getByText("Sales Lead")).toBeVisible();
+    await expect(panel.getByText("Pending approvals (1)")).toBeVisible();
+    await expect(panel.getByText("send_email")).toBeVisible();
   });
 
   test("clicking a company node switches the active company", async ({ page }) => {
-    await page.goto("/hierarchy");
+    await page.goto("/office?layer=hierarchy");
     await page.getByRole("button", { name: "ODAX" }).click();
 
     const selectedOption = page.locator("select:visible").first().locator("option:checked");

@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useCompany } from "@/lib/company-context";
 import { officeLayout } from "@/lib/office-layout";
 import { deriveAgentRank } from "@/lib/agent-title";
@@ -10,8 +10,13 @@ import { LeftNav } from "@/components/office3d/LeftNav";
 import { ActivityFeed } from "@/components/office3d/ActivityFeed";
 import { TerminalStrip } from "@/components/office3d/TerminalStrip";
 import { CommandHUD } from "@/components/office3d/CommandHUD";
+import { WorldLayerSwitcher, LAYER_META, type WorldLayer } from "@/components/office3d/WorldLayerSwitcher";
+import { GraphLayer } from "@/components/office3d/GraphLayer";
+import { HierarchyLayer } from "@/components/office3d/HierarchyLayer";
+import { BrainLayer } from "@/components/office3d/BrainLayer";
 import { OfficeAgentPanel } from "@/components/OfficeAgentPanel";
 import type { MapEdge, MapNode } from "@/app/api/map/route";
+import type { GraphNode, GraphEdge } from "@/lib/graph-layout";
 
 // WebGL needs a real browser — never server-rendered.
 const OfficeScene3D = dynamic(
@@ -53,21 +58,23 @@ interface LogRow {
 const CATEGORY_LINKS = [
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
-  { href: "/graph", label: "Graph" },
-  { href: "/hierarchy", label: "Hierarchy" },
-  { href: "/brain", label: "Brain" },
   { href: "/approvals", label: "Approvals" },
   { href: "/companies/new", label: "+ New company" },
   { href: "/agents/new", label: "+ New agent" },
 ];
 
 /**
- * The Colony: the home view. A left nav, a 3D viewport where every company
- * is a district and every agent an Operator whose state is a pure function
- * of real `agent_runs`/`approvals` rows, a right-side feed of what
- * Operators actually said, and a bottom strip of raw activity lines — all
- * fed by the same /api/map, /api/activity, and /api/dashboard routes the
- * rest of this app already uses, reused unchanged.
+ * The World: the home view, and now the single home for every spatial/
+ * relational visualization the app has — Organization (the colony),
+ * Relationships (the former /graph), Hierarchy (the former /hierarchy),
+ * and Knowledge (the former /brain) are layers switched via client state,
+ * not separate routes. A left nav, a layer-switchable viewport, a
+ * right-side feed of what Operators actually said, and a bottom strip of
+ * raw activity lines — all fed by the same real routes each former page
+ * already used (/api/map, /api/graph, /api/brain, /api/activity,
+ * /api/dashboard), reused unchanged. Documents/Memories/Approvals/Chat
+ * stay their own routed pages — real forms and lists, not spatial views,
+ * so forcing them into "layers" would be a gimmick, not a clarity win.
  */
 export default function OfficePage() {
   const { activeCompanyId, activeCompany, setActiveCompanyId } = useCompany();
@@ -81,6 +88,54 @@ export default function OfficePage() {
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [commandMode, setCommandMode] = useState(false);
+
+  // Always starts on "organization" — reading the real URL synchronously
+  // during the initial render would risk a server/client hydration
+  // mismatch for a "use client" page with no searchParams prop threaded
+  // through. Synced from ?layer= (set by the retired /graph, /hierarchy,
+  // /brain routes' redirects) in the mount effect below instead: a
+  // one-frame flash to Organization on a direct deep link, never a
+  // hydration error.
+  const [activeLayer, setActiveLayer] = useState<WorldLayer>("organization");
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("layer");
+    if (p === "relationships" || p === "hierarchy" || p === "knowledge") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reads the real URL once, client-only, after the hydration-safe default render
+      setActiveLayer(p);
+    }
+  }, []);
+
+  function selectLayer(layer: WorldLayer) {
+    setActiveLayer(layer);
+    const params = new URLSearchParams(window.location.search);
+    if (layer === "organization") params.delete("layer");
+    else params.set("layer", layer);
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+  }
+
+  // Relationships is the one layer whose data (/api/graph) nothing else on
+  // this page already fetches — lazy on first activation, then cached for
+  // the rest of the session so switching back to it later doesn't refetch.
+  const [graphNodes, setGraphNodes] = useState<GraphNode[]>([]);
+  const [graphEdges, setGraphEdges] = useState<GraphEdge[]>([]);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const graphFetchedRef = useRef(false);
+  useEffect(() => {
+    if (activeLayer !== "relationships" || graphFetchedRef.current) return;
+    graphFetchedRef.current = true;
+    setGraphLoading(true);
+    fetch("/api/graph")
+      .then((res) => res.json())
+      .then((body) => {
+        setGraphNodes(body.nodes ?? []);
+        setGraphEdges(body.edges ?? []);
+      })
+      .catch(() => {
+        // The Relationships layer just stays empty rather than blocking the shell.
+      })
+      .finally(() => setGraphLoading(false));
+  }, [activeLayer]);
 
   // Command Mode's HUD lives outside the Canvas (a plain DOM overlay), so
   // it needs its own ticking clock to flip the same "delivered"/"sleeping"
@@ -168,25 +223,25 @@ export default function OfficePage() {
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-foreground">Colony</h1>
-          <button
-            type="button"
-            aria-pressed={commandMode}
-            onClick={() => setCommandMode((v) => !v)}
-            className={`transition-cortex rounded-md border px-2.5 py-1 text-xs ${
-              commandMode
-                ? "border-accent bg-accent/15 text-foreground glow-accent"
-                : "border-border bg-surface text-muted hover:bg-surface-raised hover:text-foreground"
-            }`}
-          >
-            Command Mode
-          </button>
+          {activeLayer === "organization" && (
+            <button
+              type="button"
+              aria-pressed={commandMode}
+              onClick={() => setCommandMode((v) => !v)}
+              className={`transition-cortex rounded-md border px-2.5 py-1 text-xs ${
+                commandMode
+                  ? "border-accent bg-accent/15 text-foreground glow-accent"
+                  : "border-border bg-surface text-muted hover:bg-surface-raised hover:text-foreground"
+              }`}
+            >
+              Command Mode
+            </button>
+          )}
         </div>
-        <p className="hidden text-xs text-muted sm:block">
-          Districts are companies, Operators are your AI teammates. A glow above an Operator&apos;s head
-          is always real: blue while executing, amber waiting on approval, red when blocked, green just
-          delivered, muted grey when sleeping.
-        </p>
+        <p className="hidden text-xs text-muted sm:block">{LAYER_META[activeLayer].description}</p>
       </div>
+
+      <WorldLayerSwitcher activeLayer={activeLayer} onChange={selectLayer} />
 
       {loading && <p className="text-sm text-muted">Loading…</p>}
       {errorMsg && <p className="text-sm text-danger">{errorMsg}</p>}
@@ -206,16 +261,35 @@ export default function OfficePage() {
             </div>
 
             <div className="relative min-h-[320px]">
-              <OfficeScene3D
-                layout={layout}
-                workingAgentIds={workingAgentIds}
-                selectedAgentId={selectedAgentId}
-                activeCompanyId={activeCompanyId || null}
-                commandMode={commandMode}
-                onSelectAgent={setSelectedAgentId}
-                onSelectCompany={setActiveCompanyId}
-              />
-              {commandMode && <CommandHUD layout={layout} workingAgentIds={workingAgentIds} now={now} />}
+              {activeLayer === "organization" && (
+                <>
+                  <OfficeScene3D
+                    layout={layout}
+                    workingAgentIds={workingAgentIds}
+                    selectedAgentId={selectedAgentId}
+                    activeCompanyId={activeCompanyId || null}
+                    commandMode={commandMode}
+                    onSelectAgent={setSelectedAgentId}
+                    onSelectCompany={setActiveCompanyId}
+                  />
+                  {commandMode && (
+                    <CommandHUD
+                      layout={layout}
+                      workingAgentIds={workingAgentIds}
+                      now={now}
+                      recentDecisions={dashboard?.recentDecisions ?? []}
+                    />
+                  )}
+                </>
+              )}
+              {activeLayer === "relationships" &&
+                (graphLoading ? (
+                  <p className="p-3 text-sm text-muted">Loading…</p>
+                ) : (
+                  <GraphLayer nodes={graphNodes} edges={graphEdges} />
+                ))}
+              {activeLayer === "hierarchy" && <HierarchyLayer nodes={nodes} edges={edges} />}
+              {activeLayer === "knowledge" && <BrainLayer />}
             </div>
 
             <div className="hidden md:block">

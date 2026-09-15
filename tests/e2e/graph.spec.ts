@@ -1,10 +1,18 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Knowledge graph (demo mode)", () => {
-  test("loads, shows the demo banner, and renders nodes", async ({ page }) => {
+// Relationships is now a layer inside the World shell (/office), not a
+// standalone route — /graph redirects into it. See office.spec.ts's
+// header comment for the layer-switching coverage and the 3D-click
+// trade-off shared across every spatial layer.
+test.describe("Relationships layer (demo mode)", () => {
+  test("the retired /graph route redirects into the World shell's Relationships layer with real nodes", async ({
+    page,
+  }) => {
     const response = await page.goto("/graph");
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { name: /knowledge graph/i })).toBeVisible();
+    await expect(page).toHaveURL(/\/office\?layer=relationships/);
+    await expect(page.getByRole("heading", { name: "Colony" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Relationships" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("Demo mode")).toBeVisible();
 
     // demoGraph() seeds OD Holdings + ODAX/Tablo/NOVA + Sales/Marketing agents.
@@ -15,7 +23,7 @@ test.describe("Knowledge graph (demo mode)", () => {
   });
 
   test("clicking a node shows its detail panel with connections", async ({ page }) => {
-    await page.goto("/graph");
+    await page.goto("/office?layer=relationships");
     await expect(page.getByText("Click a node to see its details.")).toBeVisible();
 
     await page.getByRole("button", { name: "OD Holdings" }).click();

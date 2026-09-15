@@ -79,7 +79,7 @@ export function OfficeAgentPanel({
   const pendingApprovals = approvals.filter((a) => a.status === "pending");
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={onClose}>
+    <div data-testid="office-agent-panel" className="fixed inset-0 z-40 flex justify-end bg-black/40" onClick={onClose}>
       <div
         className="flex h-full w-full max-w-xl flex-col gap-4 overflow-y-auto border-l border-border bg-background p-4 sm:p-6"
         onClick={(e) => e.stopPropagation()}
