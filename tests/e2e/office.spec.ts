@@ -104,7 +104,10 @@ test.describe("Colony (demo mode)", () => {
     await page.goto("/office");
     if ((page.viewportSize()?.width ?? 0) < 768) test.skip();
 
-    await expect(page.getByText("District")).toBeVisible();
+    // Exact match: "District" is also a substring of the Organization
+    // layer's own "Districts are companies..." description text (same
+    // pre-existing strict-mode trap fixed above for the layer-switcher test).
+    await expect(page.getByText("District", { exact: true })).toBeVisible();
     const surfaces = page.getByRole("navigation", { name: "Surfaces" });
     await expect(surfaces.getByRole("link", { name: "Documents" })).toBeVisible();
     await expect(surfaces.getByRole("link", { name: "Memories" })).toBeVisible();
@@ -112,10 +115,28 @@ test.describe("Colony (demo mode)", () => {
     // The demo Sales Agent run has real output text (lib/demo-mode.ts) —
     // the feed must show it, attributed by name and rank, not a
     // placeholder. "Sales" also appears in the terminal strip's raw log
-    // lines, so scope to the feed itself.
+    // lines, so scope to the feed itself. Sales Agent now has two demo
+    // runs (its original task-status reply, and the more recent
+    // request_from_agent collaboration with Marketing) — .first() since
+    // both are real, not a strict-mode bug.
     const feed = page.getByTestId("activity-feed");
-    await expect(feed.getByText("Sales Agent")).toBeVisible();
-    await expect(feed.getByText("Sales Lead")).toBeVisible();
+    await expect(feed.getByText("Sales Agent").first()).toBeVisible();
+    await expect(feed.getByText("Sales Lead").first()).toBeVisible();
     await expect(feed.getByText(/confirm the pricing tier/)).toBeVisible();
+  });
+
+  test("a recent request_from_agent collaboration shows up in the activity feed", async ({ page }) => {
+    await page.goto("/office");
+    if ((page.viewportSize()?.width ?? 0) < 768) test.skip();
+
+    // demoActivity()'s third fixture run (lib/demo-mode.ts) is a real,
+    // recent Sales -> Marketing request_from_agent call — the same shape
+    // a live agent_runs.tool_calls row would carry, and the source for
+    // the Colony's collaboration beam (see lib/collaboration.ts). The
+    // beam itself is inside the WebGL canvas and not asserted here (same
+    // 3D-click trade-off documented at the top of this file) — what's
+    // testable is the real reply text surfacing in the DOM-based feed.
+    const feed = page.getByTestId("activity-feed");
+    await expect(feed.getByText(/Marketing Agent replied/)).toBeVisible();
   });
 });

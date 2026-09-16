@@ -50,6 +50,22 @@ test.describe("Chat (demo mode)", () => {
     await expect(page.getByText("both independently noted the same F&B")).toBeVisible();
   });
 
+  test("asking Group Strategy calls request_from_agent and surfaces the target agent's reply inline", async ({
+    page,
+  }) => {
+    await page.goto("/chat");
+    await page.getByLabel("Active Operator").selectOption({ label: "Group Strategy — Group Executive" });
+    const input = page.getByPlaceholder(/Message the Group Strategy/);
+    await input.fill("What's the latest on cross-company positioning?");
+    await page.getByRole("button", { name: "Send" }).click();
+
+    await expect(page.getByText("Group Strategy.", { exact: false }).last()).toBeVisible();
+    // NOTEWORTHY_TOOLS (components/AgentChatPanel.tsx) surfaces
+    // request_from_agent's result as an inline note under the reply —
+    // the Group CFO's real reply text, not a summary of it.
+    await expect(page.getByText(/Group CFO replied:/)).toBeVisible();
+  });
+
   test("switching to ODAX reveals the Sales/Marketing agent switcher, and switching agent changes the demo reply", async ({
     page,
   }) => {

@@ -10,6 +10,7 @@ import { LeftNav } from "@/components/office3d/LeftNav";
 import { ActivityFeed } from "@/components/office3d/ActivityFeed";
 import { TerminalStrip } from "@/components/office3d/TerminalStrip";
 import { CommandHUD } from "@/components/office3d/CommandHUD";
+import { deriveCollaborationEdges } from "@/lib/collaboration";
 import { WorldLayerSwitcher, LAYER_META, type WorldLayer } from "@/components/office3d/WorldLayerSwitcher";
 import { GraphLayer } from "@/components/office3d/GraphLayer";
 import { HierarchyLayer } from "@/components/office3d/HierarchyLayer";
@@ -45,6 +46,7 @@ interface RunRow {
   model: string;
   input: string | null;
   output: string | null;
+  tool_calls?: Array<{ name: string; input: unknown; result: string }> | null;
 }
 
 interface LogRow {
@@ -203,6 +205,7 @@ export default function OfficePage() {
   }, [activeCompanyId]);
 
   const layout = useMemo(() => officeLayout(nodes, edges), [nodes, edges]);
+  const collaborationEdges = useMemo(() => deriveCollaborationEdges(runs, now), [runs, now]);
   const selectedAgent = useMemo(
     () => layout.agents.find((a) => a.agentId === selectedAgentId) ?? null,
     [layout.agents, selectedAgentId],
@@ -269,6 +272,7 @@ export default function OfficePage() {
                     selectedAgentId={selectedAgentId}
                     activeCompanyId={activeCompanyId || null}
                     commandMode={commandMode}
+                    collaborationEdges={collaborationEdges}
                     onSelectAgent={setSelectedAgentId}
                     onSelectCompany={setActiveCompanyId}
                   />
@@ -278,6 +282,20 @@ export default function OfficePage() {
                       workingAgentIds={workingAgentIds}
                       now={now}
                       recentDecisions={dashboard?.recentDecisions ?? []}
+                      collaboratingAgentIds={
+                        // layout.agents' own agentId is "agent:"-prefixed (see
+                        // lib/office-layout.ts); collaborationEdges' ids come
+                        // straight from agent_runs.agent_id, unprefixed — same
+                        // mismatch OfficeScene3D's own matching strips, done
+                        // here in the other direction so this set matches
+                        // what deriveAgentState/summarizeAgentStates compare against.
+                        new Set(
+                          collaborationEdges.flatMap((e) => [
+                            `agent:${e.sourceAgentId}`,
+                            `agent:${e.targetAgentId}`,
+                          ]),
+                        )
+                      }
                     />
                   )}
                 </>

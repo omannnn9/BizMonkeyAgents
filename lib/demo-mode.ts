@@ -10,6 +10,7 @@ export function isDemoMode(): boolean {
   return !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
 }
 
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString();
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
 
@@ -49,6 +50,7 @@ export function demoActivity(agentId?: string | null) {
       model: "claude-sonnet-5",
       input: "What open tasks do we have for the MD follow-up?",
       output: "Two open: confirm the pricing tier with the MD, and send the updated proposal by Friday.",
+      tool_calls: [],
     },
     {
       id: "r2",
@@ -58,6 +60,30 @@ export function demoActivity(agentId?: string | null) {
       model: "claude-sonnet-5",
       input: "Draft an email to the MD about the Q3 numbers",
       output: null,
+      tool_calls: [],
+    },
+    {
+      // Recent enough (within the 2-minute "delivered"/"collaborating"
+      // window lib/agent-visual-state.ts already uses) that the Colony's
+      // collaboration beam has something real to show in demo mode too —
+      // not a separate fabricated signal, the same request_from_agent
+      // shape a real agent_runs.tool_calls row would carry. Sales ->
+      // Marketing, both real figures in demoMap()'s ODAX district, so the
+      // beam connects two Operators actually on screen together.
+      id: "r3",
+      agent_id: DEMO_AGENT_IDS.sales,
+      created_at: minutesAgo(1),
+      status: "success",
+      model: "claude-sonnet-5",
+      input: "Ask Marketing to check in on the Q3 creative brief",
+      output: "Marketing Agent replied: on track, first drafts due Friday.",
+      tool_calls: [
+        {
+          name: "request_from_agent",
+          input: { targetAgentId: DEMO_AGENT_IDS.marketing, request: "Status of the Q3 creative brief?" },
+          result: "Marketing Agent replied: on track, first drafts due Friday.",
+        },
+      ],
     },
   ];
   return {
@@ -443,8 +469,17 @@ export function demoChatReply(
       message:
         `**Demo mode** — Group Strategy. Once real data exists, I'd reason over goals and decisions ` +
         `across every company for "${userMessage}" and could compile a board report on request — try ` +
-        `asking a real deployment for one.`,
-      toolCalls: [],
+        `asking a real deployment for one. Here's what a real \`request_from_agent\` call looks like ` +
+        `too: I asked the Group CFO about "${userMessage}" and got a real reply back from their own ` +
+        `turn — each of us gets our own independent activity log entry, and the Colony shows a live ` +
+        `beam between us while it happens.`,
+      toolCalls: [
+        {
+          name: "request_from_agent",
+          input: { targetAgentId: DEMO_AGENT_IDS.groupCfo, request: userMessage },
+          result: "Group CFO replied: once connected, I'd pull that from real goals/decisions data.",
+        },
+      ],
     };
   }
 

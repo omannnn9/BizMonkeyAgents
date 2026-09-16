@@ -6,6 +6,9 @@ export interface ToolContext {
   agentId: string;
   activeCompanyId: string;
   userId: string;
+  /** How many agent-to-agent hops produced this turn (0 = a direct user
+   *  turn). Only `request_from_agent` reads this, to cap recursion. */
+  depth?: number;
 }
 
 export interface ToolResult {

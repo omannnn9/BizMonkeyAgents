@@ -1,8 +1,18 @@
 import type { OfficeAgentPosition } from "@/lib/office-layout";
 
-export type AgentVisualState = "executing" | "blocked" | "approval" | "delivered" | "sleeping" | "idle";
+export type AgentVisualState =
+  | "executing"
+  | "collaborating"
+  | "blocked"
+  | "approval"
+  | "delivered"
+  | "sleeping"
+  | "idle";
 
-const RECENT_DELIVERY_MS = 2 * 60 * 1000;
+/** How long a "just happened" signal (a delivered run, an active
+ *  collaboration) stays visible — one number reused everywhere the app
+ *  shows recency, so it means the same thing everywhere. */
+export const RECENT_DELIVERY_MS = 2 * 60 * 1000;
 const SLEEP_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -18,10 +28,16 @@ export function deriveAgentState(
   agent: Pick<OfficeAgentPosition, "lastRunAt" | "lastRunStatus" | "hasPendingApproval" | "status">,
   isWorking: boolean,
   now: number,
+  isCollaborating = false,
 ): AgentVisualState {
   if (isWorking) return "executing";
+  // A real error or a real pending decision is more actionable than "this
+  // agent recently collaborated" — collaborating sits at the same
+  // priority as delivered (it's the same "just happened" signal, only
+  // distinguished by what kind of run it was), never ahead of blocked/approval.
   if (agent.lastRunStatus === "error") return "blocked";
   if (agent.hasPendingApproval) return "approval";
+  if (isCollaborating) return "collaborating";
   if (agent.lastRunAt && now - new Date(agent.lastRunAt).getTime() < RECENT_DELIVERY_MS) return "delivered";
   const lastRunAge = agent.lastRunAt ? now - new Date(agent.lastRunAt).getTime() : Infinity;
   if (agent.status !== "active" || lastRunAge > SLEEP_THRESHOLD_MS) return "sleeping";
@@ -33,6 +49,7 @@ export function deriveAgentState(
  *  the --state-* custom properties in app/globals.css — update both together. */
 export const STATE_COLOR: Record<AgentVisualState, string | null> = {
   executing: "#7ec8ff",
+  collaborating: "#c77dff",
   approval: "#ffc24d",
   blocked: "#ff5a6e",
   delivered: "#5dff9b",
@@ -46,6 +63,7 @@ export const STATE_COLOR: Record<AgentVisualState, string | null> = {
  *  thing everywhere it's shown. */
 export const STATE_LABEL: Record<AgentVisualState, string> = {
   executing: "executing",
+  collaborating: "collaborating",
   approval: "awaiting approval",
   blocked: "blocked",
   delivered: "delivered",
@@ -63,9 +81,11 @@ export function summarizeAgentStates(
   >,
   workingAgentIds: Set<string>,
   now: number,
+  collaboratingAgentIds: Set<string> = new Set(),
 ): Record<AgentVisualState, number> {
   const counts: Record<AgentVisualState, number> = {
     executing: 0,
+    collaborating: 0,
     blocked: 0,
     approval: 0,
     delivered: 0,
@@ -73,7 +93,9 @@ export function summarizeAgentStates(
     idle: 0,
   };
   for (const agent of agents) {
-    counts[deriveAgentState(agent, workingAgentIds.has(agent.agentId), now)]++;
+    counts[
+      deriveAgentState(agent, workingAgentIds.has(agent.agentId), now, collaboratingAgentIds.has(agent.agentId))
+    ]++;
   }
   return counts;
 }

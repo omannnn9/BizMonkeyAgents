@@ -40,6 +40,10 @@ export async function runAgentTurn(
     userId: string;
     userMessage: string;
     history: Array<{ role: "user" | "assistant"; content: string }>;
+    /** Set by `request_from_agent` when this turn is itself the result of
+     *  one agent asking another — threaded through so a chain of requests
+     *  can't recurse unbounded. Omitted (0) for an ordinary user turn. */
+    depth?: number;
   },
 ): Promise<ChatTurnResult> {
   const startedAt = Date.now();
@@ -49,6 +53,7 @@ export async function runAgentTurn(
     agentId: params.agentId,
     activeCompanyId: params.activeCompanyId,
     userId: params.userId,
+    depth: params.depth ?? 0,
   };
 
   const { data: agentRow } = await supabase

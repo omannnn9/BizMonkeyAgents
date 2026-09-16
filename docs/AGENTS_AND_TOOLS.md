@@ -13,11 +13,15 @@ There is no hardcoded agent roster in code. Every agent is a row in the
 
 | Agent | Scope | Company | Tools |
 |---|---|---|---|
-| CEO Agent | company | every company (incl. OD Holdings) | `query_company_data`, `search_documents`, `send_email`, `generate_board_report` |
-| Sales Agent | company | ODAX, Tablo, NOVA | `query_company_data`, `search_documents`, `enrich_lead` |
-| Marketing Agent | company | ODAX, Tablo, NOVA | `query_company_data`, `search_documents`, `generate_creative_asset` |
-| Group CFO | group | OD Holdings | `query_company_data`, `search_documents`, `generate_board_report`, `detect_synergies` |
-| Group Strategy | group | OD Holdings | `query_company_data`, `search_documents`, `generate_board_report`, `detect_synergies` |
+| CEO Agent | company | every company (incl. OD Holdings) | `query_company_data`, `search_documents`, `send_email`, `generate_board_report`, `request_from_agent` |
+| Sales Agent | company | ODAX, Tablo, NOVA | `query_company_data`, `search_documents`, `enrich_lead`, `request_from_agent` |
+| Marketing Agent | company | ODAX, Tablo, NOVA | `query_company_data`, `search_documents`, `generate_creative_asset`, `request_from_agent` |
+| Group CFO | group | OD Holdings | `query_company_data`, `search_documents`, `generate_board_report`, `detect_synergies`, `request_from_agent` |
+| Group Strategy | group | OD Holdings | `query_company_data`, `search_documents`, `generate_board_report`, `detect_synergies`, `request_from_agent` |
+
+`request_from_agent` (migration `0007_agent_collaboration.sql`) is granted
+to all five — real agent-to-agent collaboration, not scoped to group-level
+agents the way `detect_synergies` is (see below).
 
 A founder can create more via `/agents/new` (`POST /api/agents`) — any
 combination of name, persona, model, and tools, as long as every requested
@@ -27,8 +31,9 @@ tool name is actually registered (see below).
 
 `lib/agent/agent-runtime.ts`'s `runAgentTurn()` is the single entry point
 for running one user turn against **any** agent row — the CEO agent, a
-department agent, a future custom one. It takes `{agentId, activeCompanyId,
-userId, userMessage, history}` and:
+department agent, a future custom one, or another agent invoked mid-turn by
+`request_from_agent` (see below). It takes `{agentId, activeCompanyId,
+userId, userMessage, history, depth?}` and:
 
 1. Loads the agent's `model` and `tools` columns.
 2. Resolves `tools` to real `AgentTool` objects via `resolveTools()`.
@@ -47,7 +52,11 @@ userId, userMessage, history}` and:
    still writes the run row with a plain-language error message as the
    output — a crash is a real, visible run, never a silent gap in the log.
 
-Returns `{message, toolCalls}` to the caller (`POST /api/chat`).
+Returns `{message, toolCalls}` to the caller — normally `POST /api/chat`,
+but `request_from_agent`'s handler calls `runAgentTurn()` directly too, the
+same function, no special-cased "internal" variant. `depth` (default `0`)
+is threaded into that inner call's `ToolContext` so a chain of
+collaboration requests can be bounded — see `request_from_agent` below.
 
 ## Context assembly
 
@@ -81,7 +90,8 @@ All tools live in `lib/agent/tools/`, implement the `AgentTool` interface
 (`lib/agent/types.ts`: `name`, `description`, `inputSchema`, async
 `handler(input, ctx)` → `{content, isError?}`), and are registered in
 `lib/agent/tools/registry.ts`'s `ALL_TOOLS`. `ToolContext` gives every
-handler `{supabase, agentId, activeCompanyId, userId}`.
+handler `{supabase, agentId, activeCompanyId, userId, depth?}` — `depth`
+is only meaningful to `request_from_agent`.
 
 ### `query_company_data` — read/write, not gated
 
@@ -149,6 +159,42 @@ explicitly as "candidates worth a look," not conclusions — this is plain
 cosine similarity over existing embeddings, not a separate pattern-mining
 system. Granted only to the two group-scope agents (Group CFO, Group
 Strategy) — cross-company comparison is inherently a group-level concern.
+
+### `request_from_agent` — agent-to-agent collaboration, not gated
+
+`lib/agent/tools/request-from-agent.ts`. Takes `{targetAgentId, request}`,
+loads the target `agents` row, and calls `runAgentTurn()` again — the
+*same* runtime function `POST /api/chat` uses, not a separate "internal
+agent call" code path. The target agent runs its own full turn (its own
+tools, its own approval gates for anything external) and gets its own
+independent `agent_runs` row, exactly like a real user turn would. The
+calling agent's own tool result is `"{Target agent name} replied: {their
+message}"`.
+
+Not approval-gated: this is internal collaboration between agents already
+in the same organization, the same trust boundary as calling your own
+tools — the same reasoning as `promote_memory`/`generate_board_report`.
+Anything the *target* agent tries to do externally (`send_email`, etc.)
+still goes through its own gate independently; `request_from_agent` itself
+never bypasses that.
+
+**Recursion guard**: `MAX_COLLAB_DEPTH = 2`. `ToolContext.depth` (default
+`0`) is incremented on every nested call; the handler refuses to recurse
+once `depth >= MAX_COLLAB_DEPTH`, returning an error tool result instead of
+calling `runAgentTurn()` again. Without this, two agents that both hold
+`request_from_agent` and reference each other could recurse unboundedly —
+nothing else in the runtime bounds nested calls.
+
+Granted to all five seeded agents (migration `0007_agent_collaboration.sql`).
+Writes one `audit_log` row directly (`action:
+"collaborate:request_from_agent"`) — the same "skip `gateAction`, write the
+log yourself" pattern `promote_memory` uses for ungated internal actions.
+
+**Visualized in two places**: `AgentChatPanel`'s `NOTEWORTHY_TOOLS` surfaces
+the target agent's reply as an inline note under the calling agent's
+message, and the Colony (Organization layer) draws a connecting beam
+between the two agents' real 3D positions for a couple of minutes after the
+call — see [`FRONTEND.md`](./FRONTEND.md#the-colony-collaboration-beam).
 
 ## The approval gate
 

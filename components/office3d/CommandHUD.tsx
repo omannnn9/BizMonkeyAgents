@@ -4,7 +4,15 @@ import type { OfficeLayout } from "@/lib/office-layout";
 
 // Fixed display order, not insertion order — keeps the chip row stable
 // frame to frame instead of reshuffling as counts change.
-const STATE_ORDER: AgentVisualState[] = ["executing", "approval", "blocked", "delivered", "sleeping", "idle"];
+const STATE_ORDER: AgentVisualState[] = [
+  "executing",
+  "blocked",
+  "approval",
+  "collaborating",
+  "delivered",
+  "sleeping",
+  "idle",
+];
 
 interface RecentDecision {
   id: string;
@@ -30,13 +38,15 @@ export function CommandHUD({
   workingAgentIds,
   now,
   recentDecisions = [],
+  collaboratingAgentIds = new Set(),
 }: {
   layout: OfficeLayout;
   workingAgentIds: Set<string>;
   now: number;
   recentDecisions?: RecentDecision[];
+  collaboratingAgentIds?: Set<string>;
 }) {
-  const counts = summarizeAgentStates(layout.agents, workingAgentIds, now);
+  const counts = summarizeAgentStates(layout.agents, workingAgentIds, now, collaboratingAgentIds);
   const pendingApprovals = layout.agents.filter((a) => a.hasPendingApproval).length;
 
   const districtLabelById = new Map(layout.districts.map((d) => [d.companyId, d.label]));

@@ -7,6 +7,7 @@ import { generateCreativeAssetTool } from "@/lib/agent/tools/generate-creative-a
 import { promoteMemoryTool } from "@/lib/agent/tools/promote-memory";
 import { generateBoardReportTool } from "@/lib/agent/tools/generate-board-report";
 import { detectSynergiesTool } from "@/lib/agent/tools/detect-synergies";
+import { requestFromAgentTool } from "@/lib/agent/tools/request-from-agent";
 
 /**
  * Every tool an agent could be assigned, keyed by name. An agent's own
@@ -23,6 +24,7 @@ const ALL_TOOLS: AgentTool[] = [
   promoteMemoryTool,
   generateBoardReportTool,
   detectSynergiesTool,
+  requestFromAgentTool,
 ];
 
 const toolsByName = new Map(ALL_TOOLS.map((t) => [t.name, t]));

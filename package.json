@@ -11,6 +11,7 @@
     "test:rls": "tsx scripts/test-rls-isolation.ts",
     "test:prompt-injection": "tsx scripts/test-prompt-injection.ts",
     "test:agent-scenarios": "tsx scripts/test-agent-scenarios.ts",
+    "test:collaboration-edges": "tsx scripts/test-collaboration-edges.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

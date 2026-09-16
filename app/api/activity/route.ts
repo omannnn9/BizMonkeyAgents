@@ -17,7 +17,7 @@ export const GET = withApiErrorHandling(async (request: Request) => {
 
   let runsQuery = supabase
     .from("agent_runs")
-    .select("id, agent_id, created_at, status, model, input, output")
+    .select("id, agent_id, created_at, status, model, input, output, tool_calls")
     .in("company_id", scopedCompanyIds)
     .order("created_at", { ascending: false })
     .limit(30);

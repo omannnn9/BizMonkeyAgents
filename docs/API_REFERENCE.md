@@ -90,8 +90,11 @@ page) run.
 **Response:** `{runs: RunRow[], logs: LogRow[]}` — up to 30 of each,
 newest first. `runs` includes `output` (added specifically so the office
 view's feed can show what an agent actually said, not just what it was
-asked). Optional `agentId` filters `runs` to one agent (used by
-`OfficeAgentPanel`).
+asked) and `tool_calls` (added so the World shell can derive real
+`request_from_agent` collaboration edges — see
+[`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated)
+— from the same feed it already polls, no separate endpoint). Optional
+`agentId` filters `runs` to one agent (used by `OfficeAgentPanel`).
 
 ## `GET /api/approvals?companyId=&agentId=`
 

@@ -7,6 +7,9 @@ import * as THREE from "three";
 import type { OfficeAgentPosition, OfficeDistrict, OfficeLayout } from "@/lib/office-layout";
 import { deriveAgentState, STATE_COLOR, type AgentVisualState } from "@/lib/agent-visual-state";
 import { deriveAgentRank } from "@/lib/agent-title";
+import type { CollaborationEdge } from "@/lib/collaboration";
+
+export type { CollaborationEdge };
 
 // World units per layout unit — lib/office-layout.ts's radial colony
 // layout stays the single source of truth for where every district/Operator
@@ -197,6 +200,36 @@ function Bridge({
   );
 }
 
+/** A pulsing 3D line between two Operators mid-collaboration — the same
+ *  raw `<line>`/`bufferGeometry` technique `GraphEdgeLine` in
+ *  components/office3d/GraphScene.tsx already established for real
+ *  relationships, tinted with the "collaborating" state color and pulsed
+ *  the same `useFrame` sine pattern `ExecutingFX` already uses. */
+function CollaborationBeam({
+  from,
+  to,
+}: {
+  from: [number, number, number];
+  to: [number, number, number];
+}) {
+  const positions = useMemo(() => new Float32Array([...from, ...to]), [from, to]);
+  const materialRef = useRef<THREE.LineBasicMaterial>(null);
+
+  useFrame((frameState) => {
+    if (!materialRef.current) return;
+    materialRef.current.opacity = 0.4 + 0.35 * Math.sin(frameState.clock.elapsedTime * 4);
+  });
+
+  return (
+    <line>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <lineBasicMaterial ref={materialRef} color={STATE_COLOR.collaborating ?? "#c77dff"} transparent opacity={0.6} />
+    </line>
+  );
+}
+
 function District({
   district,
   isActive,
@@ -294,18 +327,20 @@ function ExecutingFX({ active }: { active: boolean }) {
 function AgentFigure({
   agent,
   isWorking,
+  isCollaborating,
   selected,
   now,
   onSelect,
 }: {
   agent: OfficeAgentPosition;
   isWorking: boolean;
+  isCollaborating: boolean;
   selected: boolean;
   now: number;
   onSelect: () => void;
 }) {
   const colorIndex = hashToIndex(agent.agentId, CHARACTER_COLORS.length);
-  const state: AgentVisualState = deriveAgentState(agent, isWorking, now);
+  const state: AgentVisualState = deriveAgentState(agent, isWorking, now, isCollaborating);
   const rank = deriveAgentRank({ scope: agent.scope ?? "company", departmentId: agent.departmentId, roleTitle: agent.roleTitle });
   const glowColor = STATE_COLOR[state];
   const bodyColor = state === "sleeping" ? CHARACTER_COLORS_SLEEP[colorIndex] : CHARACTER_COLORS[colorIndex];
@@ -419,6 +454,7 @@ function SceneContents({
   selectedAgentId,
   activeCompanyId,
   now,
+  collaborationEdges,
   onSelectAgent,
   onSelectCompany,
 }: {
@@ -427,10 +463,38 @@ function SceneContents({
   selectedAgentId: string | null;
   activeCompanyId: string | null;
   now: number;
+  collaborationEdges: CollaborationEdge[];
   onSelectAgent: (agentId: string) => void;
   onSelectCompany: (companyId: string) => void;
 }) {
   const sceneRadius = Math.max(layout.width, layout.height) / 2 / SCALE;
+
+  // Matches real agents by their unprefixed id (agent_runs.agent_id has
+  // no "agent:" prefix; layout.agents' own agentId does, same as every
+  // other place in this file that strips it — see deriveAgentRank calls
+  // above). Both the collaborating-state color and the connecting beam
+  // below read from this same derived data, not two separate signals.
+  const collaboratingIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of collaborationEdges) {
+      ids.add(e.sourceAgentId);
+      ids.add(e.targetAgentId);
+    }
+    return ids;
+  }, [collaborationEdges]);
+
+  // Absolute world position of each Operator's own glow orb (matches
+  // AgentFigure's [0, 0, 0.35] inner-group offset + [0, 1.45, 0] glow
+  // position below) — so a beam visually connects the two glows, not the
+  // characters' feet.
+  const glowPositionByRawId = useMemo(() => {
+    const map = new Map<string, [number, number, number]>();
+    for (const agent of layout.agents) {
+      const rawId = agent.agentId.replace(/^agent:/, "");
+      map.set(rawId, [agent.x / SCALE, 1.45, agent.y / SCALE + 0.35]);
+    }
+    return map;
+  }, [layout.agents]);
 
   return (
     <>
@@ -469,12 +533,20 @@ function SceneContents({
             <AgentFigure
               agent={agent}
               isWorking={workingAgentIds.has(agent.agentId)}
+              isCollaborating={collaboratingIds.has(agent.agentId.replace(/^agent:/, ""))}
               selected={selectedAgentId === agent.agentId}
               now={now}
               onSelect={() => onSelectAgent(agent.agentId)}
             />
           </group>
         );
+      })}
+
+      {collaborationEdges.map((edge, i) => {
+        const from = glowPositionByRawId.get(edge.sourceAgentId);
+        const to = glowPositionByRawId.get(edge.targetAgentId);
+        if (!from || !to) return null;
+        return <CollaborationBeam key={`collab-${i}`} from={from} to={to} />;
       })}
     </>
   );
@@ -486,6 +558,7 @@ export function OfficeScene3D({
   selectedAgentId,
   activeCompanyId,
   commandMode,
+  collaborationEdges = [],
   onSelectAgent,
   onSelectCompany,
 }: {
@@ -494,6 +567,7 @@ export function OfficeScene3D({
   selectedAgentId: string | null;
   activeCompanyId: string | null;
   commandMode: boolean;
+  collaborationEdges?: CollaborationEdge[];
   onSelectAgent: (agentId: string) => void;
   onSelectCompany: (companyId: string) => void;
 }) {
@@ -542,6 +616,7 @@ export function OfficeScene3D({
         selectedAgentId={selectedAgentId}
         activeCompanyId={activeCompanyId}
         now={now}
+        collaborationEdges={collaborationEdges}
         onSelectAgent={onSelectAgent}
         onSelectCompany={onSelectCompany}
       />

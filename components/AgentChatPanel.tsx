@@ -21,9 +21,16 @@ interface ChatMessage {
 }
 
 // Tool calls whose result is worth surfacing inline as a note under the
-// reply — every one of these is an external action gated on approval, so
-// the founder should see the outcome without digging into Activity.
-const NOTEWORTHY_TOOLS = new Set(["send_email", "enrich_lead", "generate_creative_asset"]);
+// reply, so the founder sees the outcome without digging into Activity:
+// send_email/enrich_lead/generate_creative_asset are external actions
+// gated on approval; request_from_agent isn't gated, but its result is
+// another agent's real reply — just as worth surfacing inline.
+const NOTEWORTHY_TOOLS = new Set([
+  "send_email",
+  "enrich_lead",
+  "generate_creative_asset",
+  "request_from_agent",
+]);
 
 /**
  * The chat message list + input + send logic, extracted out of the /chat

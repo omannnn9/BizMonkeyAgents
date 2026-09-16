@@ -210,8 +210,8 @@ persistent shell — no navigation, no chrome unmount, between any of them:
   Lego minifigure — standing at a HUD-styled console whose screen is lit
   once the agent has ever produced a run. A glowing colored halo above
   each figure's head is `lib/agent-visual-state.ts`'s `deriveAgentState()`
-  (`executing` / `blocked` / `approval` / `delivered` / `sleeping` /
-  `idle` — six real states, see below) and a two-line label under drei's
+  (`executing` / `blocked` / `approval` / `collaborating` / `delivered` /
+  `sleeping` / `idle` — seven real states, see below) and a two-line label under drei's
   `<Html>` shows the Operator's name plus its rank via
   `lib/agent-title.ts`'s `deriveAgentRank()`. The camera is a real
   `CameraRig` (see Command Mode below), not fixed. Text labels use drei's
@@ -247,6 +247,40 @@ persistent shell — no navigation, no chrome unmount, between any of them:
 `/office`'s `/activity` predecessor page is retired entirely — its job is
 now this feed + terminal strip, the same "fold into `/office`, keep the API
 route" pattern the earlier `/dashboard` and `/map` pages went through.
+
+### The Colony collaboration beam
+
+A real signal for the `request_from_agent` tool
+([`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated)),
+not decoration: `lib/collaboration.ts`'s `deriveCollaborationEdges()`
+scans the same `agent_runs` rows `ActivityFeed`/`TerminalStrip` already
+poll (`/api/activity`, now selecting `tool_calls` too) for a
+`request_from_agent` call within the last two minutes (`RECENT_DELIVERY_MS`,
+the same window `delivered` already uses), and extracts the real
+`{sourceAgentId, targetAgentId}` pair from the call's own logged input.
+`app/(cockpit)/office/page.tsx` derives this once via `useMemo` and passes
+it to `OfficeScene3D` as `collaborationEdges`.
+
+Two independent effects come out of the same derived data, not two
+signals:
+
+- **The glow**: `deriveAgentState()` gains an `isCollaborating` parameter,
+  checked after `blocked`/`approval` (a real error or pending decision
+  stays more urgent than "recently collaborated") but before `delivered` —
+  functionally the same "just happened" tier, distinguished only by what
+  kind of run it was.
+- **The beam**: a new `CollaborationBeam` component in `OfficeScene3D.tsx`
+  — the same raw `<line>`/`bufferGeometry` technique
+  `GraphScene.tsx`'s `GraphEdgeLine` already established for the
+  Relationships layer — connects the two Operators' real glow-orb world
+  positions, pulsed via the same `useFrame` sine pattern `ExecutingFX`
+  already uses, tinted with the new `collaborating` state color
+  (`#c77dff`). Renders regardless of either Operator's glow state, so the
+  beam stays visible even when one side is showing `blocked`/`approval`.
+
+Command Mode's HUD chip row picks this up too (`summarizeAgentStates()`'s
+new `collaboratingAgentIds` parameter) — org-wide, not scoped to whichever
+district is active.
 
 ### Relationships layer
 
@@ -463,11 +497,11 @@ states, connected by a smooth tween:
   `officeLayout()` already produces from `/api/map`'s unscoped response —
   so it's correct regardless of which company happens to be selected in
   the switcher, with **zero new fetch and zero new API route**. The state
-  breakdown (executing/awaiting-approval/blocked/delivered/sleeping/idle
-  counts) reuses `lib/agent-visual-state.ts`'s existing `deriveAgentState()`
-  — the exact function `AgentFigure` already calls per-character — via a
-  new `summarizeAgentStates()` helper that sums it across every Operator in
-  the org; only non-zero chips render, no padding to look busier than the
+  breakdown (executing/blocked/awaiting-approval/collaborating/delivered/
+  sleeping/idle counts) reuses `lib/agent-visual-state.ts`'s existing
+  `deriveAgentState()` — the exact function `AgentFigure` already calls
+  per-character — via a `summarizeAgentStates()` helper that sums it across
+  every Operator in the org; only non-zero chips render, no padding to look busier than the
   fixture data actually is.
 - One real bug this pass caught only by looking at a screenshot: the HUD
   first rendered hundreds of pixels below the viewport, in normal document

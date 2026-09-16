@@ -255,15 +255,36 @@ just a per-company count) as cubes alongside memory spheres, sharing one Fibonac
 the two kinds never collide — one additive field on `GET /api/brain`, the only API surface this pass
 touched. See [`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
 
-**The Relationships layer went real 3D** as the next slice (the other two candidates offered after
-Phase 11 — a real financial data model, agent-to-agent collaboration — cross the schema/agent-runtime
-line and need a business decision only the founder can make, so they stayed deferred; this one didn't).
+**The Relationships layer went real 3D** as the next slice (of the other two candidates offered after
+Phase 11 — a real financial data model, agent-to-agent collaboration — both cross the schema/
+agent-runtime line and needed a business decision only the founder could make; this one didn't need
+that decision, so it went first. Agent-to-agent collaboration is now built too, see below; the
+financial data model is still deferred).
 Depth isn't decoration: every real node type `/api/graph` returns maps to a fixed z-band — companies/
 departments form a foundation layer, agents/projects/tasks a working layer, decisions/documents an
 output layer — while the x/y within each band still comes from the existing, unchanged `forceLayout()`.
 Hierarchy stays SVG on purpose: a tree's clarity comes from a clean top-down layout with non-crossing
 connectors, and forcing it into 3D would more likely hurt legibility than help it. See
 [`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full breakdown.
+
+**Agent-to-agent collaboration is now real**, the deliberate exception to this project's own
+"no `lib/agent/*` changes" discipline — made because the capability genuinely needs the runtime, not
+just a new view over existing data. A new `request_from_agent` tool (all five seeded agents, migration
+`0007_agent_collaboration.sql`) lets one agent ask another for data or work and get its real reply back:
+the handler calls `runAgentTurn()` — the same function `POST /api/chat` already uses — so the target
+agent runs its own full turn, its own tools, its own approval gates, and gets its own independent
+`agent_runs` row, exactly like a real user turn. Not approval-gated (internal collaboration, the same
+trust boundary as `promote_memory`), but bounded: a new `depth` parameter threaded through
+`ToolContext`/`runAgentTurn()` caps collaboration chains at `MAX_COLLAB_DEPTH = 2`, since nothing else in
+the runtime stops two agents holding this tool from recursing into each other forever. Visualized two
+ways from the same real signal — a recent `request_from_agent` call inside `agent_runs.tool_calls` — not
+two fabricated ones: `AgentChatPanel` surfaces the target agent's reply inline, and the Colony draws a
+real, pulsing beam between the two Operators' actual 3D positions for the same two-minute window the
+`delivered` state already uses. See
+[`docs/AGENTS_AND_TOOLS.md`](./docs/AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated)
+and [`docs/FRONTEND.md`](./docs/FRONTEND.md#the-colony-collaboration-beam) for the full breakdown. The
+other remaining candidate from Phase 11 — a real financial data model — is still deferred; no financial
+tables exist yet and building one is a business decision, not a presentation-layer one.
 
 One deliberate deviation from the architecture doc, carried over unchanged from the old `/map`:
 `/office` polls `/api/map` on an interval instead of subscribing to Supabase Realtime. There's no

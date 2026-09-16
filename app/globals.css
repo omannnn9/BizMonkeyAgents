@@ -17,6 +17,7 @@
      lib/agent-visual-state.ts already computes from real data. Kept in
      sync with that file's STATE_COLOR map; update both together. */
   --state-executing: #7ec8ff;
+  --state-collaborating: #c77dff;
   --state-approval: #ffc24d;
   --state-blocked: #ff5a6e;
   --state-delivered: #5dff9b;
@@ -42,6 +43,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-state-executing: var(--state-executing);
+  --color-state-collaborating: var(--state-collaborating);
   --color-state-approval: var(--state-approval);
   --color-state-blocked: var(--state-blocked);
   --color-state-delivered: var(--state-delivered);
@@ -65,6 +67,9 @@ body {
 }
 .glow-state-executing {
   box-shadow: 0 0 16px 2px color-mix(in oklab, var(--state-executing) 55%, transparent);
+}
+.glow-state-collaborating {
+  box-shadow: 0 0 16px 2px color-mix(in oklab, var(--state-collaborating) 55%, transparent);
 }
 .glow-state-approval {
   box-shadow: 0 0 16px 2px color-mix(in oklab, var(--state-approval) 55%, transparent);

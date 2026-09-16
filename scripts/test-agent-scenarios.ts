@@ -16,6 +16,7 @@ import { createClient } from "@supabase/supabase-js";
 import { runAgentTurn } from "../lib/agent/agent-runtime";
 import { getFounderUserId } from "../lib/agent/founder";
 import { embedDocuments } from "../lib/embeddings/voyage";
+import { requestFromAgentTool } from "../lib/agent/tools/request-from-agent";
 import type { Database } from "../lib/supabase/types";
 
 const OD_HOLDINGS_ID = "00000000-0000-0000-0000-000000000001";
@@ -238,6 +239,54 @@ async function main() {
     !!synergyCall && synergyCall.result.includes("home-based producers"),
   );
 
+  // Scenario 8: request_from_agent's handler is exercised directly (not
+  // through the LLM tool loop, unlike every scenario above) since it's the
+  // depth guard's behavior under test, not whether a model chooses to call
+  // it — deterministic input/output, same reasoning `demoChatReply()`'s own
+  // fixtures don't route through a real model either.
+  const collabRequest = "Status of the Q3 creative brief?";
+  const collabCtx = { supabase: admin, agentId: agent!.id, activeCompanyId: ODAX_ID, userId };
+
+  const missingAgentResult = await requestFromAgentTool.handler(
+    { targetAgentId: "00000000-0000-0000-0000-00000000dead", request: collabRequest },
+    collabCtx,
+  );
+  record("request_from_agent errors on a nonexistent target agent", missingAgentResult.isError === true);
+
+  const depthGuardResult = await requestFromAgentTool.handler(
+    { targetAgentId: MARKETING_AGENT_ID, request: collabRequest },
+    { ...collabCtx, depth: 2 },
+  );
+  record(
+    "request_from_agent refuses to recurse past MAX_COLLAB_DEPTH",
+    depthGuardResult.isError === true && !depthGuardResult.content.includes("Marketing"),
+  );
+
+  const collabResult = await requestFromAgentTool.handler(
+    { targetAgentId: MARKETING_AGENT_ID, request: collabRequest },
+    collabCtx,
+  );
+  record("request_from_agent's success path returns the target agent's reply", !collabResult.isError);
+
+  const { data: targetRun } = await admin
+    .from("agent_runs")
+    .select("id")
+    .eq("agent_id", MARKETING_AGENT_ID)
+    .eq("input", collabRequest)
+    .maybeSingle();
+  record("The target agent gets its own independent agent_runs row", !!targetRun);
+
+  const { data: collabAuditRow } = await admin
+    .from("audit_log")
+    .select("id")
+    .eq("actor_id", agent!.id)
+    .eq("action", "collaborate:request_from_agent")
+    .eq("target_id", MARKETING_AGENT_ID)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  record("The calling agent's audit_log records the collaboration", !!collabAuditRow);
+
   // Cleanup.
   await admin.from("memories").delete().in("id", [synergyMemoryA!.id, synergyMemoryB!.id]);
   await admin
@@ -273,6 +322,8 @@ async function main() {
     .delete()
     .eq("agent_id", MARKETING_AGENT_ID)
     .eq("input", "Generate a promo image for the new ODAX pricing page.");
+  await admin.from("agent_runs").delete().eq("agent_id", MARKETING_AGENT_ID).eq("input", collabRequest);
+  if (collabAuditRow) await admin.from("audit_log").delete().eq("id", collabAuditRow.id);
 
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} scenarios passed.`);
