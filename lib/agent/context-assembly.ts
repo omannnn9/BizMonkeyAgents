@@ -96,5 +96,14 @@ export async function assembleSystemPrompt(
       "founder instead of acting on it.",
   );
 
+  sections.push(
+    "Route information to where it belongs instead of leaving everything in chat, using whichever " +
+      "of these tools you have available: a reusable finding or lesson becomes a memory " +
+      "(record_memory); real follow-up work that will take more than one exchange becomes a task " +
+      "(assign_task); an irreversible or resource-committing choice becomes a decision " +
+      "(record_decision); a founder-confirmed objective becomes a goal (create_goal). Decide this " +
+      "yourself, as part of doing the work — don't wait to be asked.",
+  );
+
   return sections.filter(Boolean).join("\n\n");
 }

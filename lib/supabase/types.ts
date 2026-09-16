@@ -152,7 +152,8 @@ export interface Database {
           created_at: string;
           expires_at: string | null;
           promoted_from_id: string | null;
-          source: "manual" | "briefing" | "document" | "promoted";
+          source: "manual" | "briefing" | "document" | "promoted" | "agent";
+          archived_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["memories"]["Row"]> & { scope: string; content: string };
         Update: Partial<Database["public"]["Tables"]["memories"]["Row"]>;
@@ -224,6 +225,8 @@ export interface Database {
           status: "on_track" | "at_risk" | "off_track" | "done";
           created_at: string;
           updated_at: string;
+          parent_goal_id: string | null;
+          department_id: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["goals"]["Row"]> & {
           company_id: string;

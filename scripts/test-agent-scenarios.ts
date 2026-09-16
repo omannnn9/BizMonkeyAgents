@@ -17,6 +17,11 @@ import { runAgentTurn } from "../lib/agent/agent-runtime";
 import { getFounderUserId } from "../lib/agent/founder";
 import { embedDocuments } from "../lib/embeddings/voyage";
 import { requestFromAgentTool } from "../lib/agent/tools/request-from-agent";
+import { recordMemoryTool } from "../lib/agent/tools/record-memory";
+import { updateMemoryTool } from "../lib/agent/tools/update-memory";
+import { assignTaskTool } from "../lib/agent/tools/assign-task";
+import { recordDecisionTool } from "../lib/agent/tools/record-decision";
+import { createGoalTool } from "../lib/agent/tools/create-goal";
 import type { Database } from "../lib/supabase/types";
 
 const OD_HOLDINGS_ID = "00000000-0000-0000-0000-000000000001";
@@ -287,6 +292,84 @@ async function main() {
     .maybeSingle();
   record("The calling agent's audit_log records the collaboration", !!collabAuditRow);
 
+  // Scenario 9: the Phase 1 knowledge-flow tools (record_memory,
+  // update_memory, assign_task, record_decision, create_goal) — exercised
+  // directly against the real handler, same reasoning as Scenario 8.
+  const knowledgeCtx = { supabase: admin, agentId: agent!.id, activeCompanyId: ODAX_ID, userId };
+
+  const recordedMemory = await recordMemoryTool.handler(
+    { scope: "company", scopeId: ODAX_ID, content: "Test-agent-scenarios: a real recorded memory.", importance: 0.6 },
+    knowledgeCtx,
+  );
+  record("record_memory creates a real, embedded memory", !recordedMemory.isError);
+  const recordedMemoryId = recordedMemory.content.match(/memory id ([0-9a-f-]+)/)?.[1];
+
+  const { data: matchedAfterRecord } = recordedMemoryId
+    ? await admin.rpc("match_memories", {
+        p_query_embedding: JSON.stringify(
+          (await admin.from("memories").select("embedding").eq("id", recordedMemoryId).single()).data?.embedding ?? [],
+        ),
+        p_limit: 5,
+      })
+    : { data: null };
+  record(
+    "The recorded memory is retrievable via match_memories",
+    !!matchedAfterRecord?.some((m: { id: string }) => m.id === recordedMemoryId),
+  );
+
+  const outOfScopeMemory = await recordMemoryTool.handler(
+    { scope: "company", scopeId: TABLO_ID, content: "Should be rejected — Tablo isn't in ODAX's scope." },
+    knowledgeCtx,
+  );
+  record("record_memory rejects an out-of-scope company", outOfScopeMemory.isError === true);
+
+  const archived = recordedMemoryId
+    ? await updateMemoryTool.handler({ memoryId: recordedMemoryId, archive: true }, knowledgeCtx)
+    : { isError: true, content: "no memory id" };
+  record("update_memory archives a memory", !archived.isError);
+  const { data: archivedRow } = recordedMemoryId
+    ? await admin.from("memories").select("archived_at").eq("id", recordedMemoryId).single()
+    : { data: null };
+  record("An archived memory has a real archived_at timestamp", !!archivedRow?.archived_at);
+
+  const assignedTask = await assignTaskTool.handler(
+    { title: "Test-agent-scenarios: a real assigned task.", assigneeAgentId: SALES_AGENT_ID, priority: "high" },
+    knowledgeCtx,
+  );
+  record("assign_task creates and assigns a real task", !assignedTask.isError);
+  const assignedTaskId = assignedTask.content.match(/task id ([0-9a-f-]+)/)?.[1];
+  const { data: assignedRow } = assignedTaskId
+    ? await admin.from("tasks").select("assigned_agent_id, priority").eq("id", assignedTaskId).single()
+    : { data: null };
+  record(
+    "The assigned task has the real assignee and priority",
+    assignedRow?.assigned_agent_id === SALES_AGENT_ID && assignedRow?.priority === "high",
+  );
+
+  const decisionResult = await recordDecisionTool.handler(
+    { title: "Test-agent-scenarios: a real decision.", rationale: "Because the test says so." },
+    knowledgeCtx,
+  );
+  record("record_decision writes a real decision row", !decisionResult.isError);
+  const decisionId = decisionResult.content.match(/decision id ([0-9a-f-]+)/)?.[1];
+
+  const groupGoalResult = await createGoalTool.handler(
+    { objective: "Test-agent-scenarios: a real group goal.", companyId: OD_HOLDINGS_ID },
+    { supabase: admin, agentId: GROUP_CFO_ID, activeCompanyId: OD_HOLDINGS_ID, userId },
+  );
+  record("create_goal creates a real group-level goal", !groupGoalResult.isError);
+  const groupGoalId = groupGoalResult.content.match(/goal id ([0-9a-f-]+)/)?.[1];
+
+  const companyGoalResult = groupGoalId
+    ? await createGoalTool.handler({ objective: "Test-agent-scenarios: a cascaded company goal.", parentGoalId: groupGoalId }, knowledgeCtx)
+    : { isError: true, content: "no parent goal id" };
+  record("create_goal cascades a company goal from a real parent", !companyGoalResult.isError);
+  const companyGoalId = companyGoalResult.content.match(/goal id ([0-9a-f-]+)/)?.[1];
+  const { data: cascadedRow } = companyGoalId
+    ? await admin.from("goals").select("parent_goal_id").eq("id", companyGoalId).single()
+    : { data: null };
+  record("The cascaded goal's parent_goal_id points at the real group goal", cascadedRow?.parent_goal_id === groupGoalId);
+
   // Cleanup.
   await admin.from("memories").delete().in("id", [synergyMemoryA!.id, synergyMemoryB!.id]);
   await admin
@@ -324,6 +407,11 @@ async function main() {
     .eq("input", "Generate a promo image for the new ODAX pricing page.");
   await admin.from("agent_runs").delete().eq("agent_id", MARKETING_AGENT_ID).eq("input", collabRequest);
   if (collabAuditRow) await admin.from("audit_log").delete().eq("id", collabAuditRow.id);
+  if (companyGoalId) await admin.from("goals").delete().eq("id", companyGoalId);
+  if (groupGoalId) await admin.from("goals").delete().eq("id", groupGoalId);
+  if (decisionId) await admin.from("decisions").delete().eq("id", decisionId);
+  if (assignedTaskId) await admin.from("tasks").delete().eq("id", assignedTaskId);
+  if (recordedMemoryId) await admin.from("memories").delete().eq("id", recordedMemoryId);
 
   const failed = results.filter((r) => !r.pass);
   console.log(`\n${results.length - failed.length}/${results.length} scenarios passed.`);

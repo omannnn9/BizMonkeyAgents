@@ -196,6 +196,67 @@ message, and the Colony (Organization layer) draws a connecting beam
 between the two agents' real 3D positions for a couple of minutes after the
 call — see [`FRONTEND.md`](./FRONTEND.md#the-colony-collaboration-beam).
 
+### `record_memory` — write a new memory, not gated
+
+`lib/agent/tools/record-memory.ts`. Takes `{scope, scopeId?, content,
+importance?, confidence?, sourceDocumentId?}`. Closes the gap the Ecosystem
+Audit found central: until this tool existed, nothing in the codebase ever
+created the *first* memory at a given scope — `promote_memory` only ever
+copies one that already exists. Embeds `content` via Voyage
+(`embedDocuments`) before inserting, so the memory is immediately
+retrievable through `match_memories`. Validates that the resolved owning
+company (via `departments`/`projects`/`agents` lookups for those scopes) is
+inside the caller's own `getScopedCompanyIds` — an agent cannot record a
+memory against a company it can't see, even indirectly through a department
+or project row. `scope: "group"` additionally requires `scopeId` to be the
+real top-level company. Writes with `source: "agent"` (migration
+`0008_knowledge_flow.sql` added this value to `memories.source`'s check
+constraint, alongside the existing `manual`/`briefing`/`document`/`promoted`).
+
+### `update_memory` — revise a memory, not gated
+
+`lib/agent/tools/update-memory.ts`. Takes `{memoryId, confidenceDelta?,
+archive?, content?}`, at least one required. `confidenceDelta` is added to
+the row's current `confidence` and clamped to `[0, 1]` — never set
+absolutely, since two agents could otherwise race and stomp each other's
+adjustment. `archive: true` sets the new `archived_at` column (migration
+`0008`), which `match_memories` now excludes from retrieval entirely — a
+deliberate "no longer useful" mark, distinct from the existing time-based
+`expires_at`. `archive: false` un-archives. `content` replaces the text and
+re-embeds it via Voyage.
+
+### `assign_task` — delegate real work, not gated
+
+`lib/agent/tools/assign-task.ts`. Takes `{title, description?,
+assigneeAgentId, priority?, dueAt?, projectId?}`. Creates a real `tasks`
+row with `assigned_agent_id` set — the column already existed in the
+schema and was completely unused by any tool before this one. Validates
+the assignee is `active` and inside the caller's own scoped companies,
+refusing (with a pointer to route the request through Group Operations
+instead) rather than silently assigning across an organizational boundary.
+This is the asynchronous counterpart to `request_from_agent`'s synchronous
+request/reply: use it for anything that will take the assignee more than
+one exchange.
+
+### `record_decision` — log a structured decision, not gated
+
+`lib/agent/tools/record-decision.ts`. Takes `{title, description?,
+rationale?, relatedTaskId?}`. Writes directly to `decisions` — a fact of
+record, distinct from a memory (a retrievable insight). `generate_board_report`
+already reads this table; before this tool, nothing ever wrote to it
+outside a manual insert.
+
+### `create_goal` — the top of the work chain, not gated
+
+`lib/agent/tools/create-goal.ts`. Takes `{objective, keyResults?, period?,
+companyId?, parentGoalId?, departmentId?}`. `parentGoalId` and
+`departmentId` are new `goals` columns (migration `0008`) that make a real
+cascade possible for the first time: a group goal's children are company
+goals, a company goal's children can be department goals. The tool's own
+description tells agents never to create a goal on their own initiative —
+only when the founder has actually asked for it or confirmed a proposal,
+deliberately stricter than tasks or memories, which agents create freely.
+
 ## The approval gate
 
 `lib/agent/approval-gate.ts`'s `gateAction()` is the **single** place any

@@ -8,6 +8,11 @@ import { promoteMemoryTool } from "@/lib/agent/tools/promote-memory";
 import { generateBoardReportTool } from "@/lib/agent/tools/generate-board-report";
 import { detectSynergiesTool } from "@/lib/agent/tools/detect-synergies";
 import { requestFromAgentTool } from "@/lib/agent/tools/request-from-agent";
+import { recordMemoryTool } from "@/lib/agent/tools/record-memory";
+import { updateMemoryTool } from "@/lib/agent/tools/update-memory";
+import { assignTaskTool } from "@/lib/agent/tools/assign-task";
+import { recordDecisionTool } from "@/lib/agent/tools/record-decision";
+import { createGoalTool } from "@/lib/agent/tools/create-goal";
 
 /**
  * Every tool an agent could be assigned, keyed by name. An agent's own
@@ -25,6 +30,11 @@ const ALL_TOOLS: AgentTool[] = [
   generateBoardReportTool,
   detectSynergiesTool,
   requestFromAgentTool,
+  recordMemoryTool,
+  updateMemoryTool,
+  assignTaskTool,
+  recordDecisionTool,
+  createGoalTool,
 ];
 
 const toolsByName = new Map(ALL_TOOLS.map((t) => [t.name, t]));

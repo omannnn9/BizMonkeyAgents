@@ -15,6 +15,8 @@ what's written and ready to apply, not what's running.
 | `0004_phase2.sql` | Sales/Marketing departments + agents for ODAX, `enrich_lead`/`generate_creative_asset` action policies, structural `edges`, `memories.source` column, a **commented-out** `pg_cron` daily-briefing schedule (template — needs a real project ref + Vault secret). |
 | `0005_phase3.sql` | Sales/Marketing for Tablo and NOVA, the two group-scope agents (Group CFO, Group Strategy), `goals` table + RLS, `memories.source` gains `'promoted'`. |
 | `0006_synergy_detection.sql` | `match_cross_company_memories` RPC, grants `detect_synergies` to the two group-scope agents. |
+| `0007_agent_collaboration.sql` | Grants `request_from_agent` to all five seeded agents. |
+| `0008_knowledge_flow.sql` | `memories.archived_at`, `memories.source` gains `'agent'`, `match_memories` excludes archived rows, `goals.parent_goal_id` + `goals.department_id` for real goal cascading. |
 
 ## Core tables
 
@@ -70,10 +72,17 @@ Company-scoped structured data. `tasks.status` (`open`/`in_progress`/
 drive the context-assembly "open tasks" section and the dashboard counts.
 `goals` (added in `0005_phase3.sql`) is OKR-style: `objective` + `key_results`
 (jsonb) + `status` (`on_track`/`at_risk`/`off_track`/`done`) — powers
-`generate_board_report` and `query_company_data`'s `goals` resource. None of
-these three tables has app-level write logic beyond the generic
-`query_company_data` tool and the seed data — no dedicated CRUD pages exist
-yet for tasks/projects/goals directly.
+`generate_board_report` and `query_company_data`'s `goals` resource.
+`0008_knowledge_flow.sql` added `parent_goal_id` (self-referencing, nullable)
+and `department_id`, so a goal can trace back to the broader goal it
+cascades from — a founder goal's children are group goals, a group goal's
+children are company goals, and so on — written by the `create_goal` tool.
+`assign_task` (also `0008`-era) is the first tool to actually use
+`tasks.assigned_agent_id`, which existed from `0001_init.sql` but was
+unused until then. No dedicated CRUD pages exist yet for
+tasks/projects/goals directly — `query_company_data` and the new
+`assign_task`/`record_decision`/`create_goal` tools are the only write
+paths.
 
 ### `documents` / `document_chunks`
 
@@ -94,8 +103,13 @@ points at the relevant row (null only for `founder`). `embedding vector(1024)`
 `importance` and `confidence` are both `0..1` floats. `source` tracks
 provenance: `manual` / `briefing` (written by the daily-briefing Edge
 Function) / `document` / `promoted` (moved to a broader scope via
-`promote_memory`). `promoted_from_id` links a promoted memory back to its
-origin. `expires_at` is optional and respected by `match_memories`.
+`promote_memory`) / `agent` (written directly by `record_memory`).
+`promoted_from_id` links a promoted memory back to its origin. `expires_at`
+is optional and respected by `match_memories` (time-based decay).
+`archived_at` (added in `0008_knowledge_flow.sql`) is a deliberate,
+non-time-based "no longer useful" mark set by `update_memory`'s archive
+operation — also excluded from `match_memories`, but a distinct concept
+from expiry.
 
 ### `edges`
 
