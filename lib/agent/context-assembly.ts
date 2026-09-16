@@ -60,7 +60,7 @@ export async function assembleSystemPrompt(
   }
 
   const sections = [
-    `You are ${agent?.name ?? "the CEO Agent"}${agent?.role_title ? `, ${agent.role_title}` : ""} for ${
+    `You are ${agent?.name ?? "the assigned agent"}${agent?.role_title ? `, ${agent.role_title}` : ""} for ${
       company?.name ?? "OD Group"
     }.`,
     agent?.persona ?? "",

@@ -17,6 +17,7 @@ what's written and ready to apply, not what's running.
 | `0006_synergy_detection.sql` | `match_cross_company_memories` RPC, grants `detect_synergies` to the two group-scope agents. |
 | `0007_agent_collaboration.sql` | Grants `request_from_agent` to all five seeded agents. |
 | `0008_knowledge_flow.sql` | `memories.archived_at`, `memories.source` gains `'agent'`, `match_memories` excludes archived rows, `goals.parent_goal_id` + `goals.department_id` for real goal cascading. |
+| `0009_org_rebuild.sql` | Replaces the templated CEO/Sales/Marketing-Agent roster with 20 real, non-overlapping agents (5 OD Holdings group agents + 5 per company); 7 new departments (Customer Success/Operations for ODAX, Partnerships/Customer Success for Tablo, Engineering/Product/Delivery for NOVA); grants `request_from_agent` + `record_memory` to every agent. |
 
 ## Core tables
 

@@ -8,20 +8,50 @@
 ## The agents themselves
 
 There is no hardcoded agent roster in code. Every agent is a row in the
-`agents` table (`name`, `role_title`, `company_id`, `scope`, `persona`,
-`model`, `tools`, `status`). As seeded by the migrations:
+`agents` table (`name`, `role_title`, `company_id`, `department_id`, `scope`,
+`persona`, `model`, `tools`, `status`). Migration `0009_org_rebuild.sql`
+replaced the original templated CEO/Sales/Marketing-Agent-per-company
+roster (flagged by the Ecosystem Audit as its top agent-level finding —
+four near-identical CEO Agents, three near-identical Sales/Marketing
+pairs, Group CFO and Group Strategy sharing one persona) with 20 agents
+that each have a real, non-overlapping job grounded in what each
+company's own `config`/`industry` says about its actual business:
 
-| Agent | Scope | Company | Tools |
-|---|---|---|---|
-| CEO Agent | company | every company (incl. OD Holdings) | `query_company_data`, `search_documents`, `send_email`, `generate_board_report`, `request_from_agent` |
-| Sales Agent | company | ODAX, Tablo, NOVA | `query_company_data`, `search_documents`, `enrich_lead`, `request_from_agent` |
-| Marketing Agent | company | ODAX, Tablo, NOVA | `query_company_data`, `search_documents`, `generate_creative_asset`, `request_from_agent` |
-| Group CFO | group | OD Holdings | `query_company_data`, `search_documents`, `generate_board_report`, `detect_synergies`, `request_from_agent` |
-| Group Strategy | group | OD Holdings | `query_company_data`, `search_documents`, `generate_board_report`, `detect_synergies`, `request_from_agent` |
+**OD Holdings (group scope)** — Group CFO (spend discipline,
+`generate_board_report`), Group Strategy (goal cascade, `create_goal`,
+`detect_synergies`), Group Operations (execution health across every
+company, the routing point for cross-company `request_from_agent` calls,
+`assign_task`), Group Intelligence (curates memories — `promote_memory`,
+`update_memory`, proactive `detect_synergies`), Chief of Staff (synthesizes
+the other four for the founder; owns no functional lane of its own).
 
-`request_from_agent` (migration `0007_agent_collaboration.sql`) is granted
-to all five — real agent-to-agent collaboration, not scoped to group-level
-agents the way `detect_synergies` is (see below).
+**Each company (ODAX, Tablo, NOVA)** — five company-scope agents: a
+Managing Director/Studio Director (company-wide synthesis, `assign_task`,
+`create_goal`, `send_email`), a department-specific sales-motion lead
+(Sales Lead / Restaurant Growth Lead / Growth Lead — matched to how that
+company actually acquires customers), a Marketing Lead, a Customer
+Success Lead, and one company-specific fifth seat (Operations Lead for
+ODAX, Partnerships Lead for Tablo, Engineering Lead + Product Lead +
+Delivery Lead for NOVA, whose real unit of work is the client project, not
+a sales funnel).
+
+`request_from_agent` and `record_memory` (migrations
+`0007_agent_collaboration.sql` and `0009_org_rebuild.sql`) are granted to
+every one of the 20 — real agent-to-agent collaboration and self-service
+memory writing are baseline capabilities, not scoped to group-level agents
+the way `detect_synergies` is (see below).
+
+`role_title` is `null` for every agent whose `name` is already the fully
+specific title (e.g. "Sales Lead" — no separate title to add) — only the
+four group agents whose name doesn't already say what they do (Group CFO,
+Group Strategy, Group Operations, Group Intelligence) carry a distinct
+`role_title` ("Chief Financial Officer", "Head of Strategy", "Head of
+Operations", "Head of Intelligence"). `lib/agent-title.ts`'s
+`deriveAgentRank()` deliberately never interpolates `role_title` into the
+displayed rank — it returns a generic tier label (Group Executive /
+Company Executive / Department Lead / Specialist) from `scope`/
+`department_id` alone, so a name like "Sales Lead" never renders as
+"Sales Lead Lead".
 
 A founder can create more via `/agents/new` (`POST /api/agents`) — any
 combination of name, persona, model, and tools, as long as every requested

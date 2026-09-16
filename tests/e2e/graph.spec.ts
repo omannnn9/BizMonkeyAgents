@@ -23,12 +23,12 @@ test.describe("Relationships layer (demo mode)", () => {
     await expect(page.getByRole("button", { name: "Relationships" })).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("Demo mode")).toBeVisible();
 
-    // demoGraph() seeds OD Holdings + ODAX/Tablo/NOVA + Sales/Marketing
-    // agents — scoped to the scene container since "Sales Agent" also
+    // demoGraph() seeds OD Holdings + ODAX/Tablo/NOVA + Sales Lead/Marketing
+    // Lead agents — scoped to the scene container since "Sales Lead" also
     // appears in the right-hand ActivityFeed alongside every layer now.
     const scene = page.getByTestId("graph-scene");
     await expect(scene.getByRole("img", { name: "Knowledge graph" })).toBeVisible({ timeout: 10_000 });
     await expect(scene.getByText("OD Holdings")).toBeVisible();
-    await expect(scene.getByText("Sales Agent")).toBeVisible();
+    await expect(scene.getByText("Sales Lead")).toBeVisible();
   });
 });

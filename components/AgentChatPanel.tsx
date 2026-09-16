@@ -171,7 +171,7 @@ export function AgentChatPanel({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), send())}
-          placeholder={`Message the ${agentLabel ?? "CEO Agent"}…`}
+          placeholder={`Message the ${agentLabel ?? "agent"}…`}
           className="flex-1 rounded-md border border-border bg-surface-raised px-3 py-2 text-sm text-foreground outline-none focus:border-accent"
         />
         <button

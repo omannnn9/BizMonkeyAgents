@@ -11,10 +11,13 @@ export interface AgentRankInput {
  * a different label computed from columns that already exist on every
  * `agents` row. `scope='project'` is reserved (nothing uses it yet) but
  * still resolves to a sensible label rather than falling through.
+ * Deliberately ignores `roleTitle` — most department-linked roles already
+ * carry "Lead" in their own title (e.g. "Sales Lead"), so interpolating it
+ * here would read as "Sales Lead Lead".
  */
 export function deriveAgentRank(agent: AgentRankInput): string {
   if (agent.scope === "group") return "Group Executive";
   if (agent.scope === "project") return "Specialist";
-  if (agent.departmentId) return `${agent.roleTitle ?? "Department"} Lead`;
+  if (agent.departmentId) return "Department Lead";
   return "Company Executive";
 }

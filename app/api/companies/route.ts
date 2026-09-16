@@ -17,10 +17,10 @@ export const GET = withApiErrorHandling(async () => {
 });
 
 /**
- * The company-creator wizard (Part 16/14). Always seeds a default CEO
- * Agent along with the company — the same pattern every existing company
- * has, enforced here structurally rather than left as a manual follow-up
- * step someone could forget.
+ * The company-creator wizard (Part 16/14). Always seeds a default Managing
+ * Director agent along with the company — the same company-wide synthesis
+ * role migration 0009 gives every real company, enforced here structurally
+ * rather than left as a manual follow-up step someone could forget.
  */
 export const POST = withApiErrorHandling(async (request: Request) => {
   const { name, slug, parentId, industry } = (await request.json()) as {
@@ -55,20 +55,20 @@ export const POST = withApiErrorHandling(async (request: Request) => {
   const { data: agent, error: agentErr } = await supabase
     .from("agents")
     .insert({
-      name: "CEO Agent",
-      role_title: "Chief of Staff",
+      name: "Managing Director",
+      role_title: null,
       company_id: company.id,
       scope: "company",
-      persona: `You are the CEO / Chief of Staff agent for ${name}.`,
+      persona: `You are the Managing Director for ${name}, responsible for company-wide synthesis.`,
       model: "claude-sonnet-5",
-      tools: ["query_company_data", "search_documents", "send_email", "generate_board_report"],
+      tools: ["query_company_data", "search_documents", "send_email", "generate_board_report", "request_from_agent", "assign_task", "create_goal", "record_memory"],
       status: "active",
     })
     .select("id")
     .single();
   if (agentErr || !agent) {
     return NextResponse.json(
-      { error: `Company created, but failed to seed its CEO Agent: ${agentErr?.message}` },
+      { error: `Company created, but failed to seed its Managing Director agent: ${agentErr?.message}` },
       { status: 500 },
     );
   }

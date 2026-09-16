@@ -21,30 +21,29 @@ export const POST = withApiErrorHandling(async (request: Request) => {
 
   const supabase = await createClient();
 
-  // No agentId supplied: fall back to this company's default (CEO-style,
-  // scope='company') agent, same as before the agent switcher existed.
+  // No agentId supplied: fall back to this company's default agent, same as
+  // before the agent switcher existed. A company can have more than one
+  // company-scope agent since Phase 2 (Sales Lead, Marketing Lead, etc.
+  // alongside the Managing Director/Studio Director) — the department-less
+  // company-scope agent is the company-wide synthesis role (migration 0009),
+  // so prefer that, falling back to whatever exists.
   let resolvedAgentId = agentId;
   if (!resolvedAgentId) {
-    // A company can have more than one company-scope agent since Phase 2
-    // (Sales, Marketing alongside the CEO agent) — prefer the CEO-style
-    // agent by name as the default, falling back to whatever exists.
-    const { data: agent, error: agentErr } = await supabase
-      .from("agents")
-      .select("id")
-      .eq("company_id", activeCompanyId)
-      .eq("scope", "company")
-      .eq("status", "active")
-      .order("name", { ascending: true }) // "CEO Agent" sorts before "Marketing"/"Sales" alphabetically
-      .limit(1)
-      .maybeSingle();
+    const baseQuery = () =>
+      supabase.from("agents").select("id").eq("company_id", activeCompanyId).eq("scope", "company").eq("status", "active");
 
-    if (agentErr || !agent) {
+    const { data: executiveAgent } = await baseQuery().is("department_id", null).order("name", { ascending: true }).limit(1).maybeSingle();
+    const { data: anyAgent } = executiveAgent
+      ? { data: executiveAgent }
+      : await baseQuery().order("name", { ascending: true }).limit(1).maybeSingle();
+
+    if (!anyAgent) {
       return NextResponse.json(
         { error: "No active agent found for this company — it isn't seeded yet." },
         { status: 404 },
       );
     }
-    resolvedAgentId = agent.id;
+    resolvedAgentId = anyAgent.id;
   }
 
   try {

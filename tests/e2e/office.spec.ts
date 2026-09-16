@@ -35,8 +35,8 @@ test.describe("Colony (demo mode)", () => {
   test("the terminal strip streams real activity/log lines", async ({ page }) => {
     await page.goto("/office");
     const terminal = page.locator("div.font-mono");
-    // Demo fixture (lib/demo-mode.ts) seeds two agent_run rows (Sales
-    // success, Marketing error) and three audit_log rows — both kinds
+    // Demo fixture (lib/demo-mode.ts) seeds agent_run rows (Sales Lead
+    // success, Marketing Lead error) and three audit_log rows — both kinds
     // should show up as raw lines, never invented ones.
     await expect(terminal.getByText(/agent_run/).first()).toBeVisible();
     await expect(terminal.getByText(/audit/).first()).toBeVisible();
@@ -55,8 +55,8 @@ test.describe("Colony (demo mode)", () => {
     const hud = page.getByTestId("command-hud");
     await expect(hud.getByText("4", { exact: true })).toBeVisible();
     await expect(hud.getByText("3", { exact: true })).toBeVisible();
-    // Sales Agent has hasPendingApproval: true and a successful last run ->
-    // "awaiting approval"; Marketing Agent's last run errored -> "blocked";
+    // Sales Lead has hasPendingApproval: true and a successful last run ->
+    // "awaiting approval"; Marketing Lead's last run errored -> "blocked";
     // the Group CFO has never run -> "sleeping". Real, distinct fixture
     // states, not invented ones.
     await expect(hud.getByText(/awaiting approval/)).toBeVisible();
@@ -112,16 +112,16 @@ test.describe("Colony (demo mode)", () => {
     await expect(surfaces.getByRole("link", { name: "Documents" })).toBeVisible();
     await expect(surfaces.getByRole("link", { name: "Memories" })).toBeVisible();
 
-    // The demo Sales Agent run has real output text (lib/demo-mode.ts) —
-    // the feed must show it, attributed by name and rank, not a
-    // placeholder. "Sales" also appears in the terminal strip's raw log
-    // lines, so scope to the feed itself. Sales Agent now has two demo
-    // runs (its original task-status reply, and the more recent
-    // request_from_agent collaboration with Marketing) — .first() since
-    // both are real, not a strict-mode bug.
+    // The demo Sales Lead run has real output text (lib/demo-mode.ts) — the
+    // feed must show it, attributed by name and rank, not a placeholder.
+    // "Sales" also appears in the terminal strip's raw log lines, so scope
+    // to the feed itself. Sales Lead now has two demo runs (its original
+    // task-status reply, and the more recent request_from_agent
+    // collaboration with Marketing Lead) — .first() since both are real,
+    // not a strict-mode bug.
     const feed = page.getByTestId("activity-feed");
-    await expect(feed.getByText("Sales Agent").first()).toBeVisible();
     await expect(feed.getByText("Sales Lead").first()).toBeVisible();
+    await expect(feed.getByText("Department Lead").first()).toBeVisible();
     await expect(feed.getByText(/confirm the pricing tier/)).toBeVisible();
   });
 
@@ -130,13 +130,14 @@ test.describe("Colony (demo mode)", () => {
     if ((page.viewportSize()?.width ?? 0) < 768) test.skip();
 
     // demoActivity()'s third fixture run (lib/demo-mode.ts) is a real,
-    // recent Sales -> Marketing request_from_agent call — the same shape
-    // a live agent_runs.tool_calls row would carry, and the source for
-    // the Colony's collaboration beam (see lib/collaboration.ts). The
-    // beam itself is inside the WebGL canvas and not asserted here (same
-    // 3D-click trade-off documented at the top of this file) — what's
-    // testable is the real reply text surfacing in the DOM-based feed.
+    // recent Sales Lead -> Marketing Lead request_from_agent call — the
+    // same shape a live agent_runs.tool_calls row would carry, and the
+    // source for the Colony's collaboration beam (see lib/collaboration.ts).
+    // The beam itself is inside the WebGL canvas and not asserted here
+    // (same 3D-click trade-off documented at the top of this file) —
+    // what's testable is the real reply text surfacing in the DOM-based
+    // feed.
     const feed = page.getByTestId("activity-feed");
-    await expect(feed.getByText(/Marketing Agent replied/)).toBeVisible();
+    await expect(feed.getByText(/Marketing Lead replied/)).toBeVisible();
   });
 });

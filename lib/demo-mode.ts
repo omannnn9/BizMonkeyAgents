@@ -4,7 +4,10 @@
  * UI can be reviewed before the backend exists. Every value here is
  * fabricated — nothing in this file is ever mixed with real data, and the
  * UI shows a persistent "Demo mode" banner whenever it's active so there's
- * no ambiguity about what's real.
+ * no ambiguity about what's real. Roster mirrors migration 0009's real
+ * 20-agent org rebuild (Managing Director / Sales Lead / Marketing Lead for
+ * ODAX; the five OD Holdings group-scope agents), not the old templated
+ * CEO/Sales/Marketing Agent names.
  */
 export function isDemoMode(): boolean {
   return !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -44,7 +47,7 @@ export function demoActivity(agentId?: string | null) {
   const runs = [
     {
       id: "r1",
-      agent_id: DEMO_AGENT_IDS.sales,
+      agent_id: DEMO_AGENT_IDS.salesLead,
       created_at: hoursAgo(2),
       status: "success",
       model: "claude-sonnet-5",
@@ -54,7 +57,7 @@ export function demoActivity(agentId?: string | null) {
     },
     {
       id: "r2",
-      agent_id: DEMO_AGENT_IDS.marketing,
+      agent_id: DEMO_AGENT_IDS.marketingLead,
       created_at: hoursAgo(20),
       status: "error",
       model: "claude-sonnet-5",
@@ -67,21 +70,21 @@ export function demoActivity(agentId?: string | null) {
       // window lib/agent-visual-state.ts already uses) that the Colony's
       // collaboration beam has something real to show in demo mode too —
       // not a separate fabricated signal, the same request_from_agent
-      // shape a real agent_runs.tool_calls row would carry. Sales ->
-      // Marketing, both real figures in demoMap()'s ODAX district, so the
-      // beam connects two Operators actually on screen together.
+      // shape a real agent_runs.tool_calls row would carry. Sales Lead ->
+      // Marketing Lead, both real figures in demoMap()'s ODAX district, so
+      // the beam connects two Operators actually on screen together.
       id: "r3",
-      agent_id: DEMO_AGENT_IDS.sales,
+      agent_id: DEMO_AGENT_IDS.salesLead,
       created_at: minutesAgo(1),
       status: "success",
       model: "claude-sonnet-5",
       input: "Ask Marketing to check in on the Q3 creative brief",
-      output: "Marketing Agent replied: on track, first drafts due Friday.",
+      output: "Marketing Lead replied: on track, first drafts due Friday.",
       tool_calls: [
         {
           name: "request_from_agent",
-          input: { targetAgentId: DEMO_AGENT_IDS.marketing, request: "Status of the Q3 creative brief?" },
-          result: "Marketing Agent replied: on track, first drafts due Friday.",
+          input: { targetAgentId: DEMO_AGENT_IDS.marketingLead, request: "Status of the Q3 creative brief?" },
+          result: "Marketing Lead replied: on track, first drafts due Friday.",
         },
       ],
     },
@@ -100,7 +103,7 @@ export function demoApprovals(agentId?: string | null) {
   const all = [
     {
       id: "a1",
-      proposed_by_agent_id: DEMO_AGENT_IDS.sales,
+      proposed_by_agent_id: DEMO_AGENT_IDS.salesLead,
       action_type: "send_email",
       payload: {
         to: "md@example.com",
@@ -113,7 +116,7 @@ export function demoApprovals(agentId?: string | null) {
     },
     {
       id: "a2",
-      proposed_by_agent_id: DEMO_AGENT_IDS.sales,
+      proposed_by_agent_id: DEMO_AGENT_IDS.salesLead,
       action_type: "send_email",
       payload: { to: "partner@example.com", subject: "Welcome", body: "Thanks for joining ODAX." },
       risk_level: "low",
@@ -134,67 +137,49 @@ export function demoDocuments() {
 }
 
 const DEMO_AGENT_IDS = {
-  ceo: "agent-ceo",
-  sales: "agent-sales",
-  marketing: "agent-marketing",
+  managingDirector: "agent-managing-director",
+  salesLead: "agent-sales-lead",
+  marketingLead: "agent-marketing-lead",
   groupCfo: "agent-group-cfo",
   groupStrategy: "agent-group-strategy",
+  groupOperations: "agent-group-operations",
+  groupIntelligence: "agent-group-intelligence",
+  chiefOfStaff: "agent-chief-of-staff",
 } as const;
 
 /**
- * Agents visible for a given demo company — ODAX gets Sales/Marketing
- * (migration 0004), OD Holdings gets the two group-scope agents (migration
- * 0005). These two were missing from demo mode entirely until now — a real
- * gap, since it meant Phase 3's group agents were never reachable in the
- * frontend preview.
+ * Agents visible for a given demo company — ODAX gets Managing Director /
+ * Sales Lead / Marketing Lead, OD Holdings gets the five group-scope
+ * agents, matching migration 0009's real org rebuild. Tablo and NOVA fall
+ * back to a generic Managing Director entry — this fixture doesn't attempt
+ * to model their full rosters (Restaurant Growth Lead, Studio Director,
+ * etc.), only ODAX and OD Holdings, which is all the rest of demo mode
+ * (activity/approvals/chat fixtures) actually exercises.
  */
 export function demoAgents(companyId: string) {
-  const base = [
-    { id: DEMO_AGENT_IDS.ceo, name: "CEO Agent", role_title: "Chief of Staff", scope: "company", department_id: null },
-  ];
   if (companyId === DEMO_COMPANIES[0].id) {
     return {
       agents: [
-        ...base,
-        {
-          id: DEMO_AGENT_IDS.groupCfo,
-          name: "Group CFO",
-          role_title: "Chief Financial Officer",
-          scope: "group",
-          department_id: null,
-        },
-        {
-          id: DEMO_AGENT_IDS.groupStrategy,
-          name: "Group Strategy",
-          role_title: "Head of Strategy",
-          scope: "group",
-          department_id: null,
-        },
+        { id: DEMO_AGENT_IDS.groupCfo, name: "Group CFO", role_title: "Chief Financial Officer", scope: "group", department_id: null },
+        { id: DEMO_AGENT_IDS.groupStrategy, name: "Group Strategy", role_title: "Head of Strategy", scope: "group", department_id: null },
+        { id: DEMO_AGENT_IDS.groupOperations, name: "Group Operations", role_title: "Head of Operations", scope: "group", department_id: null },
+        { id: DEMO_AGENT_IDS.groupIntelligence, name: "Group Intelligence", role_title: "Head of Intelligence", scope: "group", department_id: null },
+        { id: DEMO_AGENT_IDS.chiefOfStaff, name: "Chief of Staff", role_title: null, scope: "group", department_id: null },
       ],
     };
   }
   if (companyId === DEMO_COMPANIES[1].id) {
     return {
       agents: [
-        ...base,
-        {
-          id: DEMO_AGENT_IDS.sales,
-          name: "Sales Agent",
-          role_title: "Sales",
-          scope: "company",
-          department_id: "demo-dept-sales",
-        },
-        {
-          id: DEMO_AGENT_IDS.marketing,
-          name: "Marketing Agent",
-          role_title: "Marketing / Creative",
-          scope: "company",
-          department_id: "demo-dept-marketing",
-        },
+        { id: DEMO_AGENT_IDS.managingDirector, name: "Managing Director", role_title: null, scope: "company", department_id: null },
+        { id: DEMO_AGENT_IDS.salesLead, name: "Sales Lead", role_title: null, scope: "company", department_id: "demo-dept-sales" },
+        { id: DEMO_AGENT_IDS.marketingLead, name: "Marketing Lead", role_title: null, scope: "company", department_id: "demo-dept-marketing" },
       ],
     };
   }
-  return { agents: base };
+  return {
+    agents: [{ id: DEMO_AGENT_IDS.managingDirector, name: "Managing Director", role_title: null, scope: "company", department_id: null }],
+  };
 }
 
 /** The architecture doc's own example of a promotable finding — company-scope, then its group-scope promotion. */
@@ -315,7 +300,7 @@ export function demoBrain() {
   };
 }
 
-/** Matches the structural edges seeded by migration 0004_phase2.sql — real org structure, not fabricated activity. */
+/** Matches the structural edges seeded by migration 0009_org_rebuild.sql — real org structure, not fabricated activity. */
 export function demoGraph() {
   const [holdings, odax, tablo, nova] = DEMO_COMPANIES;
   const nodes = [
@@ -323,15 +308,15 @@ export function demoGraph() {
     { id: `company:${odax.id}`, type: "company", label: odax.name },
     { id: `company:${tablo.id}`, type: "company", label: tablo.name },
     { id: `company:${nova.id}`, type: "company", label: nova.name },
-    { id: "agent:agent-sales", type: "agent", label: "Sales Agent" },
-    { id: "agent:agent-marketing", type: "agent", label: "Marketing Agent" },
+    { id: `agent:${DEMO_AGENT_IDS.salesLead}`, type: "agent", label: "Sales Lead" },
+    { id: `agent:${DEMO_AGENT_IDS.marketingLead}`, type: "agent", label: "Marketing Lead" },
   ];
   const edges = [
     { source: `company:${holdings.id}`, target: `company:${odax.id}`, relation: "owns" },
     { source: `company:${holdings.id}`, target: `company:${tablo.id}`, relation: "owns" },
     { source: `company:${holdings.id}`, target: `company:${nova.id}`, relation: "owns" },
-    { source: `company:${odax.id}`, target: "agent:agent-sales", relation: "has_agent" },
-    { source: `company:${odax.id}`, target: "agent:agent-marketing", relation: "has_agent" },
+    { source: `company:${odax.id}`, target: `agent:${DEMO_AGENT_IDS.salesLead}`, relation: "has_agent" },
+    { source: `company:${odax.id}`, target: `agent:${DEMO_AGENT_IDS.marketingLead}`, relation: "has_agent" },
   ];
   return { nodes, edges };
 }
@@ -363,28 +348,28 @@ export function demoMap() {
     companyNode(tablo),
     companyNode(nova),
     {
-      id: "agent:agent-sales",
+      id: `agent:${DEMO_AGENT_IDS.salesLead}`,
       type: "agent" as const,
-      label: "Sales Agent",
+      label: "Sales Lead",
       lastRunAt: hoursAgo(2),
       lastRunStatus: "success" as const,
       hasPendingApproval: true,
       status: "active",
       scope: "company",
       departmentId: "demo-dept-sales",
-      roleTitle: "Sales",
+      roleTitle: null,
     },
     {
-      id: "agent:agent-marketing",
+      id: `agent:${DEMO_AGENT_IDS.marketingLead}`,
       type: "agent" as const,
-      label: "Marketing Agent",
+      label: "Marketing Lead",
       lastRunAt: hoursAgo(20),
       lastRunStatus: "error" as const,
       hasPendingApproval: false,
       status: "active",
       scope: "company",
       departmentId: "demo-dept-marketing",
-      roleTitle: "Marketing / Creative",
+      roleTitle: null,
     },
     {
       id: `agent:${DEMO_AGENT_IDS.groupCfo}`,
@@ -392,7 +377,7 @@ export function demoMap() {
       label: "Group CFO",
       // No run yet — flows through the same real deriveAgentState logic as
       // a live deployment would, landing on "sleeping" rather than a
-      // fabricated state, so the demo shows all 6 real states without
+      // fabricated state, so the demo shows all real states without
       // inventing one just for the fixture.
       lastRunAt: null,
       lastRunStatus: null,
@@ -407,8 +392,8 @@ export function demoMap() {
     { source: `company:${holdings.id}`, target: `company:${odax.id}`, relation: "owns" },
     { source: `company:${holdings.id}`, target: `company:${tablo.id}`, relation: "owns" },
     { source: `company:${holdings.id}`, target: `company:${nova.id}`, relation: "owns" },
-    { source: `company:${odax.id}`, target: "agent:agent-sales", relation: "has_agent" },
-    { source: `company:${odax.id}`, target: "agent:agent-marketing", relation: "has_agent" },
+    { source: `company:${odax.id}`, target: `agent:${DEMO_AGENT_IDS.salesLead}`, relation: "has_agent" },
+    { source: `company:${odax.id}`, target: `agent:${DEMO_AGENT_IDS.marketingLead}`, relation: "has_agent" },
     { source: `company:${holdings.id}`, target: `agent:${DEMO_AGENT_IDS.groupCfo}`, relation: "has_agent" },
   ];
   return { nodes, edges };
@@ -421,20 +406,20 @@ export function demoChatReply(
   message: string;
   toolCalls: Array<{ name: string; input: unknown; result: string }>;
 } {
-  if (agentId === DEMO_AGENT_IDS.sales) {
+  if (agentId === DEMO_AGENT_IDS.salesLead) {
     return {
       message:
-        `**Demo mode** — Sales Agent. Apollo.io and the OSL lead-scoring model aren't connected to ` +
+        `**Demo mode** — Sales Lead. Apollo.io and the OSL lead-scoring model aren't connected to ` +
         `this app yet, so I can't really enrich or score a lead for "${userMessage}". Once they are, ` +
         `an \`enrich_lead\` request would still go to your Approvals queue first, same as any other ` +
         `external action.`,
       toolCalls: [{ name: "enrich_lead", input: { domainOrEmail: userMessage }, result: "Not connected yet." }],
     };
   }
-  if (agentId === DEMO_AGENT_IDS.marketing) {
+  if (agentId === DEMO_AGENT_IDS.marketingLead) {
     return {
       message:
-        `**Demo mode** — Marketing Agent. Higgsfield isn't connected to this app yet, so I can't ` +
+        `**Demo mode** — Marketing Lead. Higgsfield isn't connected to this app yet, so I can't ` +
         `really generate an asset for "${userMessage}". Once it is, a \`generate_creative_asset\` ` +
         `request would still go to your Approvals queue first.`,
       toolCalls: [
@@ -505,4 +490,3 @@ export function demoChatReply(
     toolCalls: [{ name: "search_documents", input: { query: userMessage }, result: citedResult }],
   };
 }
-

@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test.describe("Chat (demo mode)", () => {
   test("sending a message returns a labeled demo response with a citation", async ({ page }) => {
     await page.goto("/chat");
-    const input = page.getByPlaceholder("Message the CEO Agent…");
+    const input = page.getByPlaceholder("Message the Chief of Staff…");
     await input.fill("What's the status on ODAX pricing?");
     await page.getByRole("button", { name: "Send" }).click();
 
@@ -28,7 +28,7 @@ test.describe("Chat (demo mode)", () => {
     await expect(page.getByText("ODAX pricing notes.txt")).toBeVisible();
   });
 
-  test("OD Holdings shows the group agent switcher by default (CEO, Group CFO, Group Strategy)", async ({
+  test("OD Holdings shows the group agent switcher by default (Chief of Staff, Group CFO, Group Strategy)", async ({
     page,
   }) => {
     await page.goto("/chat");
@@ -74,21 +74,21 @@ test.describe("Chat (demo mode)", () => {
     const agentSwitcher = page.getByLabel("Active Operator");
     await expect(agentSwitcher).toBeVisible();
     const options = await agentSwitcher.locator("option").allTextContents();
-    expect(options.some((o) => o.includes("Sales Agent"))).toBe(true);
-    expect(options.some((o) => o.includes("Marketing Agent"))).toBe(true);
+    expect(options.some((o) => o.includes("Sales Lead"))).toBe(true);
+    expect(options.some((o) => o.includes("Marketing Lead"))).toBe(true);
 
-    await agentSwitcher.selectOption({ label: "Sales Agent — Sales Lead" });
-    const input = page.getByPlaceholder(/Message the Sales Agent/);
+    await agentSwitcher.selectOption({ label: "Sales Lead — Department Lead" });
+    const input = page.getByPlaceholder(/Message the Sales Lead/);
     await input.fill("acme.com");
     await page.getByRole("button", { name: "Send" }).click();
 
-    await expect(page.getByText("Sales Agent.", { exact: false }).last()).toBeVisible();
+    await expect(page.getByText("Sales Lead.", { exact: false }).last()).toBeVisible();
     await expect(page.getByText("Apollo.io and the OSL lead-scoring model")).toBeVisible();
   });
 
   test("input clears after sending and the send button disables while empty", async ({ page }) => {
     await page.goto("/chat");
-    const input = page.getByPlaceholder("Message the CEO Agent…");
+    const input = page.getByPlaceholder("Message the Chief of Staff…");
     const sendButton = page.getByRole("button", { name: "Send" });
 
     await expect(sendButton).toBeDisabled();

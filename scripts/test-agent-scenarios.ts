@@ -50,13 +50,14 @@ async function main() {
     .select("id")
     .single();
 
-  // ODAX has three company-scope agents since migration 0004 (CEO, Sales,
-  // Marketing) — name it explicitly rather than .single() on scope alone.
+  // ODAX has five company-scope agents since migration 0009 (Managing
+  // Director, Sales Lead, Marketing Lead, Customer Success Lead, Operations
+  // Lead) — name it explicitly rather than .single() on scope alone.
   const { data: agent } = await admin
     .from("agents")
     .select("id")
     .eq("company_id", ODAX_ID)
-    .eq("name", "CEO Agent")
+    .eq("name", "Managing Director")
     .single();
 
   // Scenario 1: asking about open tasks should call query_company_data(list, tasks).

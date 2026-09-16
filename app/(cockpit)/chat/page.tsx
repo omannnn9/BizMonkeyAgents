@@ -15,8 +15,12 @@ export default function ChatPage() {
   const hasLoadedAgentsOnce = useRef(false);
 
   // Re-fetch the agent list whenever the active company changes, and reset
-  // to that company's default agent (CEO-style) rather than carrying over
-  // an agent id that may not exist for the newly active company.
+  // to that company's default agent rather than carrying over an agent id
+  // that may not exist for the newly active company. Default preference:
+  // Chief of Staff (the founder's synthesis agent at group level), then any
+  // department-less company-scope agent (Managing Director / Studio
+  // Director — the company-wide synthesis role every company migration
+  // 0009 gives), then whatever comes first.
   useEffect(() => {
     if (!activeCompanyId) return;
     let cancelled = false;
@@ -25,8 +29,10 @@ export default function ChatPage() {
       .then((body) => {
         if (cancelled || !Array.isArray(body.agents)) return;
         setAgents(body.agents);
-        const ceoAgent = body.agents.find((a: AgentSummary) => a.name === "CEO Agent");
-        setActiveAgentId(ceoAgent?.id ?? body.agents[0]?.id ?? "");
+        const defaultAgent =
+          body.agents.find((a: AgentSummary) => a.name === "Chief of Staff") ??
+          body.agents.find((a: AgentSummary) => a.scope === "company" && !a.department_id);
+        setActiveAgentId(defaultAgent?.id ?? body.agents[0]?.id ?? "");
         hasLoadedAgentsOnce.current = true;
       })
       .catch(() => {

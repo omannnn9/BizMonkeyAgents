@@ -330,6 +330,27 @@ all it is. Building it surfaced a real gap from Phase 3: Group CFO and Group Str
 added to demo mode, so they were unreachable in the frontend preview this whole time — fixed
 alongside this feature.
 
+**The OD Cortex Ecosystem Transformation** followed a full audit (scored the system 46/100 against its
+own founder-operating-system vision) and a Future-State Specification, both written as living docs
+before any code changed. Phase 1 built the knowledge-flow foundation every later phase depends on:
+`record_memory`/`update_memory` (the first tools that actually *write* a new memory or archive a stale
+one — `promote_memory` only ever copied an existing one), `assign_task` (the first write path for the
+long-unused `tasks.assigned_agent_id` column), `record_decision`, and `create_goal` (with
+`goals.parent_goal_id`/`department_id` for real goal cascading — see migration
+`0008_knowledge_flow.sql`). Phase 2 then rebuilt the organization on top of that foundation: migration
+`0009_org_rebuild.sql` replaces the templated CEO/Sales/Marketing-Agent-per-company roster with 20
+agents that each have a real, non-overlapping job — 5 at OD Holdings (Group CFO, Group Strategy, plus
+new Group Operations/Group Intelligence/Chief of Staff seats) and 5 per company (a Managing
+Director/Studio Director, a sales-motion lead matched to how that company actually acquires customers,
+a Marketing Lead, a Customer Success Lead, and one company-specific fifth seat — NOVA's is an
+Engineering Lead, closing the audit's most glaring gap: a dev studio with zero engineering
+representation). See [`docs/AGENTS_AND_TOOLS.md`](./docs/AGENTS_AND_TOOLS.md#the-agents-themselves)
+for the full roster. Rebuilding the roster surfaced a real display bug: `lib/agent-title.ts`'s
+`deriveAgentRank()` used to interpolate `role_title` into the displayed rank (`"${roleTitle} Lead"`),
+which would have rendered as "Sales Lead Lead" once role titles themselves started saying "Lead" —
+fixed by having `deriveAgentRank()` return a generic tier label instead, and nulling `role_title` in
+the migration for every agent whose name is already the fully specific title.
+
 ## One-time setup
 
 1. **Create a Supabase project** (new, dedicated — don't reuse another project's database) and

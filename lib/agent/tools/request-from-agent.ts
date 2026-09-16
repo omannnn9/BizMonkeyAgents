@@ -17,8 +17,9 @@ export const requestFromAgentTool: AgentTool = {
   name: "request_from_agent",
   description:
     "Ask another agent to do something or answer something, and get their real reply back — for " +
-    "work genuinely outside your own scope (e.g. Sales asking Group CFO for cross-company context, " +
-    "or the CEO Agent delegating a task to Marketing). Not approval-gated: this is internal " +
+    "work genuinely outside your own scope (e.g. Sales Lead asking Group CFO for cross-company " +
+    "context, or a Managing Director delegating a task to Marketing Lead). Not approval-gated: this " +
+    "is internal " +
     "collaboration between agents you already work with, not an external action. The target agent " +
     "runs its own full turn (its own tools, its own approval gates for anything external) and gets " +
     "its own independent activity log entry.",
