@@ -9,7 +9,7 @@
  *
  * Usage: npx tsx scripts/test-prompt-injection.ts
  * Requires NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
- * ANTHROPIC_API_KEY, VOYAGE_API_KEY.
+ * GROQ_API_KEY, VOYAGE_API_KEY.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });

@@ -69,7 +69,7 @@ export const POST = withApiErrorHandling(async (request: Request) => {
       company_id: companyId,
       scope,
       persona,
-      model: model || "claude-sonnet-5",
+      model: model || "openai/gpt-oss-120b",
       tools,
       status: "active",
     })

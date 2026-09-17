@@ -55,9 +55,9 @@ One row per AI agent. Key columns:
 - `scope` — `company` / `group` / `project`. Only `company` and `group` are
   exercised; `project` is reserved.
 - `persona` — the system-prompt text, written per-agent (not a template).
-- `model` — defaults to `claude-sonnet-5`; some seeded agents could use
-  `claude-haiku-4-5-20251001` for cheaper high-frequency work, though none
-  currently do.
+- `model` — defaults to `openai/gpt-oss-120b` (Groq); some seeded agents
+  could use `openai/gpt-oss-20b` for cheaper high-frequency work, though
+  none currently do.
 - `tools` — a `jsonb` array of tool names (e.g.
   `["query_company_data", "search_documents", "enrich_lead"]`). This is the
   **entire** mechanism for what an agent can do — `lib/agent/tools/registry.ts`'s

@@ -28,7 +28,7 @@ export function demoDashboard() {
   return {
     openTasksCount: 4,
     pendingApprovalsCount: 1,
-    lastAgentRun: { created_at: hoursAgo(2), status: "success", model: "claude-sonnet-5" },
+    lastAgentRun: { created_at: hoursAgo(2), status: "success", model: "openai/gpt-oss-120b" },
     recentDecisions: [
       { id: "d1", title: "Raise ODAX booking fee from 2% to 2.5%", created_at: daysAgo(2) },
       { id: "d2", title: "Pause Tablo paid ads until QR scan flow is fixed", created_at: daysAgo(5) },
@@ -50,7 +50,7 @@ export function demoActivity(agentId?: string | null) {
       agent_id: DEMO_AGENT_IDS.salesLead,
       created_at: hoursAgo(2),
       status: "success",
-      model: "claude-sonnet-5",
+      model: "openai/gpt-oss-120b",
       input: "What open tasks do we have for the MD follow-up?",
       output: "Two open: confirm the pricing tier with the MD, and send the updated proposal by Friday.",
       tool_calls: [],
@@ -60,7 +60,7 @@ export function demoActivity(agentId?: string | null) {
       agent_id: DEMO_AGENT_IDS.marketingLead,
       created_at: hoursAgo(20),
       status: "error",
-      model: "claude-sonnet-5",
+      model: "openai/gpt-oss-120b",
       input: "Draft an email to the MD about the Q3 numbers",
       output: null,
       tool_calls: [],
@@ -77,7 +77,7 @@ export function demoActivity(agentId?: string | null) {
       agent_id: DEMO_AGENT_IDS.salesLead,
       created_at: minutesAgo(1),
       status: "success",
-      model: "claude-sonnet-5",
+      model: "openai/gpt-oss-120b",
       input: "Ask Marketing to check in on the Q3 creative brief",
       output: "Marketing Lead replied: on track, first drafts due Friday.",
       tool_calls: [

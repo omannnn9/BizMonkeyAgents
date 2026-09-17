@@ -184,7 +184,7 @@ async function main() {
     .single();
   const { data: odaxRun } = await admin
     .from("agent_runs")
-    .insert({ agent_id: odaxAgent!.id, input: "test", model: "claude-sonnet-5" })
+    .insert({ agent_id: odaxAgent!.id, input: "test", model: "openai/gpt-oss-120b" })
     .select("id, company_id")
     .single();
   record(

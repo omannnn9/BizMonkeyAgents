@@ -452,7 +452,7 @@ reporting every other route gets, and an unused `@supabase/ssr` dependency.
    note its project ref, URL, and service role key.
 2. Copy `.env.local.example` to `.env.local` and fill in:
    - `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-   - `ANTHROPIC_API_KEY`
+   - `GROQ_API_KEY` (free self-serve tier at console.groq.com, no card required)
    - `VOYAGE_API_KEY` (free tier at voyageai.com)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` only if you want to run `test:rls` (the app itself never uses it)
 3. Apply the migrations in order, via the Supabase MCP's `apply_migration` (or the Supabase CLI /

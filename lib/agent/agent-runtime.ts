@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import Groq from "groq-sdk";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { assembleSystemPrompt } from "@/lib/agent/context-assembly";
@@ -6,14 +6,17 @@ import { resolveTools } from "@/lib/agent/tools/registry";
 import { estimateCostUsd } from "@/lib/agent/model-pricing";
 import type { AgentTool, ToolContext } from "@/lib/agent/types";
 
-const DEFAULT_MODEL = "claude-sonnet-5";
+const DEFAULT_MODEL = "openai/gpt-oss-120b";
 const MAX_TOOL_ITERATIONS = 6;
 
-function toAnthropicTools(tools: AgentTool[]): Anthropic.Tool[] {
+function toGroqTools(tools: AgentTool[]): Groq.Chat.Completions.ChatCompletionTool[] {
   return tools.map((t) => ({
-    name: t.name,
-    description: t.description,
-    input_schema: t.inputSchema as Anthropic.Tool["input_schema"],
+    type: "function",
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.inputSchema as Record<string, unknown>,
+    },
   }));
 }
 
@@ -24,7 +27,7 @@ export interface ChatTurnResult {
 
 /**
  * Runs one user turn against whichever agent row `agentId` points to —
- * the CEO agent, the Sales Agent, the Marketing Agent, or any future
+ * the Managing Director, the Sales Lead, the Marketing Lead, or any future
  * department agent — executing any tool calls in a loop, and logs exactly
  * one agent_runs row for the whole turn (inputs, every tool call, model,
  * tokens, latency, outcome) per the brief's observability requirement.
@@ -32,6 +35,10 @@ export interface ChatTurnResult {
  * Which tools are available and which model answers come from the agent's
  * own `tools`/`model` columns, never a hardcoded list — a new department
  * agent is a new `agents` row, not new code here.
+ *
+ * Runs on Groq's OpenAI-compatible chat completions API (genuinely free
+ * self-serve tier — see lib/agent/model-pricing.ts) rather than the
+ * Anthropic Messages API this project used through Phase 8.
  */
 export async function runAgentTurn(
   supabase: SupabaseClient<Database>,
@@ -51,7 +58,7 @@ export async function runAgentTurn(
   },
 ): Promise<ChatTurnResult> {
   const startedAt = Date.now();
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! });
   const toolContext: ToolContext = {
     supabase,
     agentId: params.agentId,
@@ -69,6 +76,7 @@ export async function runAgentTurn(
   const model = agentRow?.model ?? DEFAULT_MODEL;
   const tools = resolveTools(agentRow?.tools);
   const toolsByName = new Map(tools.map((t) => [t.name, t]));
+  const groqTools = toGroqTools(tools);
 
   const systemPrompt = await assembleSystemPrompt(supabase, {
     agentId: params.agentId,
@@ -76,8 +84,11 @@ export async function runAgentTurn(
     userMessage: params.userMessage,
   });
 
-  const messages: Anthropic.MessageParam[] = [
-    ...params.history.map((h) => ({ role: h.role, content: h.content }) as Anthropic.MessageParam),
+  const messages: Groq.Chat.Completions.ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    ...params.history.map(
+      (h) => ({ role: h.role, content: h.content }) as Groq.Chat.Completions.ChatCompletionMessageParam,
+    ),
     { role: "user", content: params.userMessage },
   ];
 
@@ -89,46 +100,46 @@ export async function runAgentTurn(
 
   try {
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
-      const response = await anthropic.messages.create({
+      const response = await groq.chat.completions.create({
         model,
         max_tokens: 2048,
-        system: systemPrompt,
         messages,
-        tools: toAnthropicTools(tools),
+        ...(groqTools.length > 0 ? { tools: groqTools, tool_choice: "auto" as const } : {}),
       });
 
-      tokensIn += response.usage.input_tokens;
-      tokensOut += response.usage.output_tokens;
+      tokensIn += response.usage?.prompt_tokens ?? 0;
+      tokensOut += response.usage?.completion_tokens ?? 0;
 
-      const textBlocks = response.content.filter((b) => b.type === "text");
-      finalText = textBlocks.map((b) => (b as Anthropic.TextBlock).text).join("\n");
+      const choice = response.choices[0];
+      const message = choice?.message;
+      finalText = message?.content ?? "";
 
-      if (response.stop_reason !== "tool_use") {
+      if (choice?.finish_reason !== "tool_calls" || !message?.tool_calls?.length) {
         break;
       }
 
-      const toolUseBlocks = response.content.filter(
-        (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
-      );
+      messages.push({ role: "assistant", content: message.content, tool_calls: message.tool_calls });
 
-      messages.push({ role: "assistant", content: response.content });
+      for (const call of message.tool_calls) {
+        const tool = toolsByName.get(call.function.name);
+        let input: Record<string, unknown> = {};
+        try {
+          input = JSON.parse(call.function.arguments) as Record<string, unknown>;
+        } catch {
+          // Malformed tool-call arguments — handled below as an unknown/invalid call.
+        }
 
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const block of toolUseBlocks) {
-        const tool = toolsByName.get(block.name);
         const result = tool
-          ? await tool.handler(block.input as Record<string, unknown>, toolContext)
-          : { content: `Unknown tool: ${block.name}`, isError: true };
+          ? await tool.handler(input, toolContext)
+          : { content: `Unknown tool: ${call.function.name}`, isError: true };
 
-        toolCallLog.push({ name: block.name, input: block.input, result: result.content });
-        toolResults.push({
-          type: "tool_result",
-          tool_use_id: block.id,
-          content: result.content,
-          is_error: result.isError,
+        toolCallLog.push({ name: call.function.name, input, result: result.content });
+        messages.push({
+          role: "tool",
+          tool_call_id: call.id,
+          content: result.isError ? `Error: ${result.content}` : result.content,
         });
       }
-      messages.push({ role: "user", content: toolResults });
     }
   } catch (err) {
     status = "error";

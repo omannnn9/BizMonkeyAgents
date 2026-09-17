@@ -27,7 +27,7 @@ export default function NewAgentPage() {
   const [companyId, setCompanyId] = useState(activeCompanyId);
   const [scope, setScope] = useState<"company" | "group" | "project">("company");
   const [persona, setPersona] = useState("");
-  const [model, setModel] = useState("claude-sonnet-5");
+  const [model, setModel] = useState("openai/gpt-oss-120b");
   const [tools, setTools] = useState<string[]>(["query_company_data", "search_documents"]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,9 +95,8 @@ export default function NewAgentPage() {
         </Field>
         <Field label="Model">
           <select value={model} onChange={(e) => setModel(e.target.value)} className={fieldInputClass}>
-            <option value="claude-sonnet-5">claude-sonnet-5 (default)</option>
-            <option value="claude-opus-5">claude-opus-5 (strategic reasoning)</option>
-            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5-20251001 (cheap/fast)</option>
+            <option value="openai/gpt-oss-120b">openai/gpt-oss-120b (default)</option>
+            <option value="openai/gpt-oss-20b">openai/gpt-oss-20b (cheap/fast)</option>
           </select>
         </Field>
         <Field label="Persona / system prompt">

@@ -4,7 +4,8 @@
 
 OD Cortex is an internal AI command center for OD Group — OD Holdings
 (the group level) and its three companies, ODAX, Tablo, and NOVA. Each
-company gets one or more AI agents (built on the Anthropic Messages API) that
+company gets one or more AI agents (built on Groq's OpenAI-compatible chat
+completions API — genuinely free self-serve tier, no card required) that
 can read the company's structured data, search its uploaded documents, and
 propose external actions (send an email, enrich a lead, generate a creative
 asset). Every external action is gated behind a human approval queue before
@@ -20,7 +21,7 @@ one Supabase project (Postgres + pgvector + Storage + Edge Functions).
 |---|---|
 | Framework | Next.js 16 (App Router, Turbopack), React 19 |
 | Database | Supabase (Postgres + `pgvector` + `pg_cron`) |
-| LLM | Anthropic Messages API (`@anthropic-ai/sdk`) — `claude-sonnet-5` by default, `claude-haiku-4-5-20251001` for cheap classification (auto-tagging, daily briefings) |
+| LLM | Groq (`groq-sdk`, OpenAI-compatible chat completions) — `openai/gpt-oss-120b` by default, `openai/gpt-oss-20b` for cheap classification (auto-tagging, daily briefings). Genuinely free self-serve tier, not a trial. |
 | Embeddings | Voyage AI (`voyage-3.5`, 1024 dimensions) |
 | 3D | `@react-three/fiber` + `@react-three/drei` (the `/office` viewport only) |
 | Styling | Tailwind CSS v4 |

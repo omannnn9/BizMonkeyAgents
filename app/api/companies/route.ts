@@ -60,7 +60,7 @@ export const POST = withApiErrorHandling(async (request: Request) => {
       company_id: company.id,
       scope: "company",
       persona: `You are the Managing Director for ${name}, responsible for company-wide synthesis.`,
-      model: "claude-sonnet-5",
+      model: "openai/gpt-oss-120b",
       tools: ["query_company_data", "search_documents", "send_email", "generate_board_report", "request_from_agent", "assign_task", "create_goal", "record_memory"],
       status: "active",
     })

@@ -27,7 +27,7 @@ UI on a real URL before wiring up the database.
    Function:
    ```
    supabase functions deploy daily-briefing
-   supabase secrets set ANTHROPIC_API_KEY=...
+   supabase secrets set GROQ_API_KEY=...
    ```
    Then fill in `<PROJECT_REF>` and store the service-role key in Vault
    (Supabase Dashboard → Project Settings → Vault, or
@@ -46,7 +46,7 @@ See `.env.local.example` for the authoritative list. Summary:
 | `NEXT_PUBLIC_SUPABASE_URL` | Leaving demo mode | Safe to expose — just the project endpoint. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Leaving demo mode | **Must never reach the browser.** Every data-touching route is server-side only. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `npm run test:rls` only | The app itself never uses the anon key. |
-| `ANTHROPIC_API_KEY` | Any real agent turn, auto-tagging, the daily briefing | Server-only. |
+| `GROQ_API_KEY` | Any real agent turn, auto-tagging, the daily briefing | Server-only. Free self-serve tier, no card required. |
 | `VOYAGE_API_KEY` | Document embedding, memory/document search | Server-only. |
 | `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` | Error reporting | Not secret — already filled in in `.env.local.example` (org `odax`, project `od-group-cockpit`). |
 
