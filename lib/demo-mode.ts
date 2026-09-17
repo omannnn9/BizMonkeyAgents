@@ -342,11 +342,14 @@ export function demoCommand() {
     },
   ];
 
+  // ownership/market mirror 0002_seed_companies.sql's real seeded `config`
+  // exactly — the same fields the Ecosystem Audit flagged as real, seeded,
+  // and invisible anywhere in the UI until Phase 6.
   const companyHealth = [
-    { companyId: odax.id, companyName: odax.name, openTasks: 4, blockedTasks: 0, pendingApprovals: 1, lastRunAt: hoursAgo(2), lastRunStatus: "success" as const, goalsOnTrack: 1, goalsAtRisk: 0, goalsOffTrack: 0 },
-    { companyId: tablo.id, companyName: tablo.name, openTasks: 2, blockedTasks: 1, pendingApprovals: 0, lastRunAt: daysAgo(3), lastRunStatus: "success" as const, goalsOnTrack: 0, goalsAtRisk: 1, goalsOffTrack: 0 },
-    { companyId: nova.id, companyName: nova.name, openTasks: 1, blockedTasks: 0, pendingApprovals: 0, lastRunAt: null, lastRunStatus: null, goalsOnTrack: 0, goalsAtRisk: 0, goalsOffTrack: 0 },
-    { companyId: holdings.id, companyName: holdings.name, openTasks: 0, blockedTasks: 0, pendingApprovals: 0, lastRunAt: null, lastRunStatus: null, goalsOnTrack: 0, goalsAtRisk: 0, goalsOffTrack: 0 },
+    { companyId: odax.id, companyName: odax.name, industry: odax.industry, ownership: { founder_pct: 60, partner_pct: 40 }, market: "Mauritius", openTasks: 4, blockedTasks: 0, pendingApprovals: 1, lastRunAt: hoursAgo(2), lastRunStatus: "success" as const, goalsOnTrack: 1, goalsAtRisk: 0, goalsOffTrack: 0 },
+    { companyId: tablo.id, companyName: tablo.name, industry: tablo.industry, ownership: { founder_pct: 50, partner_pct: 50 }, market: null, openTasks: 2, blockedTasks: 1, pendingApprovals: 0, lastRunAt: daysAgo(3), lastRunStatus: "success" as const, goalsOnTrack: 0, goalsAtRisk: 1, goalsOffTrack: 0 },
+    { companyId: nova.id, companyName: nova.name, industry: nova.industry, ownership: { founder_pct: 100 }, market: null, openTasks: 1, blockedTasks: 0, pendingApprovals: 0, lastRunAt: null, lastRunStatus: null, goalsOnTrack: 0, goalsAtRisk: 0, goalsOffTrack: 0 },
+    { companyId: holdings.id, companyName: holdings.name, industry: holdings.industry, ownership: null, market: null, openTasks: 0, blockedTasks: 0, pendingApprovals: 0, lastRunAt: null, lastRunStatus: null, goalsOnTrack: 0, goalsAtRisk: 0, goalsOffTrack: 0 },
   ];
 
   const opportunities = [

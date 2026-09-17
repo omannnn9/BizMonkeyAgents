@@ -59,7 +59,14 @@ feeds six sections, each `data-testid`-tagged for tests:
 - **Company Health** (`company-health-{companyId}`, one per company) —
   open/blocked task counts, pending approvals, last agent activity, and
   goal-status counts, computed server-side from the same `tasks`/`goals`/
-  `approvals`/`agent_runs` rows every other page already reads.
+  `approvals`/`agent_runs` rows every other page already reads. Also shows
+  (Phase 6) `companies.industry` and, read defensively from the free-form
+  `companies.config` jsonb, `ownership` (formatted from whatever
+  `{role_pct: number}` keys that company's config actually has — e.g.
+  "60% Founder / 40% Partner" — rather than assuming a fixed set of owner
+  names) and `market`. These were seeded since `0002_seed_companies.sql`
+  but invisible anywhere in the UI until now — the Ecosystem Audit's own
+  finding.
 - **Daily Briefings** (`daily-briefings`) — the most recent
   `memories.source = 'briefing'` row per company (written by the
   daily-briefing Edge Function once it's deployed — see README). Empty

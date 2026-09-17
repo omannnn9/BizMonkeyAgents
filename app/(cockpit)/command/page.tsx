@@ -47,6 +47,9 @@ interface AtRiskGoal {
 interface CompanyHealth {
   companyId: string;
   companyName: string;
+  industry: string | null;
+  ownership: Record<string, number> | null;
+  market: string | null;
   openTasks: number;
   blockedTasks: number;
   pendingApprovals: number;
@@ -99,6 +102,23 @@ const RISK_BADGE: Record<string, string> = {
   medium: "bg-warning/20 text-warning",
   low: "bg-surface-raised text-muted",
 };
+
+/**
+ * `companies.config.ownership` is a free-form jsonb map (e.g.
+ * `{founder_pct: 60, partner_pct: 40}`, seeded per company since
+ * 0002_seed_companies.sql) — real data the Ecosystem Audit flagged as
+ * seeded but invisible anywhere in the UI until now. Formats each key by
+ * stripping a trailing "_pct" and title-casing what's left, rather than
+ * assuming a fixed set of owner names.
+ */
+function formatOwnership(ownership: Record<string, number> | null): string | null {
+  if (!ownership) return null;
+  const parts = Object.entries(ownership).map(([key, pct]) => {
+    const label = key.replace(/_pct$/, "").replace(/_/g, " ");
+    return `${pct}% ${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+  });
+  return parts.length > 0 ? parts.join(" / ") : null;
+}
 
 export default function CommandCenterPage() {
   const [data, setData] = useState<CommandData | null>(null);
@@ -258,8 +278,13 @@ export default function CommandCenterPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {data.companyHealth.map((c) => (
             <Panel key={c.companyId} data-testid={`company-health-${c.companyId}`}>
-              <p className="mb-2 font-medium text-foreground">{c.companyName}</p>
-              <dl className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+              <p className="font-medium text-foreground">{c.companyName}</p>
+              {(c.industry || c.ownership || c.market) && (
+                <p className="mb-2 text-[11px] text-muted">
+                  {[c.industry, formatOwnership(c.ownership), c.market].filter(Boolean).join(" · ")}
+                </p>
+              )}
+              <dl className="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
                 <dt className="text-muted">Open tasks</dt>
                 <dd className="text-right text-foreground">{c.openTasks}</dd>
                 <dt className="text-muted">Blocked</dt>

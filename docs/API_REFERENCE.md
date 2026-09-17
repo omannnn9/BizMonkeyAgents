@@ -101,6 +101,9 @@ company one at a time.
   companyHealth: Array<{
     companyId, companyName, openTasks, blockedTasks, pendingApprovals,
     lastRunAt, lastRunStatus, goalsOnTrack, goalsAtRisk, goalsOffTrack,
+    industry,   // companies.industry
+    ownership,  // companies.config.ownership (a free-form {role: pct} map), read defensively — null if the config doesn't have one
+    market,     // companies.config.market — null if the config doesn't have one
   }>,
   opportunities: Array<{similarity, companyA, memoryA, companyB, memoryB}>,  // match_cross_company_memories, same RPC detect_synergies uses
   recentActivity: Array<{id, agentId, status, output, createdAt}>,          // 15 most recent agent_runs, org-wide

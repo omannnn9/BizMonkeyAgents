@@ -40,6 +40,18 @@ test.describe("Command Center (demo mode)", () => {
     await expect(dd.first()).toHaveText("4");
   });
 
+  test("Company Health surfaces real industry/ownership/market data from companies.config (Phase 6)", async ({
+    page,
+  }) => {
+    await page.goto("/command");
+    const odaxHealth = page.getByTestId("company-health-00000000-0000-0000-0000-000000000002");
+    // Mirrors 0002_seed_companies.sql's real seeded config for ODAX —
+    // previously seeded but invisible anywhere in the UI.
+    await expect(odaxHealth.getByText(/bookings SaaS/)).toBeVisible();
+    await expect(odaxHealth.getByText(/60% Founder/)).toBeVisible();
+    await expect(odaxHealth.getByText(/Mauritius/)).toBeVisible();
+  });
+
   test("Weekly Executive Briefing generates a real, labeled demo reply on demand", async ({ page }) => {
     await page.goto("/command");
     const briefingPanel = page.getByTestId("weekly-briefing");

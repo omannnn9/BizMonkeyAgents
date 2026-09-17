@@ -399,6 +399,15 @@ the same fields `/api/brain` already returned but nothing in the UI ever surface
 [`docs/FRONTEND.md`](./docs/FRONTEND.md#organization-layer-the-colony) and
 [`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md#get-apimap) for the full breakdown.
 
+**Phase 6 closed out the Ecosystem Audit's specific "hidden real data" finding**: `companies.config`
+(a free-form jsonb — real ownership splits and market notes, seeded per company since
+`0002_seed_companies.sql`) was never read by any page in the app. The Command Center's Company Health
+cards (Phase 4) now show it — `GET /api/command` reads defensively from `config` (no assumption about
+which keys exist) and formats `ownership` from whatever `{role_pct: number}` entries that company's
+config actually has (e.g. "60% Founder / 40% Partner" for ODAX, matching its real 60/40 founder/partner
+split) alongside `market` and `industry` (the latter already surfaced in the Colony's district labels,
+Phase 5). Nothing invented — every value traces to the exact `config` object seeded for that company.
+
 ## One-time setup
 
 1. **Create a Supabase project** (new, dedicated — don't reuse another project's database) and

@@ -14,12 +14,35 @@ import { isDemoMode, demoCommand } from "@/lib/demo-mode";
  * set of `agent_runs` feed recent Activity. Nothing here is computed by an
  * LLM — that's reserved for the separate, explicit `/api/briefing` action.
  */
+/** `companies.config` is deliberately free-form jsonb (see DATA_MODEL.md)
+ *  — read defensively rather than assuming a fixed shape. `ownership` and
+ *  `market` are the two fields every seeded company's config actually
+ *  carries (see 0002_seed_companies.sql), the ones the Ecosystem Audit
+ *  flagged as real, seeded, and invisible anywhere in the UI. */
+function extractOwnership(config: unknown): Record<string, number> | null {
+  if (config && typeof config === "object" && "ownership" in config) {
+    const ownership = (config as { ownership?: unknown }).ownership;
+    if (ownership && typeof ownership === "object") return ownership as Record<string, number>;
+  }
+  return null;
+}
+function extractMarket(config: unknown): string | null {
+  if (config && typeof config === "object" && "market" in config) {
+    const market = (config as { market?: unknown }).market;
+    if (typeof market === "string") return market;
+  }
+  return null;
+}
+
 export const GET = withApiErrorHandling(async () => {
   if (isDemoMode()) return NextResponse.json(demoCommand());
 
   const supabase = await createClient();
 
-  const { data: companies } = await supabase.from("companies").select("id, name, parent_id").order("name");
+  const { data: companies } = await supabase
+    .from("companies")
+    .select("id, name, parent_id, industry, config")
+    .order("name");
   const companyNameById = new Map((companies ?? []).map((c) => [c.id, c.name]));
 
   const [
@@ -99,6 +122,9 @@ export const GET = withApiErrorHandling(async () => {
     return {
       companyId: c.id,
       companyName: c.name,
+      industry: c.industry,
+      ownership: extractOwnership(c.config),
+      market: extractMarket(c.config),
       openTasks: openTasks.length,
       blockedTasks: openTasks.filter((t) => t.status === "blocked").length,
       pendingApprovals: pendingByCompany.get(c.id) ?? 0,
