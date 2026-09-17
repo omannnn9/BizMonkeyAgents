@@ -272,7 +272,15 @@ function District({
           caught on a screenshot with a lower placement. */}
       <group position={[0, district.isCentral ? 3.4 : 2.8, -r * 0.4]}>
         <Label color={isActive ? "#cfe4ff" : district.isCentral ? "#a9c6ff" : "#7c88ad"}>
-          {district.isCentral ? `${district.label} — Central Command` : district.label}
+          <div style={{ textAlign: "center" }}>
+            <div>{district.isCentral ? `${district.label} — Central Command` : district.label}</div>
+            {/* The real business this district represents (companies.industry)
+                — visual differentiation grounded in real seeded data, not a
+                synthetic per-company palette with nothing behind it. */}
+            {district.industry && (
+              <div style={{ fontSize: "9px", opacity: 0.75, marginTop: "1px" }}>{district.industry}</div>
+            )}
+          </div>
         </Label>
       </group>
     </group>

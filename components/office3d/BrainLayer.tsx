@@ -76,6 +76,9 @@ export function BrainLayer() {
   }, []);
 
   const selected = memories.find((m) => m.id === selectedId) ?? null;
+  const selectedDocument = selectedId?.startsWith("doc:")
+    ? (documents.find((d) => `doc:${d.id}` === selectedId) ?? null)
+    : null;
 
   async function promote(id: string) {
     setPromoting(true);
@@ -159,6 +162,28 @@ export function BrainLayer() {
             </button>
           )}
           {feedback && <p className="mt-2 text-xs text-muted">{feedback}</p>}
+        </Panel>
+      )}
+
+      {selectedDocument && (
+        <Panel glow data-testid="brain-document-panel">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide bg-surface-raised text-muted">
+              {selectedDocument.companyName} · document
+            </span>
+            <button
+              onClick={() => setSelectedId(null)}
+              className="text-xs text-muted hover:text-foreground"
+              aria-label="Close"
+            >
+              Close
+            </button>
+          </div>
+          <p className="mb-2 text-sm font-medium text-foreground">{selectedDocument.title}</p>
+          <p className="text-xs text-muted">
+            {selectedDocument.mimeType ?? "Unknown type"} · uploaded{" "}
+            {new Date(selectedDocument.createdAt).toLocaleDateString()}
+          </p>
         </Panel>
       )}
     </div>

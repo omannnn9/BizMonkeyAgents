@@ -18,10 +18,10 @@ const hoursAgo = (h: number) => new Date(Date.now() - h * 3600_000).toISOString(
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
 
 export const DEMO_COMPANIES = [
-  { id: "00000000-0000-0000-0000-000000000001", name: "OD Holdings", slug: "od-holdings", parent_id: null },
-  { id: "00000000-0000-0000-0000-000000000002", name: "ODAX", slug: "odax", parent_id: "00000000-0000-0000-0000-000000000001" },
-  { id: "00000000-0000-0000-0000-000000000003", name: "Tablo", slug: "tablo", parent_id: "00000000-0000-0000-0000-000000000001" },
-  { id: "00000000-0000-0000-0000-000000000004", name: "NOVA", slug: "nova", parent_id: "00000000-0000-0000-0000-000000000001" },
+  { id: "00000000-0000-0000-0000-000000000001", name: "OD Holdings", slug: "od-holdings", parent_id: null, industry: "holding group" },
+  { id: "00000000-0000-0000-0000-000000000002", name: "ODAX", slug: "odax", parent_id: "00000000-0000-0000-0000-000000000001", industry: "bookings SaaS" },
+  { id: "00000000-0000-0000-0000-000000000003", name: "Tablo", slug: "tablo", parent_id: "00000000-0000-0000-0000-000000000001", industry: "QR ordering for restaurants" },
+  { id: "00000000-0000-0000-0000-000000000004", name: "NOVA", slug: "nova", parent_id: "00000000-0000-0000-0000-000000000001", industry: "dev / web studio" },
 ];
 
 export function demoDashboard() {
@@ -422,6 +422,14 @@ export function demoGraph() {
     { source: `company:${holdings.id}`, target: `company:${nova.id}`, relation: "owns" },
     { source: `company:${odax.id}`, target: `agent:${DEMO_AGENT_IDS.salesLead}`, relation: "has_agent" },
     { source: `company:${odax.id}`, target: `agent:${DEMO_AGENT_IDS.marketingLead}`, relation: "has_agent" },
+    // The same real Sales Lead -> Marketing Lead request_from_agent call
+    // demoActivity()'s r3 fixture already carries — one real collaboration,
+    // not a separate invented one just for this layer.
+    {
+      source: `agent:${DEMO_AGENT_IDS.salesLead}`,
+      target: `agent:${DEMO_AGENT_IDS.marketingLead}`,
+      relation: "collaborated_with",
+    },
   ];
   return { nodes, edges };
 }
@@ -435,7 +443,7 @@ export function demoGraph() {
  */
 export function demoMap() {
   const [holdings, odax, tablo, nova] = DEMO_COMPANIES;
-  const companyNode = (c: { id: string; name: string }) => ({
+  const companyNode = (c: { id: string; name: string; industry?: string }) => ({
     id: `company:${c.id}`,
     type: "company" as const,
     label: c.name,
@@ -446,6 +454,9 @@ export function demoMap() {
     scope: null,
     departmentId: null,
     roleTitle: null,
+    openTaskCount: null,
+    blockedTaskCount: null,
+    industry: c.industry ?? null,
   });
   const nodes = [
     companyNode(holdings),
@@ -463,6 +474,10 @@ export function demoMap() {
       scope: "company",
       departmentId: "demo-dept-sales",
       roleTitle: null,
+      // Matches demoCommand()'s ODAX company-health fixture (4 open, 0 blocked).
+      openTaskCount: 4,
+      blockedTaskCount: 0,
+      industry: null,
     },
     {
       id: `agent:${DEMO_AGENT_IDS.marketingLead}`,
@@ -475,6 +490,9 @@ export function demoMap() {
       scope: "company",
       departmentId: "demo-dept-marketing",
       roleTitle: null,
+      openTaskCount: 1,
+      blockedTaskCount: 0,
+      industry: null,
     },
     {
       id: `agent:${DEMO_AGENT_IDS.groupCfo}`,
@@ -491,6 +509,9 @@ export function demoMap() {
       scope: "group",
       departmentId: null,
       roleTitle: "Chief Financial Officer",
+      openTaskCount: 0,
+      blockedTaskCount: 0,
+      industry: null,
     },
   ];
   const edges = [

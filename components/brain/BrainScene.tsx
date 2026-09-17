@@ -171,15 +171,22 @@ const DOCUMENT_NODE_SIZE = 0.055;
 
 /** Same halo/click/arrival-animation structure as MemoryNode, but a cube
  *  instead of a sphere — documents are a different kind of thing than a
- *  memory, so they read as one on sight, not just via a tooltip. */
+ *  memory, so they read as one on sight, not just via a tooltip. Clickable
+ *  (like MemoryNode) so a document's real title/company/type surfaces in
+ *  the same detail panel a memory click already opens — previously the
+ *  only node type in this scene with no click handler at all. */
 function DocumentNode({
   document,
   position,
   isNew,
+  selected,
+  onSelect,
 }: {
   document: BrainDocument;
   position: [number, number, number];
   isNew: boolean;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const size = DOCUMENT_NODE_SIZE;
   const color = colorForDocument(document);
@@ -204,12 +211,24 @@ function DocumentNode({
     <group position={position}>
       <mesh>
         <boxGeometry args={[size * 2.4, size * 2.4, size * 2.4]} />
-        <meshBasicMaterial color={color} transparent opacity={0.14} depthWrite={false} />
+        <meshBasicMaterial color={color} transparent opacity={selected ? 0.3 : 0.14} depthWrite={false} />
       </mesh>
-      <mesh ref={meshRef}>
+      <mesh
+        ref={meshRef}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
+      >
         <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.8} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={selected ? 1.3 : 0.8} />
       </mesh>
+      {selected && (
+        <mesh>
+          <boxGeometry args={[size * 3.2, size * 3.2, size * 3.2]} />
+          <meshBasicMaterial color={color} transparent opacity={0.14} depthWrite={false} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -287,7 +306,14 @@ export function BrainScene({
         const position = positionById.get(`doc:${d.id}`);
         if (!position) return null;
         return (
-          <DocumentNode key={d.id} document={d} position={position} isNew={newlyArrivedIds.has(`doc:${d.id}`)} />
+          <DocumentNode
+            key={d.id}
+            document={d}
+            position={position}
+            isNew={newlyArrivedIds.has(`doc:${d.id}`)}
+            selected={selectedId === `doc:${d.id}`}
+            onSelect={() => onSelect(`doc:${d.id}`)}
+          />
         );
       })}
     </Canvas>

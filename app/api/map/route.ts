@@ -19,6 +19,13 @@ export interface MapNode {
   scope: string | null;
   departmentId: string | null;
   roleTitle: string | null;
+  // Agent-only, additive (Phase 5) — real workload, from tasks.assigned_agent_id.
+  openTaskCount: number | null;
+  blockedTaskCount: number | null;
+  // Company-only, additive (Phase 5) — the real business each district
+  // represents, already seeded on `companies.industry` but never surfaced
+  // in the colony world until now.
+  industry: string | null;
 }
 
 export interface MapEdge {
@@ -51,35 +58,53 @@ export const GET = withApiErrorHandling(async () => {
     if (e.target_type === "agent") agentIds.add(e.target_id);
   }
 
-  const [{ data: companies }, { data: agents }, { data: runs }, { data: pendingApprovals }] = await Promise.all([
-    companyIds.size
-      ? supabase.from("companies").select("id, name").in("id", [...companyIds])
-      : Promise.resolve({ data: [] }),
-    agentIds.size
-      ? supabase.from("agents").select("id, name, status, scope, department_id, role_title").in("id", [...agentIds])
-      : Promise.resolve({ data: [] }),
-    agentIds.size
-      ? supabase
-          .from("agent_runs")
-          .select("agent_id, created_at, status")
-          .in("agent_id", [...agentIds])
-          .order("created_at", { ascending: false })
-          .limit(500)
-      : Promise.resolve({ data: [] }),
-    agentIds.size
-      ? supabase
-          .from("approvals")
-          .select("proposed_by_agent_id")
-          .in("proposed_by_agent_id", [...agentIds])
-          .eq("status", "pending")
-      : Promise.resolve({ data: [] }),
-  ]);
+  const [{ data: companies }, { data: agents }, { data: runs }, { data: pendingApprovals }, { data: openTasks }] =
+    await Promise.all([
+      companyIds.size
+        ? supabase.from("companies").select("id, name, industry").in("id", [...companyIds])
+        : Promise.resolve({ data: [] }),
+      agentIds.size
+        ? supabase.from("agents").select("id, name, status, scope, department_id, role_title").in("id", [...agentIds])
+        : Promise.resolve({ data: [] }),
+      agentIds.size
+        ? supabase
+            .from("agent_runs")
+            .select("agent_id, created_at, status")
+            .in("agent_id", [...agentIds])
+            .order("created_at", { ascending: false })
+            .limit(500)
+        : Promise.resolve({ data: [] }),
+      agentIds.size
+        ? supabase
+            .from("approvals")
+            .select("proposed_by_agent_id")
+            .in("proposed_by_agent_id", [...agentIds])
+            .eq("status", "pending")
+        : Promise.resolve({ data: [] }),
+      agentIds.size
+        ? supabase
+            .from("tasks")
+            .select("assigned_agent_id, status")
+            .in("assigned_agent_id", [...agentIds])
+            .not("status", "in", "(done,cancelled)")
+        : Promise.resolve({ data: [] }),
+    ]);
 
   const lastRunByAgent = new Map<string, { created_at: string; status: string }>();
   for (const r of runs ?? []) {
     if (!lastRunByAgent.has(r.agent_id)) lastRunByAgent.set(r.agent_id, r);
   }
   const pendingApprovalAgentIds = new Set((pendingApprovals ?? []).map((a) => a.proposed_by_agent_id));
+
+  const openTaskCountByAgent = new Map<string, number>();
+  const blockedTaskCountByAgent = new Map<string, number>();
+  for (const t of openTasks ?? []) {
+    if (!t.assigned_agent_id) continue;
+    openTaskCountByAgent.set(t.assigned_agent_id, (openTaskCountByAgent.get(t.assigned_agent_id) ?? 0) + 1);
+    if (t.status === "blocked") {
+      blockedTaskCountByAgent.set(t.assigned_agent_id, (blockedTaskCountByAgent.get(t.assigned_agent_id) ?? 0) + 1);
+    }
+  }
 
   const nodes: MapNode[] = [
     ...(companies ?? []).map((c) => ({
@@ -93,6 +118,9 @@ export const GET = withApiErrorHandling(async () => {
       scope: null,
       departmentId: null,
       roleTitle: null,
+      openTaskCount: null,
+      blockedTaskCount: null,
+      industry: c.industry,
     })),
     ...(agents ?? []).map((a) => ({
       id: `agent:${a.id}`,
@@ -105,6 +133,9 @@ export const GET = withApiErrorHandling(async () => {
       scope: a.scope,
       departmentId: a.department_id,
       roleTitle: a.role_title,
+      openTaskCount: openTaskCountByAgent.get(a.id) ?? 0,
+      blockedTaskCount: blockedTaskCountByAgent.get(a.id) ?? 0,
+      industry: null,
     })),
   ];
 

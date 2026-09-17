@@ -10,6 +10,9 @@ export interface HierarchyNode {
   /** Agent nodes only — raw (unprefixed) ids, ready to hand to OfficeAgentPanel unchanged. */
   companyId?: string;
   agentId?: string;
+  /** Agent nodes only — real workload, same /api/map fields the colony world reads. */
+  openTaskCount?: number;
+  blockedTaskCount?: number;
 }
 
 export interface PositionedHierarchyNode extends HierarchyNode {
@@ -79,6 +82,8 @@ export function hierarchyLayout(
         roleTitle: agent.roleTitle,
       }),
       agentId: agent.id.replace(/^agent:/, ""),
+      openTaskCount: agent.openTaskCount ?? 0,
+      blockedTaskCount: agent.blockedTaskCount ?? 0,
       children: [],
     };
   }

@@ -10,6 +10,8 @@ export interface OfficeDistrict {
   radius: number;
   /** OD Holdings (no parent) — the Central Command District every other district orbits. */
   isCentral: boolean;
+  /** The real business this district represents (`companies.industry`) — visual differentiation grounded in real data, not a synthetic per-company color scheme. */
+  industry: string | null;
 }
 
 export interface OfficeAgentPosition {
@@ -25,6 +27,9 @@ export interface OfficeAgentPosition {
   scope: string | null;
   departmentId: string | null;
   roleTitle: string | null;
+  /** Real workload — from tasks.assigned_agent_id, via assign_task. */
+  openTaskCount: number;
+  blockedTaskCount: number;
 }
 
 export interface OfficeLayout {
@@ -99,6 +104,8 @@ export function officeLayout(nodes: MapNode[], edges: MapEdge[]): OfficeLayout {
         scope: agent.scope,
         departmentId: agent.departmentId,
         roleTitle: agent.roleTitle,
+        openTaskCount: agent.openTaskCount ?? 0,
+        blockedTaskCount: agent.blockedTaskCount ?? 0,
       });
     });
   }
@@ -112,6 +119,7 @@ export function officeLayout(nodes: MapNode[], edges: MapEdge[]): OfficeLayout {
       y: 0,
       radius: CENTRAL_RADIUS,
       isCentral: true,
+      industry: central.industry,
     };
     districts.push(centralDistrict);
     placeAgentsAround(centralDistrict, centralAgents);
@@ -129,6 +137,7 @@ export function officeLayout(nodes: MapNode[], edges: MapEdge[]): OfficeLayout {
       y: Math.sin(angle) * orbitRadius,
       radius,
       isCentral: false,
+      industry: company.industry,
     };
     districts.push(district);
     placeAgentsAround(district, companyAgents);

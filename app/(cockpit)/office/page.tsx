@@ -344,6 +344,8 @@ export default function OfficePage() {
             departmentId: selectedAgent.departmentId,
             roleTitle: selectedAgent.roleTitle,
           })}
+          openTaskCount={selectedAgent.openTaskCount}
+          blockedTaskCount={selectedAgent.blockedTaskCount}
           onClose={() => setSelectedAgentId(null)}
           onSendStart={() => setWorkingAgentIds((prev) => new Set(prev).add(selectedAgent.agentId))}
           onSendEnd={() =>

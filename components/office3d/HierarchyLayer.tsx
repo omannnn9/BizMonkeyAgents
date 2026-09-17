@@ -112,6 +112,8 @@ export function HierarchyLayer({ nodes, edges }: { nodes: MapNode[]; edges: MapE
           agentId={selectedAgent.agentId}
           agentLabel={selectedAgent.label}
           agentRank={selectedAgent.rank}
+          openTaskCount={selectedAgent.openTaskCount}
+          blockedTaskCount={selectedAgent.blockedTaskCount}
           onClose={() => setSelectedAgentId(null)}
         />
       )}
@@ -157,6 +159,21 @@ function HierarchyNodeShape({
         filter="url(#hierarchy-glow)"
       />
       <circle cx={x + 12} cy={node.y} r={3} fill={color} filter="url(#hierarchy-glow)" />
+      {/* Real workload badge — from tasks.assigned_agent_id via assign_task,
+          the same count OfficeAgentPanel's "Workload" section shows.
+          Blocked work gets its own red badge since it's the actionable
+          signal; a plain open-task count alone isn't. */}
+      {!!node.openTaskCount && (
+        <g>
+          <circle cx={x + NODE_W - 14} cy={y + 10} r={8} fill="#0a1226" stroke={color} strokeWidth={1} />
+          <text x={x + NODE_W - 14} y={y + 13} fontSize={9} fill="#dbe6ff" textAnchor="middle">
+            {node.openTaskCount}
+          </text>
+        </g>
+      )}
+      {!!node.blockedTaskCount && (
+        <circle cx={x + NODE_W - 4} cy={y + 2} r={4} fill="#ff5a6e" />
+      )}
       {node.rank ? (
         <>
           <text x={x + 22} y={node.y - 4} fontSize={10.5} fill="#dbe6ff">

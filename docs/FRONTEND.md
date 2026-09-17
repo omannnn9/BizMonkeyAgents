@@ -259,7 +259,11 @@ persistent shell — no navigation, no chrome unmount, between any of them:
   worth verifying fresh in a network-restricted sandbox when a same-effect
   primitive is cheap to hand-roll. Clicking a district calls
   `onSelectCompany`; clicking an Operator calls `onSelectAgent`, both via
-  r3f's built-in mesh `onClick` raycasting.
+  r3f's built-in mesh `onClick` raycasting. Each district's label (Phase 5)
+  gets a second, smaller line showing `companies.industry` — the real
+  business that district represents, surfaced via `/api/map`'s new
+  `industry` field on company nodes, not a synthetic per-company color
+  scheme with nothing behind it.
 - **`components/office3d/LeftNav.tsx`** — active company name (labeled
   "District"), a "recent" list (`/api/dashboard`'s `recentDecisions`), and
   a `Surfaces` nav (Documents/Memories/Approvals/Chat — Relationships/
@@ -278,9 +282,12 @@ persistent shell — no navigation, no chrome unmount, between any of them:
   alongside every layer.
 - **`components/OfficeAgentPanel.tsx`** — the click-an-Operator overlay:
   a header showing the Operator's name and rank, `AgentChatPanel` (the same
-  chat implementation `/chat` uses), pending approvals for that one agent
-  (Approve/Reject, reusing `POST /api/approvals/:id`), and recent runs.
-  Used by both the Organization and Hierarchy layers.
+  chat implementation `/chat` uses), a **Workload** section (Phase 5 — real
+  open/blocked task counts from `tasks.assigned_agent_id`, the same
+  `openTaskCount`/`blockedTaskCount` fields `/api/map` now returns),
+  pending approvals for that one agent (Approve/Reject, reusing `POST
+  /api/approvals/:id`), and recent runs. Used by both the Organization and
+  Hierarchy layers.
 
 `/office`'s `/activity` predecessor page is retired entirely — its job is
 now this feed + terminal strip, the same "fold into `/office`, keep the API
@@ -352,6 +359,16 @@ detail panel (`data-testid="graph-detail-panel"`) and `selectedId` state
 it always had — only the viewport's rendering technology changed, not the
 interaction model or the data.
 
+**Collaboration/delegation history** (Phase 5) — two new edge relations,
+`collaborated_with` and `delegated_to`, computed live by `/api/graph` from
+recent `audit_log` rows (see [`API_REFERENCE.md`](./API_REFERENCE.md#get-apigraph))
+rather than a second edges-table write. `GraphEdgeLine` colors them
+distinctly from the structural `owns`/`has_agent` backbone —
+`collaborated_with` in the same `#c77dff` the Organization layer's
+collaboration beam already uses, `delegated_to` in `#ffc24d` — so real
+recent activity between two agents reads as a genuinely different kind of
+line, not more org-chart scaffolding.
+
 Same trade-off as the Organization and Knowledge layers: clicking a
 specific node isn't covered by the automated suite — duplicating r3f's
 camera projection math to compute a screen point isn't worth it for what
@@ -395,8 +412,13 @@ data — no separate fetch.
   show two lines (name, then rank in a smaller/dimmer line, the same
   pattern the colony world's character labels use); the Founder node gets
   a distinct gold/amber border since it's the one node that isn't a data
-  row. Nodes fade in staggered by tree depth on load (a plain CSS
-  `transition-delay`, no animation library). Clicking a company node
+  row. Agent nodes also carry a real **workload badge** (Phase 5) — a
+  small numbered circle showing `openTaskCount` (the same field
+  `/api/map` now returns) when non-zero, plus a small red dot when any of
+  those tasks are `blocked` — the same two fields `OfficeAgentPanel`'s
+  Workload section shows for the same agent. Nodes fade in staggered by
+  tree depth on load (a plain CSS `transition-delay`, no animation
+  library). Clicking a company node
   calls the same `setActiveCompanyId` every other company-switching
   interaction in the app already uses; clicking an agent node opens the
   **existing** `components/OfficeAgentPanel.tsx` overlay unchanged — real
@@ -463,9 +485,13 @@ one other place besides the Organization layer that earns real 3D depth
   `OfficeScene3D.tsx` uses for districts); **documents render as cubes**
   (same per-company palette, a different marker shape rather than a new
   color language, so a document reads as a different *kind* of thing on
-  sight, not just a differently-colored dot) — display-only in this pass,
-  not clickable, since there's no document detail UI in the Brain yet.
-  Synergy connections render as glowing bezier arcs through 3D space
+  sight, not just a differently-colored dot) and are now **clickable**
+  (Phase 5) — the same `selected`/`onSelect(id)` pattern `MemoryNode`
+  already used, keyed by the `doc:` prefix the position map already
+  namespaced documents under, so a memory and a document can never
+  collide on the same selection id. Previously the only node type in this
+  scene with no click handler at all. Synergy connections render as
+  glowing bezier arcs through 3D space
   between the two real memory nodes in each pair. Camera distance is
   computed from the shell radius with generous margin, verified with a real
   screenshot before calling this done — the same discipline that already
@@ -481,7 +507,10 @@ one other place besides the Organization layer that earns real 3D depth
   doesn't fit a memory) — showing content/scope/importance/confidence/
   source, and for a `company`-scope memory, a "Promote to group" button
   that calls the **existing** `POST /api/memories/:id/promote` endpoint
-  unchanged.
+  unchanged. Clicking a document node (Phase 5) opens a second, separate
+  detail panel (`data-testid="brain-document-panel"`) showing its real
+  title/company/mime type/upload date — the same fields `/api/brain`
+  already returned but nothing in the UI ever surfaced before this.
 
 Same trade-off as the Organization layer: clicking a specific memory or
 document node isn't covered by the automated suite — duplicating r3f's

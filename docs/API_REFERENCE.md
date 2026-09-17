@@ -198,19 +198,29 @@ The full relationship graph (`/graph` page). Reads every row in `edges`
 `(type, id)` via one explicit query per known entity type (`companies`,
 `agents`, `documents`, `decisions`, `tasks`, `projects`, `departments` —
 deliberately not a dynamic `.from(type)`, since the typed Supabase client
-only accepts literal table names).
+only accepts literal table names). Also derives real **collaboration
+history** edges (Phase 5) — `collaborated_with` from recent
+`audit_log` rows where `action = 'collaborate:request_from_agent'`, and
+`delegated_to` from `action = 'assign_task'` rows (using the assignee id
+already recorded in that row's `metadata`) — over a 7-day window,
+deduplicated to one edge per (source, target, relation) pair. Not a
+second table: these are computed live from the same audit trail
+`request_from_agent`/`assign_task` already write, never persisted
+separately.
 
 **Response:** `{nodes: Array<{id, type, label}>, edges: Array<{source,
-target, relation}>}` — `id` is `"{type}:{uuid}"`.
+target, relation}>}` — `id` is `"{type}:{uuid}"`. `relation` is one of the
+structural `edges` table values (`owns`, `has_agent`, …) or the two
+activity-derived ones above.
 
 ## `GET /api/map`
 
 A narrower slice of the same graph, purpose-built for the `/office` colony
 viewport: only `company`→`company`/`agent` edges, each agent node enriched
 with everything the scene needs without a second round trip — the
-state-glow signal, and (added this pass) the fields
-`lib/agent-title.ts`'s `deriveAgentRank()` needs for the colony's rank
-labels.
+state-glow signal, the fields `lib/agent-title.ts`'s `deriveAgentRank()`
+needs for the colony's rank labels, and (Phase 5) real workload/industry
+data.
 
 **Response:** same node/edge shape as `/api/graph`, plus on agent nodes:
 ```
@@ -221,6 +231,12 @@ status: string | null          // agents.status — powers the "sleeping" state
 scope: string | null           // agents.scope
 departmentId: string | null    // agents.department_id
 roleTitle: string | null       // agents.role_title
+openTaskCount: number | null   // real workload — tasks.assigned_agent_id, not (done, cancelled)
+blockedTaskCount: number | null // the subset of the above with status = 'blocked'
+```
+and on company nodes:
+```
+industry: string | null        // companies.industry — was fetched nowhere in the UI before Phase 5
 ```
 
 ## `GET /api/memories?companyId=`

@@ -384,6 +384,21 @@ reflects current data instead of a stale cache. See
 [`docs/FRONTEND.md`](./docs/FRONTEND.md#command-center-command) and
 [`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md#get-apicommand) for the full breakdown.
 
+**Phase 5 made the World shell's four spatial layers show more of what was already real but invisible.**
+`/api/map`'s agent nodes now carry real workload (`openTaskCount`/`blockedTaskCount`, from
+`tasks.assigned_agent_id`) and company nodes carry `industry` — surfaced as a Workload section in
+`OfficeAgentPanel` (used by both the Organization and Hierarchy layers), a numbered badge on each
+Hierarchy tree node, and a second label line under each Colony district showing the real business it
+represents. `/api/graph` now derives two more edge relations — `collaborated_with` and `delegated_to` —
+live from recent `audit_log` rows (the same ones `request_from_agent`/`assign_task` already write, not
+a second table), rendered in the Relationships layer with their own colors so real recent collaboration
+reads as a genuinely different kind of line from the static org-chart backbone. And the Knowledge
+layer's document nodes are clickable for the first time — previously the only node type in that scene
+with no click handler at all — opening a detail panel with the document's real title/company/type,
+the same fields `/api/brain` already returned but nothing in the UI ever surfaced. See
+[`docs/FRONTEND.md`](./docs/FRONTEND.md#organization-layer-the-colony) and
+[`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md#get-apimap) for the full breakdown.
+
 ## One-time setup
 
 1. **Create a Supabase project** (new, dedicated — don't reuse another project's database) and

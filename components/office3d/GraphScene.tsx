@@ -32,14 +32,33 @@ function worldPosition(x: number, y: number, type: string): [number, number, num
   return [(x - GRAPH_WIDTH / 2) / SCALE, TYPE_DEPTH[type] ?? 0, (y - GRAPH_HEIGHT / 2) / SCALE];
 }
 
-function GraphEdgeLine({ from, to }: { from: [number, number, number]; to: [number, number, number] }) {
+// Structural edges (owns/has_agent, from the `edges` table) stay the
+// original cyan — the org chart's own backbone. The two activity-derived
+// relations (Phase 5, computed live from audit_log — see /api/graph) get
+// their own colors so real collaboration/delegation history reads as a
+// genuinely different kind of line, not more org-chart backbone.
+const EDGE_COLOR: Record<string, string> = {
+  collaborated_with: "#c77dff",
+  delegated_to: "#ffc24d",
+};
+
+function GraphEdgeLine({
+  from,
+  to,
+  relation,
+}: {
+  from: [number, number, number];
+  to: [number, number, number];
+  relation: string;
+}) {
   const positions = useMemo(() => new Float32Array([...from, ...to]), [from, to]);
+  const color = EDGE_COLOR[relation] ?? "#5ad4ff";
   return (
     <line>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <lineBasicMaterial color="#5ad4ff" transparent opacity={0.45} />
+      <lineBasicMaterial color={color} transparent opacity={relation in EDGE_COLOR ? 0.7 : 0.45} />
     </line>
   );
 }
@@ -140,7 +159,7 @@ export function GraphScene({
         const from = positionById.get(e.source);
         const to = positionById.get(e.target);
         if (!from || !to) return null;
-        return <GraphEdgeLine key={i} from={from} to={to} />;
+        return <GraphEdgeLine key={i} from={from} to={to} relation={e.relation} />;
       })}
 
       {positioned.map((n) => {

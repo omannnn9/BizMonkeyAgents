@@ -73,14 +73,30 @@ async function resolveLabels(
   return labelByKey;
 }
 
+const COLLABORATION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const GET = withApiErrorHandling(async () => {
   if (isDemoMode()) return NextResponse.json(demoGraph());
 
   const supabase = await createClient();
-  const { data: edgeRows, error } = await supabase
-    .from("edges")
-    .select("source_type, source_id, target_type, target_id, relation")
-    .limit(500);
+  const [{ data: edgeRows, error }, { data: activityRows }] = await Promise.all([
+    supabase
+      .from("edges")
+      .select("source_type, source_id, target_type, target_id, relation")
+      .limit(500),
+    // Real collaboration/delegation history (Phase 5) — derived live from
+    // audit_log, not a separate edges-table write: request_from_agent and
+    // assign_task already write one row each here, so this reuses that
+    // real signal instead of duplicating it into a second table.
+    supabase
+      .from("audit_log")
+      .select("actor_id, action, target_type, target_id, metadata, created_at")
+      .in("action", ["collaborate:request_from_agent", "assign_task"])
+      .eq("actor_type", "agent")
+      .gte("created_at", new Date(Date.now() - COLLABORATION_WINDOW_MS).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const idsByType = new Map<string, Set<string>>();
@@ -91,6 +107,36 @@ export const GET = withApiErrorHandling(async () => {
   for (const e of edgeRows ?? []) {
     addId(e.source_type, e.source_id);
     addId(e.target_type, e.target_id);
+  }
+
+  // Collaboration/delegation edges: agent -> agent, deduplicated to the
+  // most recent instance of each (source, target, relation) trio so
+  // repeated exchanges between the same two agents draw one line, not a
+  // pile of overlapping ones.
+  const activityEdgeByKey = new Map<string, { source: string; target: string; relation: string }>();
+  for (const row of activityRows ?? []) {
+    if (!row.actor_id) continue;
+    if (row.action === "collaborate:request_from_agent") {
+      if (row.target_type !== "agent" || !row.target_id) continue;
+      addId("agent", row.actor_id);
+      addId("agent", row.target_id);
+      const key = `collaborated_with:${row.actor_id}:${row.target_id}`;
+      if (!activityEdgeByKey.has(key)) {
+        activityEdgeByKey.set(key, { source: row.actor_id, target: row.target_id, relation: "collaborated_with" });
+      }
+    } else if (row.action === "assign_task") {
+      const assigneeAgentId =
+        row.metadata && typeof row.metadata === "object" && "assigneeAgentId" in row.metadata
+          ? String((row.metadata as { assigneeAgentId?: unknown }).assigneeAgentId ?? "")
+          : "";
+      if (!assigneeAgentId) continue;
+      addId("agent", row.actor_id);
+      addId("agent", assigneeAgentId);
+      const key = `delegated_to:${row.actor_id}:${assigneeAgentId}`;
+      if (!activityEdgeByKey.has(key)) {
+        activityEdgeByKey.set(key, { source: row.actor_id, target: assigneeAgentId, relation: "delegated_to" });
+      }
+    }
   }
 
   const labelByKey = await resolveLabels(supabase, idsByType);
@@ -113,6 +159,11 @@ export const GET = withApiErrorHandling(async () => {
       target: `${e.target_type}:${e.target_id}`,
       relation: e.relation,
     });
+  }
+  for (const e of activityEdgeByKey.values()) {
+    addNode("agent", e.source);
+    addNode("agent", e.target);
+    edges.push({ source: `agent:${e.source}`, target: `agent:${e.target}`, relation: e.relation });
   }
 
   return NextResponse.json({ nodes, edges });

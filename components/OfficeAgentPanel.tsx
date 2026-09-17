@@ -32,6 +32,8 @@ export function OfficeAgentPanel({
   agentId,
   agentLabel,
   agentRank,
+  openTaskCount,
+  blockedTaskCount,
   onClose,
   onSendStart,
   onSendEnd,
@@ -40,6 +42,9 @@ export function OfficeAgentPanel({
   agentId: string;
   agentLabel: string;
   agentRank?: string;
+  /** Real workload — from tasks.assigned_agent_id (assign_task), sourced from the same /api/map data the colony world already loads. */
+  openTaskCount?: number;
+  blockedTaskCount?: number;
   onClose: () => void;
   onSendStart?: () => void;
   onSendEnd?: () => void;
@@ -113,6 +118,20 @@ export function OfficeAgentPanel({
           <Spinner />
         ) : (
           <>
+            {typeof openTaskCount === "number" && (
+              <section className="flex flex-col gap-1">
+                <h3 className="text-sm font-medium text-muted">Workload</h3>
+                <p className="text-xs text-foreground">
+                  {openTaskCount} open task{openTaskCount === 1 ? "" : "s"}
+                  {!!blockedTaskCount && (
+                    <span className="ml-1.5 text-danger">
+                      · {blockedTaskCount} blocked
+                    </span>
+                  )}
+                </p>
+              </section>
+            )}
+
             <section className="flex flex-col gap-2">
               <h3 className="text-sm font-medium text-muted">Pending approvals ({pendingApprovals.length})</h3>
               {pendingApprovals.length === 0 ? (
