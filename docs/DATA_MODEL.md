@@ -129,7 +129,11 @@ One row per chat turn (not per tool call) — see
 [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md#the-agent-runtime). `company_id`
 is denormalized via a trigger from `agents.company_id`, same pattern as
 `document_chunks`. `tool_calls jsonb` holds the full `[{name, input, result}]`
-log for the turn. `status` is `success` / `error` / `pending`.
+log for the turn. `status` is `success` / `error` / `pending`. `cost_usd`
+(Phase 7) is computed by `lib/agent/model-pricing.ts`'s `estimateCostUsd()`
+from the turn's real `tokens_in`/`tokens_out` against a published
+per-model pricing table — previously always `null`, now populated on every
+insert and summed by `GET /api/command`'s `companyHealth.spendUsd`.
 
 ### `action_policies`
 

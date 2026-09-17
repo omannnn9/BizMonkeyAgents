@@ -33,6 +33,18 @@ function extractMarket(config: unknown): string | null {
   }
   return null;
 }
+/** An optional, founder-set monthly spend cap — read the same defensive
+ *  way as ownership/market. Absent unless the founder actually configures
+ *  one; never a fabricated default. */
+function extractSpendCap(config: unknown): number | null {
+  if (config && typeof config === "object" && "monthly_spend_cap_usd" in config) {
+    const cap = (config as { monthly_spend_cap_usd?: unknown }).monthly_spend_cap_usd;
+    if (typeof cap === "number") return cap;
+  }
+  return null;
+}
+
+const SPEND_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const GET = withApiErrorHandling(async () => {
   if (isDemoMode()) return NextResponse.json(demoCommand());
@@ -55,6 +67,7 @@ export const GET = withApiErrorHandling(async () => {
     { data: recentRuns },
     { data: synergyPairs },
     { data: briefingMemories },
+    { data: recentCosts },
   ] = await Promise.all([
     supabase
       .from("approvals")
@@ -99,6 +112,13 @@ export const GET = withApiErrorHandling(async () => {
       .eq("source", "briefing")
       .order("created_at", { ascending: false })
       .limit(50),
+    // Real spend, populated per turn by runAgentTurn() (lib/agent/model-pricing.ts)
+    // from actual token counts — 30-day window, so "current spend" means
+    // something and this stays a bounded query as agent_runs grows.
+    supabase
+      .from("agent_runs")
+      .select("company_id, cost_usd")
+      .gte("created_at", new Date(Date.now() - SPEND_WINDOW_MS).toISOString()),
   ]);
 
   const withCompanyName = <T extends { company_id: string }>(rows: T[] | null) =>
@@ -114,6 +134,11 @@ export const GET = withApiErrorHandling(async () => {
   }
   const pendingByCompany = new Map<string, number>();
   for (const a of pendingApprovalsRaw ?? []) pendingByCompany.set(a.company_id, (pendingByCompany.get(a.company_id) ?? 0) + 1);
+
+  const spendByCompany = new Map<string, number>();
+  for (const r of recentCosts ?? []) {
+    spendByCompany.set(r.company_id, (spendByCompany.get(r.company_id) ?? 0) + (r.cost_usd ?? 0));
+  }
 
   const companyHealth = (companies ?? []).map((c) => {
     const openTasks = (allOpenTasks ?? []).filter((t) => t.company_id === c.id);
@@ -133,6 +158,12 @@ export const GET = withApiErrorHandling(async () => {
       goalsOnTrack: goals.filter((g) => g.status === "on_track").length,
       goalsAtRisk: goals.filter((g) => g.status === "at_risk").length,
       goalsOffTrack: goals.filter((g) => g.status === "off_track").length,
+      // Real spend (Phase 7) — sum of agent_runs.cost_usd over the last 30
+      // days, populated per turn by runAgentTurn() from actual token
+      // counts. spendCapUsd is only set if the founder configured one in
+      // companies.config — never a fabricated default.
+      spendUsd: Math.round((spendByCompany.get(c.id) ?? 0) * 100) / 100,
+      spendCapUsd: extractSpendCap(c.config),
     };
   });
 

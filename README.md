@@ -39,8 +39,12 @@ pixel-art `/office` (also since retired — two visual passes, "Night Shift," bo
 **Phase 8** (the `/hierarchy` organizational tree), **Phase 9** (the `/brain` AI Brain),
 **Phase 10** (Founder Command Mode + district-switch camera transitions), and **Phase 11**
 (the World shell — Colony/Relationships/Hierarchy/Knowledge unified into one persistent, layer-
-switchable frame instead of four separate routes, all described below) are
-all built — everything that
+switchable frame instead of four separate routes) are all built. On top of that, a second
+Ecosystem Audit-driven pass rebuilt the organization itself: a real 20-agent roster with
+non-overlapping jobs, agent-to-agent collaboration (`request_from_agent`, cycle- and depth-guarded),
+a memory-creation/knowledge-flow tool set (`record_memory`, `assign_task`, `record_decision`,
+`create_goal`), the Founder Command Center (`/command`), and pagination/spend-tracking scalability
+work (all described below) — everything that
 doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
 applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
 (see below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested.
@@ -407,6 +411,25 @@ which keys exist) and formats `ownership` from whatever `{role_pct: number}` ent
 config actually has (e.g. "60% Founder / 40% Partner" for ODAX, matching its real 60/40 founder/partner
 split) alongside `market` and `industry` (the latter already surfaced in the Colony's district labels,
 Phase 5). Nothing invented — every value traces to the exact `config` object seeded for that company.
+
+**Phase 7 addressed the Ecosystem Audit's scalability findings** — the app was built and verified
+against a handful of seeded rows per company, and three specific gaps would have broken down as real
+data accumulates. `query_company_data`'s `list` operation (tasks/decisions/projects/goals) was a flat,
+unpaginated `.limit(25)` with no ordering; it's now a real `{rows, total, offset, limit, hasMore}` page
+over `created_at desc`, backed by an actual `count: "exact"` query — an agent asking about the business's
+open tasks a year from now gets a true page, not a silently truncated one. `agent_runs.cost_usd` existed
+in the schema since the very first migration and was never once written; `lib/agent/model-pricing.ts`
+now computes it from each turn's real `tokens_in`/`tokens_out` against Anthropic's published per-model
+pricing, and the Command Center's Company Health cards show a real trailing-30-day spend per company
+against an optional founder-set `companies.config.monthly_spend_cap_usd` (shown only when the founder
+has actually set one — never a fabricated default), flagging red when a company is over. And
+`request_from_agent`'s existing `MAX_COLLAB_DEPTH` guard only bounded how *long* a collaboration chain
+could get, not where it could go — two agents that both hold the tool and reference each other could
+still burn the whole depth budget bouncing back and forth. A new `ToolContext.collabChain` (the list of
+agent ids already visited in this collaboration's lineage) lets the handler refuse a request back to
+anyone already in the chain immediately, the first time it would loop, rather than only once depth ran
+out. See [`docs/AGENTS_AND_TOOLS.md`](./docs/AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated)
+for the cycle-guard details and [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md) for `cost_usd`.
 
 ## One-time setup
 

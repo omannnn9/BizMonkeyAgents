@@ -58,6 +58,8 @@ interface CompanyHealth {
   goalsOnTrack: number;
   goalsAtRisk: number;
   goalsOffTrack: number;
+  spendUsd: number;
+  spendCapUsd: number | null;
 }
 
 interface Opportunity {
@@ -295,6 +297,15 @@ export default function CommandCenterPage() {
                 <dd className="text-right text-foreground">{c.goalsOnTrack}</dd>
                 <dt className="text-muted">Goals at risk</dt>
                 <dd className="text-right text-foreground">{c.goalsAtRisk + c.goalsOffTrack}</dd>
+                <dt className="text-muted">Spend (30d)</dt>
+                <dd
+                  className={`text-right ${
+                    c.spendCapUsd !== null && c.spendUsd > c.spendCapUsd ? "font-medium text-danger" : "text-foreground"
+                  }`}
+                >
+                  ${c.spendUsd.toFixed(2)}
+                  {c.spendCapUsd !== null ? ` / $${c.spendCapUsd.toFixed(2)}` : ""}
+                </dd>
               </dl>
               <p className="mt-2 text-[11px] text-muted">
                 {c.lastRunAt

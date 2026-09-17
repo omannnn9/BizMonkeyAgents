@@ -49,6 +49,21 @@ export const requestFromAgentTool: AgentTool = {
       };
     }
 
+    // Cycle protection beyond the depth count: refuse a request back to any
+    // agent already in this collaboration's lineage — a real A -> B -> A
+    // loop, not caught by depth alone (a two-hop ping-pong fits inside
+    // MAX_COLLAB_DEPTH and would otherwise burn the whole budget on going
+    // nowhere instead of on a genuinely new collaborator).
+    const collabChain = ctx.collabChain ?? [ctx.agentId];
+    if (collabChain.includes(parsed.data.targetAgentId)) {
+      return {
+        content:
+          "That would loop back to an agent already in this collaboration chain — asking them again " +
+          "won't reach anyone new.",
+        isError: true,
+      };
+    }
+
     const { data: target, error: fetchErr } = await ctx.supabase
       .from("agents")
       .select("id, name, company_id, scope, status")
@@ -81,6 +96,7 @@ export const requestFromAgentTool: AgentTool = {
       userMessage: parsed.data.request,
       history: [],
       depth: depth + 1,
+      collabChain: [...collabChain, target.id],
     });
 
     await ctx.supabase.from("audit_log").insert({

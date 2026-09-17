@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { assembleSystemPrompt } from "@/lib/agent/context-assembly";
 import { resolveTools } from "@/lib/agent/tools/registry";
+import { estimateCostUsd } from "@/lib/agent/model-pricing";
 import type { AgentTool, ToolContext } from "@/lib/agent/types";
 
 const DEFAULT_MODEL = "claude-sonnet-5";
@@ -44,6 +45,9 @@ export async function runAgentTurn(
      *  one agent asking another — threaded through so a chain of requests
      *  can't recurse unbounded. Omitted (0) for an ordinary user turn. */
     depth?: number;
+    /** Set by `request_from_agent` — the chain of agent ids already
+     *  visited in this collaboration lineage, for cycle detection. */
+    collabChain?: string[];
   },
 ): Promise<ChatTurnResult> {
   const startedAt = Date.now();
@@ -54,6 +58,7 @@ export async function runAgentTurn(
     activeCompanyId: params.activeCompanyId,
     userId: params.userId,
     depth: params.depth ?? 0,
+    collabChain: params.collabChain ?? [params.agentId],
   };
 
   const { data: agentRow } = await supabase
@@ -140,6 +145,7 @@ export async function runAgentTurn(
     model,
     tokens_in: tokensIn,
     tokens_out: tokensOut,
+    cost_usd: estimateCostUsd(model, tokensIn, tokensOut),
     latency_ms: Date.now() - startedAt,
     status,
   });

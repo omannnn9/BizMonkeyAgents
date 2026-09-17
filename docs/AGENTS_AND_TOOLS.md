@@ -135,6 +135,13 @@ a write can never be redirected elsewhere by a crafted `data` payload.
 Every create/update writes an `audit_log` row. Not approval-gated: internal
 record-keeping, not an external action.
 
+`list` is paginated (Phase 7): optional `limit` (default 25, max 100) and
+`offset`, ordered by `created_at` descending. The response shape is
+`{rows, total, offset, limit, hasMore}` — `total` and `hasMore` come from a
+real `count: "exact"` query against the scoped rows, not an estimate, so an
+agent asking "are there more?" always gets a true answer as the business's
+row counts grow past what fits in one page.
+
 ### `search_documents` — read-only, not gated
 
 Semantic search over the active company's (and sub-companies') uploaded
@@ -214,6 +221,18 @@ once `depth >= MAX_COLLAB_DEPTH`, returning an error tool result instead of
 calling `runAgentTurn()` again. Without this, two agents that both hold
 `request_from_agent` and reference each other could recurse unboundedly —
 nothing else in the runtime bounds nested calls.
+
+**Cycle guard** (Phase 7, on top of the depth cap): `ToolContext.collabChain`
+carries the list of agent ids already visited in this collaboration's
+lineage (seeded with the turn's own `agentId` in `runAgentTurn()`, extended
+with `target.id` on every nested call the handler makes). Before recursing,
+the handler checks whether the requested `targetAgentId` is already in that
+chain and refuses immediately if so — a real A → B → A ping-pong is caught
+on its first repeat, rather than being allowed to burn the entire
+`MAX_COLLAB_DEPTH` budget bouncing between the same two agents instead of
+reaching anyone new. The depth cap and the cycle guard are independent
+checks: depth bounds *how long* a chain can get, the cycle guard bounds
+*where it can go*.
 
 **Collaboration-routing rule** (`canCollaborateAcrossCompanies()` in
 `lib/agent/scoped-companies.ts`, added Phase 3): same-company requests and

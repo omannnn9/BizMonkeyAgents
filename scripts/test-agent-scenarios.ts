@@ -402,6 +402,22 @@ async function main() {
     .maybeSingle();
   record("A real collaboration memory is recorded for the calling agent", !!collabMemory);
 
+  // Scenario 11: Phase 7's collaboration cycle protection — a request back
+  // to an agent already in this collaboration's lineage is refused
+  // immediately, without spending a hop on it (distinct from the plain
+  // depth cap: a chain that's still shallow but revisits an agent already
+  // in it should stop right away rather than burn the rest of the budget
+  // looping between the same two agents).
+  const cycleCtx = { ...knowledgeCtx, collabChain: [agent!.id, GROUP_CFO_ID] };
+  const cycleResult = await requestFromAgentTool.handler(
+    { targetAgentId: agent!.id, request: "Anything new on the Q3 numbers?" },
+    cycleCtx,
+  );
+  record(
+    "request_from_agent refuses a request back to an agent already in the collaboration chain",
+    cycleResult.isError === true && cycleResult.content.includes("loop back"),
+  );
+
   // Cleanup.
   await admin.from("memories").delete().in("id", [synergyMemoryA!.id, synergyMemoryB!.id]);
   await admin

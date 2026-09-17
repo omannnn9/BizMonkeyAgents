@@ -8,6 +8,8 @@ const inputSchema = z.object({
   filters: z.record(z.string(), z.unknown()).optional(),
   id: z.string().uuid().optional().describe("Required for update"),
   data: z.record(z.string(), z.unknown()).optional().describe("Required for create/update"),
+  limit: z.number().int().min(1).max(100).optional().describe("For 'list': page size, default 25, max 100."),
+  offset: z.number().int().min(0).optional().describe("For 'list': rows to skip, for paging past the first page."),
 });
 
 export const queryCompanyDataTool: AgentTool = {
@@ -17,7 +19,9 @@ export const queryCompanyDataTool: AgentTool = {
     "Scoped automatically to whichever company is currently active in the cockpit (and its " +
     "sub-companies, if the group level is active) — you cannot use this to see or change another " +
     "company's data. Writes are direct (not approval-gated): tasks/decisions are internal " +
-    "record-keeping, not external actions.",
+    "record-keeping, not external actions. 'list' is paginated (default 25 rows, newest first) — " +
+    "its result includes hasMore/total; pass a larger offset to page past the first batch rather " +
+    "than assuming 25 rows is everything.",
   inputSchema: {
     type: "object",
     properties: {
@@ -33,6 +37,8 @@ export const queryCompanyDataTool: AgentTool = {
         description:
           "Required for 'create'/'update': column values, e.g. { title: '...', status: 'open' }.",
       },
+      limit: { type: "number", description: "For 'list': page size, default 25, max 100." },
+      offset: { type: "number", description: "For 'list': rows to skip, for paging past the first page." },
     },
     required: ["operation", "resource"],
   },
@@ -42,6 +48,8 @@ export const queryCompanyDataTool: AgentTool = {
       return { content: `Invalid input: ${parsed.error.message}`, isError: true };
     }
     const { operation, resource, filters, id } = parsed.data;
+    const limit = parsed.data.limit ?? 25;
+    const offset = parsed.data.offset ?? 0;
     const scopedCompanyIds = await getScopedCompanyIds(ctx.supabase, ctx.activeCompanyId);
 
     // Never let model-supplied data move a row between companies (or touch
@@ -54,13 +62,25 @@ export const queryCompanyDataTool: AgentTool = {
     }
 
     if (operation === "list") {
-      let query = ctx.supabase.from(resource).select("*").in("company_id", scopedCompanyIds);
+      let query = ctx.supabase
+        .from(resource)
+        .select("*", { count: "exact" })
+        .in("company_id", scopedCompanyIds);
       for (const [key, value] of Object.entries(filters ?? {})) {
         query = query.eq(key, value as string | number | boolean);
       }
-      const { data: rows, error } = await query.limit(25);
+      // Deterministic order (newest first) is what makes offset-based
+      // paging actually mean something — without it, which rows land on
+      // page 2 is arbitrary and can shift between calls.
+      const { data: rows, count, error } = await query
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
       if (error) return { content: `Query failed: ${error.message}`, isError: true };
-      return { content: JSON.stringify(rows ?? []) };
+      const total = count ?? rows?.length ?? 0;
+      const hasMore = offset + (rows?.length ?? 0) < total;
+      return {
+        content: JSON.stringify({ rows: rows ?? [], total, offset, limit, hasMore }),
+      };
     }
 
     if (operation === "create") {

@@ -104,6 +104,8 @@ company one at a time.
     industry,   // companies.industry
     ownership,  // companies.config.ownership (a free-form {role: pct} map), read defensively — null if the config doesn't have one
     market,     // companies.config.market — null if the config doesn't have one
+    spendUsd,     // Phase 7: sum of agent_runs.cost_usd for this company's agents over the trailing 30 days — real, computed from actual token counts, never estimated
+    spendCapUsd,  // Phase 7: companies.config.monthly_spend_cap_usd, read defensively — null if the founder hasn't set one, never a fabricated default
   }>,
   opportunities: Array<{similarity, companyA, memoryA, companyB, memoryB}>,  // match_cross_company_memories, same RPC detect_synergies uses
   recentActivity: Array<{id, agentId, status, output, createdAt}>,          // 15 most recent agent_runs, org-wide

@@ -9,6 +9,12 @@ export interface ToolContext {
   /** How many agent-to-agent hops produced this turn (0 = a direct user
    *  turn). Only `request_from_agent` reads this, to cap recursion. */
   depth?: number;
+  /** The chain of agent ids that have already participated in this
+   *  collaboration lineage (the current agent included) — lets
+   *  `request_from_agent` refuse a request back to an agent already up
+   *  the chain (a real A->B->A cycle) immediately, rather than only being
+   *  caught once `depth` happens to exhaust the budget. */
+  collabChain?: string[];
 }
 
 export interface ToolResult {
