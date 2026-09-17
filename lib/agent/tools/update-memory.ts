@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AgentTool } from "@/lib/agent/types";
 import { embedDocuments } from "@/lib/embeddings/voyage";
+import { getScopedCompanyIds, resolveMemoryOwnerCompanyId } from "@/lib/agent/scoped-companies";
 
 const inputSchema = z
   .object({
@@ -46,11 +47,23 @@ export const updateMemoryTool: AgentTool = {
 
     const { data: existing, error: fetchErr } = await ctx.supabase
       .from("memories")
-      .select("confidence")
+      .select("confidence, scope, scope_id")
       .eq("id", memoryId)
       .single();
     if (fetchErr || !existing) {
       return { content: `Memory not found: ${fetchErr?.message ?? "no such id"}`, isError: true };
+    }
+
+    // Same scoping boundary record_memory enforces on write: an agent can
+    // only revise a memory whose owning company is one it can actually see.
+    // ctx.supabase is the service-role client — this app-level check is the
+    // only authorization boundary here, not a backstop on top of RLS.
+    const ownerCompanyId = await resolveMemoryOwnerCompanyId(ctx.supabase, existing.scope, existing.scope_id);
+    if (ownerCompanyId) {
+      const scopedCompanyIds = await getScopedCompanyIds(ctx.supabase, ctx.activeCompanyId);
+      if (!scopedCompanyIds.includes(ownerCompanyId)) {
+        return { content: "That memory isn't in your current scope.", isError: true };
+      }
     }
 
     const update: Record<string, unknown> = {};

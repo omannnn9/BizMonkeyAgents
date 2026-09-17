@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AgentTool } from "@/lib/agent/types";
+import { getScopedCompanyIds, resolveMemoryOwnerCompanyId } from "@/lib/agent/scoped-companies";
 
 const inputSchema = z.object({
   memoryId: z.string().uuid(),
@@ -27,11 +28,23 @@ export const promoteMemoryTool: AgentTool = {
 
     const { data: original, error: fetchErr } = await ctx.supabase
       .from("memories")
-      .select("content, embedding, source_document_id, importance, confidence")
+      .select("content, embedding, source_document_id, importance, confidence, scope, scope_id")
       .eq("id", parsed.data.memoryId)
       .single();
     if (fetchErr || !original) {
       return { content: `Memory not found: ${fetchErr?.message ?? "no such id"}`, isError: true };
+    }
+
+    // Same scoping boundary record_memory enforces on write: an agent can
+    // only promote a memory whose owning company is one it can actually
+    // see. ctx.supabase is the service-role client — this app-level check
+    // is the only authorization boundary here, not a backstop on top of RLS.
+    const ownerCompanyId = await resolveMemoryOwnerCompanyId(ctx.supabase, original.scope, original.scope_id);
+    if (ownerCompanyId) {
+      const scopedCompanyIds = await getScopedCompanyIds(ctx.supabase, ctx.activeCompanyId);
+      if (!scopedCompanyIds.includes(ownerCompanyId)) {
+        return { content: "That memory isn't in your current scope.", isError: true };
+      }
     }
 
     const { data: groupCompany } = await ctx.supabase

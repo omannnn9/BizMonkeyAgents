@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AgentTool } from "@/lib/agent/types";
-import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
+import { getScopedCompanyIds, resolveMemoryOwnerCompanyId } from "@/lib/agent/scoped-companies";
 import { embedDocuments } from "@/lib/embeddings/voyage";
 
 const inputSchema = z.object({
@@ -56,19 +56,7 @@ export const recordMemoryTool: AgentTool = {
     // can actually see — never let a memory be recorded against a
     // department/project/agent/company outside the caller's own scope.
     if (scopeId) {
-      let ownerCompanyId: string | null = null;
-      if (scope === "company" || scope === "group") {
-        ownerCompanyId = scopeId;
-      } else if (scope === "department") {
-        const { data } = await ctx.supabase.from("departments").select("company_id").eq("id", scopeId).single();
-        ownerCompanyId = data?.company_id ?? null;
-      } else if (scope === "project") {
-        const { data } = await ctx.supabase.from("projects").select("company_id").eq("id", scopeId).single();
-        ownerCompanyId = data?.company_id ?? null;
-      } else if (scope === "agent") {
-        const { data } = await ctx.supabase.from("agents").select("company_id").eq("id", scopeId).single();
-        ownerCompanyId = data?.company_id ?? null;
-      }
+      const ownerCompanyId = await resolveMemoryOwnerCompanyId(ctx.supabase, scope, scopeId);
       if (!ownerCompanyId) {
         return { content: `Could not resolve a company for scope '${scope}' id ${scopeId}.`, isError: true };
       }

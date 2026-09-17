@@ -431,6 +431,21 @@ anyone already in the chain immediately, the first time it would loop, rather th
 out. See [`docs/AGENTS_AND_TOOLS.md`](./docs/AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated)
 for the cycle-guard details and [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md) for `cost_usd`.
 
+**Phase 8 closed out the transformation with a real technical-debt pass** — deliberately last, after
+every functional phase above, per the mandate's own ordering. A codebase-wide survey (TODO/FIXME
+markers, `any` types, dead code, unused dependencies, naming drift, error-handling consistency) came
+back clean on most fronts, but found one genuine authorization gap: `update_memory` and `promote_memory`
+fetched and mutated a `memories` row by bare id with no check that the memory's owning company was one
+the calling agent could actually see — unlike `record_memory` and `assign_task`, which already enforce
+this. Since `ctx.supabase` is the service-role client (RLS is defense-in-depth, not the boundary — see
+`lib/supabase/server.ts`), this app-level check was the only authorization boundary in play, and it was
+missing on two of three memory-mutating tools. Fixed by extracting the owning-company resolution
+`record_memory` already had inline into a shared `resolveMemoryOwnerCompanyId()`
+(`lib/agent/scoped-companies.ts`) and applying the same scope check to all three tools. Also fixed: the
+new-company page telling founders it seeds a "CEO Agent" (stale since the Phase 2 org rebuild renamed it
+to "Managing Director"), a redundant inner try/catch in `/api/chat` that silently skipped the Sentry
+reporting every other route gets, and an unused `@supabase/ssr` dependency.
+
 ## One-time setup
 
 1. **Create a Supabase project** (new, dedicated — don't reuse another project's database) and

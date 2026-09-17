@@ -181,6 +181,14 @@ external action — no gate. The founder has the same action available
 directly from `/memories` (`POST /api/memories/:id/promote`), logged with
 `actor_type: "user"` instead of `"agent"`.
 
+**Scoping (Phase 8)**: before promoting, resolves the original memory's
+owning company via `resolveMemoryOwnerCompanyId()`
+(`lib/agent/scoped-companies.ts`) and refuses if it isn't inside the
+caller's own `getScopedCompanyIds` — the same boundary `record_memory`
+enforces on write. Since `ctx.supabase` is the service-role client (RLS is
+defense-in-depth, not the actual boundary), this app-level check is what
+actually stops an agent from promoting a memory it was never scoped to see.
+
 ### `generate_board_report` — read/compile, not gated
 
 Pulls goals, the 10 most recent decisions, and up to 20 open tasks across
@@ -289,6 +297,10 @@ adjustment. `archive: true` sets the new `archived_at` column (migration
 deliberate "no longer useful" mark, distinct from the existing time-based
 `expires_at`. `archive: false` un-archives. `content` replaces the text and
 re-embeds it via Voyage.
+
+**Scoping (Phase 8)**: same `resolveMemoryOwnerCompanyId()` +
+`getScopedCompanyIds` check as `promote_memory` above — an agent can only
+revise a memory whose owning company it can actually see.
 
 ### `assign_task` — delegate real work, not gated
 

@@ -24,6 +24,36 @@ export async function getScopedCompanyIds(
   return [activeCompanyId, ...(children ?? []).map((c) => c.id)];
 }
 
+/**
+ * Resolves the company a `memories` row at a given `scope`/`scope_id`
+ * actually belongs to — null for scope `'founder'` (global, no company
+ * boundary) or an unscoped row. Shared by every tool that reads, writes,
+ * or checks scope on a memory (`record_memory`, `update_memory`,
+ * `promote_memory`) so this owning-company resolution exists in exactly
+ * one place rather than being reimplemented per tool.
+ */
+export async function resolveMemoryOwnerCompanyId(
+  supabase: SupabaseClient<Database>,
+  scope: string,
+  scopeId: string | null,
+): Promise<string | null> {
+  if (!scopeId) return null;
+  if (scope === "company" || scope === "group") return scopeId;
+  if (scope === "department") {
+    const { data } = await supabase.from("departments").select("company_id").eq("id", scopeId).single();
+    return data?.company_id ?? null;
+  }
+  if (scope === "project") {
+    const { data } = await supabase.from("projects").select("company_id").eq("id", scopeId).single();
+    return data?.company_id ?? null;
+  }
+  if (scope === "agent") {
+    const { data } = await supabase.from("agents").select("company_id").eq("id", scopeId).single();
+    return data?.company_id ?? null;
+  }
+  return null;
+}
+
 /** An agent's own company + scope, for collaboration-routing checks. */
 export async function getAgentScopeInfo(
   supabase: SupabaseClient<Database>,

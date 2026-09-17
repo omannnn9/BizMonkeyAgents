@@ -46,20 +46,13 @@ export const POST = withApiErrorHandling(async (request: Request) => {
     resolvedAgentId = anyAgent.id;
   }
 
-  try {
-    const userId = await getFounderUserId(supabase);
-    const result = await runAgentTurn(supabase, {
-      agentId: resolvedAgentId,
-      activeCompanyId,
-      userId,
-      userMessage: message,
-      history: history ?? [],
-    });
-    return NextResponse.json(result);
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
+  const userId = await getFounderUserId(supabase);
+  const result = await runAgentTurn(supabase, {
+    agentId: resolvedAgentId,
+    activeCompanyId,
+    userId,
+    userMessage: message,
+    history: history ?? [],
+  });
+  return NextResponse.json(result);
 });

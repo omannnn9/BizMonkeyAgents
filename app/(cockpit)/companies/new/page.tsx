@@ -45,8 +45,8 @@ export default function NewCompanyPage() {
     <div className="flex max-w-lg flex-col gap-6">
       <h1 className="text-lg font-semibold text-foreground">New company</h1>
       <p className="text-sm text-muted">
-        Creates the company and seeds its default CEO Agent automatically — the same pattern every
-        existing company has.
+        Creates the company and seeds its default Managing Director agent automatically — the same
+        pattern every existing company has.
       </p>
 
       <Panel className="flex flex-col gap-4">
