@@ -15,6 +15,7 @@ interface RecentItem {
 // the World shell itself, where WorldLayerSwitcher is the way to reach
 // them (as layers, not a link that would redirect back into this same page).
 const SURFACES = [
+  { href: "/command", label: "Command Center" },
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
   { href: "/approvals", label: "Approvals" },

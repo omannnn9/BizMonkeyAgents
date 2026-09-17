@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 const PAGES: Array<{ path: string; heading: RegExp }> = [
+  { path: "/command", heading: /^command center$/i },
   { path: "/office", heading: /^colony$/i },
   { path: "/chat", heading: /^chat/i },
   { path: "/documents", heading: /^documents/i },

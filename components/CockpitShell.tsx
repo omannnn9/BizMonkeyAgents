@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
 
 const NAV = [
+  { href: "/command", label: "Command Center" },
   { href: "/office", label: "Colony" },
   { href: "/chat", label: "Chat" },
 ];

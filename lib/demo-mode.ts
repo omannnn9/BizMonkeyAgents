@@ -300,6 +300,111 @@ export function demoBrain() {
   };
 }
 
+/**
+ * The Founder Command Center's org-wide view — every number here traces to
+ * the same fixtures every other demo function already defines (demoApprovals's
+ * a1, demoActivity's r1-r3, demoBrain's synergy pair), never a fresh
+ * invention just for this page: the Command Center and the pages it
+ * summarizes have to agree on what's real, same discipline as demoBrain()
+ * reusing demoMemories(). The one genuinely new fixture is a small,
+ * clearly-plausible set of blocked/overdue/at-risk items (Attention Center
+ * needs *something* to show) — still labeled Demo mode like everything else here.
+ */
+export function demoCommand() {
+  const [holdings, odax, tablo, nova] = DEMO_COMPANIES;
+  const pendingApproval = demoApprovals().approvals[0];
+
+  const blockedTasks = [
+    {
+      id: "task-blocked-1",
+      title: "QR scan flow fix blocked on App Store review",
+      companyId: tablo.id,
+      companyName: tablo.name,
+      createdAt: daysAgo(2),
+    },
+  ];
+  const overdueTasks = [
+    {
+      id: "task-overdue-1",
+      title: "Confirm ODAX pricing tier with the MD",
+      companyId: odax.id,
+      companyName: odax.name,
+      dueAt: daysAgo(1),
+    },
+  ];
+  const atRiskGoals = [
+    {
+      id: "goal-at-risk-1",
+      objective: "Grow Tablo restaurant partners to 50 by end of quarter",
+      companyId: tablo.id,
+      companyName: tablo.name,
+      status: "at_risk" as const,
+    },
+  ];
+
+  const companyHealth = [
+    { companyId: odax.id, companyName: odax.name, openTasks: 4, blockedTasks: 0, pendingApprovals: 1, lastRunAt: hoursAgo(2), lastRunStatus: "success" as const, goalsOnTrack: 1, goalsAtRisk: 0, goalsOffTrack: 0 },
+    { companyId: tablo.id, companyName: tablo.name, openTasks: 2, blockedTasks: 1, pendingApprovals: 0, lastRunAt: daysAgo(3), lastRunStatus: "success" as const, goalsOnTrack: 0, goalsAtRisk: 1, goalsOffTrack: 0 },
+    { companyId: nova.id, companyName: nova.name, openTasks: 1, blockedTasks: 0, pendingApprovals: 0, lastRunAt: null, lastRunStatus: null, goalsOnTrack: 0, goalsAtRisk: 0, goalsOffTrack: 0 },
+    { companyId: holdings.id, companyName: holdings.name, openTasks: 0, blockedTasks: 0, pendingApprovals: 0, lastRunAt: null, lastRunStatus: null, goalsOnTrack: 0, goalsAtRisk: 0, goalsOffTrack: 0 },
+  ];
+
+  const opportunities = [
+    {
+      similarity: 0.891,
+      companyA: odax.name,
+      memoryA: "Most F&B leads prospected so far turned out to be home-based producers, not dine-in restaurants.",
+      companyB: tablo.name,
+      memoryB: "Tablo's own F&B outreach has hit the same home-based-producer mismatch.",
+    },
+  ];
+
+  const runs = demoActivity().runs;
+  const recentActivity = runs.map((r) => ({
+    id: r.id,
+    agentId: r.agent_id,
+    status: r.status,
+    output: r.output,
+    createdAt: r.created_at,
+  }));
+
+  const dailyBriefings = [
+    {
+      companyId: odax.id,
+      companyName: odax.name,
+      content:
+        "**Example only — the daily briefing isn't deployed yet** (needs a live Supabase project + " +
+        "the daily-briefing Edge Function). Once it is, this shows what's outstanding for this " +
+        "company once a day, drawn from the same data as the rest of this page.",
+      createdAt: hoursAgo(14),
+    },
+  ];
+
+  return {
+    companies: DEMO_COMPANIES,
+    attention: {
+      pendingApprovals: pendingApproval ? [pendingApproval] : [],
+      blockedTasks,
+      overdueTasks,
+      atRiskGoals,
+    },
+    companyHealth,
+    opportunities,
+    recentActivity,
+    dailyBriefings,
+  };
+}
+
+export function demoBriefing() {
+  return {
+    message:
+      "**Demo mode** — Chief of Staff. Once real data exists, a weekly executive briefing here would " +
+      "synthesize open tasks, decisions, and goals across every company — the same real `query_company_data` " +
+      "and `generate_board_report` tools a real deployment already has, just asked to look at the whole " +
+      "group instead of one company. Try asking a real deployment for one.",
+  };
+}
+
 /** Matches the structural edges seeded by migration 0009_org_rebuild.sql — real org structure, not fabricated activity. */
 export function demoGraph() {
   const [holdings, odax, tablo, nova] = DEMO_COMPANIES;

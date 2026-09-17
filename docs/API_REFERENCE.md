@@ -81,6 +81,49 @@ Aggregate counts for a company (and its sub-companies, via
 }
 ```
 
+## `GET /api/command`
+
+The Founder Command Center's single data source (Phase 4) — org-wide,
+unlike every other route here: no `companyId` param, since the whole point
+is a cross-company view the founder can't get by clicking through each
+company one at a time.
+
+**Response:**
+```
+{
+  companies: Array<{id, name, parent_id}>,
+  attention: {
+    pendingApprovals: Array<{id, proposed_by_agent_id, company_id, company_name, action_type, risk_level, created_at}>,
+    blockedTasks: Array<{id, title, company_id, company_name, created_at}>,
+    overdueTasks: Array<{id, title, company_id, company_name, due_at}>,
+    atRiskGoals: Array<{id, objective, company_id, company_name, status}>,
+  },
+  companyHealth: Array<{
+    companyId, companyName, openTasks, blockedTasks, pendingApprovals,
+    lastRunAt, lastRunStatus, goalsOnTrack, goalsAtRisk, goalsOffTrack,
+  }>,
+  opportunities: Array<{similarity, companyA, memoryA, companyB, memoryB}>,  // match_cross_company_memories, same RPC detect_synergies uses
+  recentActivity: Array<{id, agentId, status, output, createdAt}>,          // 15 most recent agent_runs, org-wide
+  dailyBriefings: Array<{companyId, companyName, content, createdAt}>,     // latest memories.source='briefing' row per company
+}
+```
+
+Every field traces to a real table already in the schema; `opportunities`
+is computed live via `match_cross_company_memories`, never an LLM call —
+that's reserved for `/api/briefing` below.
+
+## `POST /api/briefing`
+
+The Command Center's "Weekly Executive Briefing" action — a live
+synthesis, not a stored artifact. Resolves OD Holdings' Chief of Staff
+agent and runs it through `runAgentTurn()` (the same function `POST
+/api/chat` uses) with a fixed prompt asking it to compile the week's
+briefing from real tasks/decisions/goals across every company. Gets its
+own independent `agent_runs` row, exactly like a real chat turn.
+
+**Response:** `{message: string}` (same shape `POST /api/chat` returns) or
+`{error: string}` (404) if no active Chief of Staff agent exists yet.
+
 ## `GET /api/activity?companyId=&agentId=`
 
 Real activity feed data — the same query the `/office` right panel and

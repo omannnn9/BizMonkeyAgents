@@ -58,6 +58,7 @@ interface LogRow {
 }
 
 const CATEGORY_LINKS = [
+  { href: "/command", label: "Command Center" },
   { href: "/documents", label: "Documents" },
   { href: "/memories", label: "Memories" },
   { href: "/approvals", label: "Approvals" },

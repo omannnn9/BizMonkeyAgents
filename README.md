@@ -368,6 +368,22 @@ re-reads. See
 [`docs/AGENTS_AND_TOOLS.md`](./docs/AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated)
 for the full breakdown.
 
+**Phase 4 built the Founder Command Center** (`/command`) — the one page in the app that's genuinely
+org-wide, not scoped to whichever company happens to be active in the header switcher. A single new
+route, `GET /api/command`, feeds six real sections: an **Attention Center** merging pending approvals,
+blocked tasks, overdue tasks, and at-risk goals into one list; **Opportunities**, the same
+`match_cross_company_memories` synergy search `detect_synergies` already runs, computed live rather
+than duplicated; **Company Health** cards (open/blocked tasks, pending approvals, last activity,
+goal-status counts) per company; **Daily Briefings**, the latest `memories.source = 'briefing'` row per
+company (empty until the daily-briefing Edge Function is actually deployed — never faked in the
+meantime); and org-wide **Agent Activity**. The one interactive piece, **Weekly Executive Briefing**, is
+a "Generate" button that calls a new `POST /api/briefing` — deliberately not a stored artifact: it runs
+the real Chief of Staff agent through `runAgentTurn()` with a fixed synthesis prompt and returns its
+live reply, getting its own independent `agent_runs` row like any other turn, so asking again always
+reflects current data instead of a stale cache. See
+[`docs/FRONTEND.md`](./docs/FRONTEND.md#command-center-command) and
+[`docs/API_REFERENCE.md`](./docs/API_REFERENCE.md#get-apicommand) for the full breakdown.
+
 ## One-time setup
 
 1. **Create a Supabase project** (new, dedicated — don't reuse another project's database) and

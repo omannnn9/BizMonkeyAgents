@@ -32,6 +32,44 @@ the 4-zone layout).
 than one agent (a single-agent company has nothing to switch between).
 Used on `/chat` and inside `OfficeAgentPanel`.
 
+## Command Center (`/command`)
+
+The Founder Command Center (Phase 4) — the one org-wide page in the app;
+every other page (including the Colony's own Command Mode HUD) is scoped
+to whichever company happens to be active in the switcher. A single `GET
+/api/command` call (see [`API_REFERENCE.md`](./API_REFERENCE.md#get-apicommand))
+feeds six sections, each `data-testid`-tagged for tests:
+
+- **Attention Center** (`attention-center`) — pending approvals, blocked
+  tasks, overdue tasks, and at-risk/off-track goals, merged into one list
+  with a running count in the heading. Empty state reads "Nothing needs
+  you right now — that's a real result," not a spinner or a placeholder.
+- **Opportunities** (`opportunities`) — cross-company synergy candidates,
+  computed live via the same `match_cross_company_memories` RPC
+  `detect_synergies` calls (see
+  [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md)), not a separate
+  pattern-mining feature.
+- **Weekly Executive Briefing** (`weekly-briefing`) — a "Generate" button
+  that calls `POST /api/briefing`, which runs the real Chief of Staff
+  agent through `runAgentTurn()` with a fixed synthesis prompt and returns
+  its real reply. Deliberately not stored: asking again always reflects
+  current data, and the reply gets its own independent `agent_runs` row
+  the same way any other agent turn does, so it stays auditable without a
+  new table.
+- **Company Health** (`company-health-{companyId}`, one per company) —
+  open/blocked task counts, pending approvals, last agent activity, and
+  goal-status counts, computed server-side from the same `tasks`/`goals`/
+  `approvals`/`agent_runs` rows every other page already reads.
+- **Daily Briefings** (`daily-briefings`) — the most recent
+  `memories.source = 'briefing'` row per company (written by the
+  daily-briefing Edge Function once it's deployed — see README). Empty
+  today in any real deployment until that function runs; demo mode shows
+  the same "not deployed yet" example `demoDashboard()`'s briefing card
+  already used, not a fabricated "real" one.
+- **Agent Activity** (`agent-activity`) — the 15 most recent `agent_runs`
+  across every company, org-wide (unlike `/office`'s own activity feed,
+  which is scoped to the active company).
+
 ## Chat
 
 `components/AgentChatPanel.tsx` is **the one chat implementation** —
