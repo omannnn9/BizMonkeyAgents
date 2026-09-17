@@ -215,10 +215,26 @@ calling `runAgentTurn()` again. Without this, two agents that both hold
 `request_from_agent` and reference each other could recurse unboundedly —
 nothing else in the runtime bounds nested calls.
 
-Granted to all five seeded agents (migration `0007_agent_collaboration.sql`).
-Writes one `audit_log` row directly (`action:
+**Collaboration-routing rule** (`canCollaborateAcrossCompanies()` in
+`lib/agent/scoped-companies.ts`, added Phase 3): same-company requests and
+requests where either side is scope `'group'` go through freely; two
+different companies' agents cannot reach each other directly — the handler
+refuses with a message pointing at Group Operations/Group Strategy, the
+same routing a real holding company would use. `getAgentScopeInfo()` fetches
+the calling agent's own `{company_id, scope}` (`ctx.agentId` doesn't carry
+this directly), then checks it against the target's. `assign_task` uses the
+same helper and rule.
+
+Granted to all 20 seeded agents (migrations `0007_agent_collaboration.sql`,
+`0009_org_rebuild.sql`). Writes one `audit_log` row directly (`action:
 "collaborate:request_from_agent"`) — the same "skip `gateAction`, write the
-log yourself" pattern `promote_memory` uses for ungated internal actions.
+log yourself" pattern `promote_memory` uses for ungated internal actions —
+and, best-effort (wrapped so a failure here never fails the collaboration
+itself), a real **collaboration memory**: `scope: "agent"`, `scope_id` the
+*calling* agent's own id, embedded and retrievable via `match_memories` on
+that agent's future turns, summarizing what was asked and what came back.
+This is what makes a collaboration a durable part of the organization's
+knowledge instead of only a log line nobody's context ever re-reads.
 
 **Visualized in two places**: `AgentChatPanel`'s `NOTEWORTHY_TOOLS` surfaces
 the target agent's reply as an inline note under the calling agent's
@@ -261,10 +277,14 @@ re-embeds it via Voyage.
 assigneeAgentId, priority?, dueAt?, projectId?}`. Creates a real `tasks`
 row with `assigned_agent_id` set — the column already existed in the
 schema and was completely unused by any tool before this one. Validates
-the assignee is `active` and inside the caller's own scoped companies,
-refusing (with a pointer to route the request through Group Operations
-instead) rather than silently assigning across an organizational boundary.
-This is the asynchronous counterpart to `request_from_agent`'s synchronous
+the assignee is `active` and applies the same `canCollaborateAcrossCompanies()`
+routing rule `request_from_agent` uses, refusing (with a pointer to route
+the request through Group Operations instead) rather than silently
+assigning across an organizational boundary. The task's `company_id` is
+the *assignee's* company, not the caller's active one — they can differ
+when a group-scope agent delegates down into a specific company, and the
+task genuinely belongs to whichever company will do the work. This is the
+asynchronous counterpart to `request_from_agent`'s synchronous
 request/reply: use it for anything that will take the assignee more than
 one exchange.
 

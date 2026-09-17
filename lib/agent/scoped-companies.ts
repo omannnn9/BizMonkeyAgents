@@ -23,3 +23,30 @@ export async function getScopedCompanyIds(
 
   return [activeCompanyId, ...(children ?? []).map((c) => c.id)];
 }
+
+/** An agent's own company + scope, for collaboration-routing checks. */
+export async function getAgentScopeInfo(
+  supabase: SupabaseClient<Database>,
+  agentId: string,
+): Promise<{ companyId: string; scope: string } | null> {
+  const { data } = await supabase.from("agents").select("company_id, scope").eq("id", agentId).maybeSingle();
+  if (!data) return null;
+  return { companyId: data.company_id, scope: data.scope };
+}
+
+/**
+ * The real-org collaboration-routing rule from the Future-State
+ * Specification: same-company collaboration is always free; a group-scope
+ * agent on either side (the caller or the target) is also always free,
+ * since the group level genuinely sits above every company; but two
+ * different companies' agents talking directly to each other is not —
+ * that has to route through a group-scope agent (Group Operations or
+ * Group Strategy), the same way it would in a real holding company.
+ */
+export function canCollaborateAcrossCompanies(
+  caller: { companyId: string; scope: string },
+  target: { companyId: string; scope: string },
+): boolean {
+  if (caller.scope === "group" || target.scope === "group") return true;
+  return caller.companyId === target.companyId;
+}

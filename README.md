@@ -351,6 +351,23 @@ which would have rendered as "Sales Lead Lead" once role titles themselves start
 fixed by having `deriveAgentRank()` return a generic tier label instead, and nulling `role_title` in
 the migration for every agent whose name is already the fully specific title.
 
+Phase 3 made collaboration between agents genuinely bounded by organizational structure instead of
+wide open. `request_from_agent` previously let any of the (then five) seeded agents reach any other
+directly, no matter which company each belonged to. With 20 real agents across 4 companies, that
+stopped being organizationally honest, so a new `canCollaborateAcrossCompanies()` rule
+(`lib/agent/scoped-companies.ts`) now governs both `request_from_agent` and `assign_task`: same-company
+requests and anything where either side is a group-scope agent go through freely, but two different
+companies' agents can't reach each other directly — that has to route through Group Operations or
+Group Strategy, the same way it would in a real holding company. `assign_task` also gained a real fix
+alongside this: the task it creates is now filed under the *assignee's* company, not the caller's
+active one (they can differ when a group-scope agent delegates downward). And every successful
+`request_from_agent` call now writes a real **collaboration memory** — `scope: 'agent'`, embedded via
+Voyage, retrievable through `match_memories` on the calling agent's own future turns — so a
+collaboration becomes durable organizational knowledge instead of a log line nobody's context ever
+re-reads. See
+[`docs/AGENTS_AND_TOOLS.md`](./docs/AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated)
+for the full breakdown.
+
 ## One-time setup
 
 1. **Create a Supabase project** (new, dedicated — don't reuse another project's database) and

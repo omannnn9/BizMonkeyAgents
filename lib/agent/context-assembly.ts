@@ -105,5 +105,12 @@ export async function assembleSystemPrompt(
       "yourself, as part of doing the work — don't wait to be asked.",
   );
 
+  sections.push(
+    "If you need something from another agent (via request_from_agent or assign_task): same-company " +
+      "and company<->group requests go through directly, but you can't reach a different company's " +
+      "agent directly — route that through Group Operations or Group Strategy instead, the same way " +
+      "it would work in a real holding company.",
+  );
+
   return sections.filter(Boolean).join("\n\n");
 }

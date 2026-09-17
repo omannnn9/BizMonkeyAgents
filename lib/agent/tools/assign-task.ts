@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { AgentTool } from "@/lib/agent/types";
-import { getScopedCompanyIds } from "@/lib/agent/scoped-companies";
+import { canCollaborateAcrossCompanies, getAgentScopeInfo } from "@/lib/agent/scoped-companies";
 
 const inputSchema = z.object({
   title: z.string().min(1),
@@ -40,7 +40,7 @@ export const assignTaskTool: AgentTool = {
 
     const { data: assignee } = await ctx.supabase
       .from("agents")
-      .select("id, name, company_id, status")
+      .select("id, name, company_id, scope, status")
       .eq("id", assigneeAgentId)
       .single();
     if (!assignee) {
@@ -49,17 +49,26 @@ export const assignTaskTool: AgentTool = {
     if (assignee.status !== "active") {
       return { content: `${assignee.name} is ${assignee.status}, not active — can't assign work to them.`, isError: true };
     }
-    const scopedCompanyIds = await getScopedCompanyIds(ctx.supabase, ctx.activeCompanyId);
-    if (!scopedCompanyIds.includes(assignee.company_id)) {
-      return { content: `${assignee.name} isn't in your current scope — route this through Group Operations instead.`, isError: true };
+    const caller = await getAgentScopeInfo(ctx.supabase, ctx.agentId);
+    if (
+      caller &&
+      !canCollaborateAcrossCompanies(caller, { companyId: assignee.company_id, scope: assignee.scope })
+    ) {
+      return {
+        content: `${assignee.name} is in a different company — route this through Group Operations instead.`,
+        isError: true,
+      };
     }
 
+    // The task belongs to whichever company will actually do the work —
+    // the assignee's company, not the caller's active one (they can differ
+    // when a group-scope agent delegates down to a specific company).
     const { data: task, error } = await ctx.supabase
       .from("tasks")
       .insert({
         title,
         description: description ?? null,
-        company_id: ctx.activeCompanyId,
+        company_id: assignee.company_id,
         assigned_agent_id: assigneeAgentId,
         priority: priority ?? "normal",
         due_at: dueAt ?? null,
@@ -78,7 +87,7 @@ export const assignTaskTool: AgentTool = {
       action: "assign_task",
       target_type: "task",
       target_id: task.id,
-      company_id: ctx.activeCompanyId,
+      company_id: assignee.company_id,
       metadata: { assigneeAgentId, priority: priority ?? "normal" },
     });
 

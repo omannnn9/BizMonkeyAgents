@@ -30,6 +30,7 @@ const TABLO_ID = "00000000-0000-0000-0000-000000000003";
 const SALES_AGENT_ID = "00000000-0000-0000-0000-000000000012";
 const MARKETING_AGENT_ID = "00000000-0000-0000-0000-000000000013";
 const GROUP_CFO_ID = "00000000-0000-0000-0000-000000000030";
+const TABLO_RESTAURANT_GROWTH_LEAD_ID = "00000000-0000-0000-0000-000000000022";
 
 type Check = { name: string; pass: boolean; detail?: string };
 const results: Check[] = [];
@@ -371,6 +372,36 @@ async function main() {
     : { data: null };
   record("The cascaded goal's parent_goal_id points at the real group goal", cascadedRow?.parent_goal_id === groupGoalId);
 
+  // Scenario 10: Phase 3's collaboration scope restriction (same-company and
+  // company<->group requests go through; two different companies' agents
+  // can't reach each other directly) and collaboration memory.
+  const peerCompanyResult = await requestFromAgentTool.handler(
+    { targetAgentId: TABLO_RESTAURANT_GROWTH_LEAD_ID, request: "Any Tablo restaurant leads worth ODAX knowing about?" },
+    knowledgeCtx,
+  );
+  record(
+    "request_from_agent blocks a direct peer-company request",
+    peerCompanyResult.isError === true && peerCompanyResult.content.includes("Group Operations"),
+  );
+
+  const groupReachRequest = "Any group-level spend guidance for ODAX this quarter?";
+  const groupReachResult = await requestFromAgentTool.handler(
+    { targetAgentId: GROUP_CFO_ID, request: groupReachRequest },
+    knowledgeCtx,
+  );
+  record("request_from_agent allows a company agent to reach a group-scope agent directly", !groupReachResult.isError);
+
+  const { data: collabMemory } = await admin
+    .from("memories")
+    .select("id, content")
+    .eq("scope", "agent")
+    .eq("scope_id", agent!.id)
+    .ilike("content", "%Group CFO%")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  record("A real collaboration memory is recorded for the calling agent", !!collabMemory);
+
   // Cleanup.
   await admin.from("memories").delete().in("id", [synergyMemoryA!.id, synergyMemoryB!.id]);
   await admin
@@ -408,6 +439,20 @@ async function main() {
     .eq("input", "Generate a promo image for the new ODAX pricing page.");
   await admin.from("agent_runs").delete().eq("agent_id", MARKETING_AGENT_ID).eq("input", collabRequest);
   if (collabAuditRow) await admin.from("audit_log").delete().eq("id", collabAuditRow.id);
+  await admin
+    .from("memories")
+    .delete()
+    .eq("scope", "agent")
+    .eq("scope_id", agent!.id)
+    .ilike("content", `%${collabRequest}%`);
+  await admin.from("agent_runs").delete().eq("agent_id", GROUP_CFO_ID).eq("input", groupReachRequest);
+  await admin
+    .from("audit_log")
+    .delete()
+    .eq("actor_id", agent!.id)
+    .eq("action", "collaborate:request_from_agent")
+    .eq("target_id", GROUP_CFO_ID);
+  if (collabMemory) await admin.from("memories").delete().eq("id", collabMemory.id);
   if (companyGoalId) await admin.from("goals").delete().eq("id", companyGoalId);
   if (groupGoalId) await admin.from("goals").delete().eq("id", groupGoalId);
   if (decisionId) await admin.from("decisions").delete().eq("id", decisionId);
