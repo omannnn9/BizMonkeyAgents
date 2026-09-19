@@ -1,9 +1,9 @@
 # Data model
 
-The full schema lives in `supabase/migrations/`, applied in order. As of
-this writing **none of it has been applied to a live database** — there is
-no Supabase project yet (see the root README). Everything below describes
-what's written and ready to apply, not what's running.
+The full schema lives in `supabase/migrations/`, applied in order to a
+live Supabase project (`od-cortex`, see [`DEPLOYMENT.md`](./DEPLOYMENT.md))
+— every migration through `0013_role_boundaries.sql` is applied. Everything
+below describes what's actually running, not just what's written.
 
 ## Migrations, in order
 
@@ -18,6 +18,10 @@ what's written and ready to apply, not what's running.
 | `0007_agent_collaboration.sql` | Grants `request_from_agent` to all five seeded agents. |
 | `0008_knowledge_flow.sql` | `memories.archived_at`, `memories.source` gains `'agent'`, `match_memories` excludes archived rows, `goals.parent_goal_id` + `goals.department_id` for real goal cascading. |
 | `0009_org_rebuild.sql` | Replaces the templated CEO/Sales/Marketing-Agent roster with 20 real, non-overlapping agents (5 OD Holdings group agents + 5 per company); 7 new departments (Customer Success/Operations for ODAX, Partnerships/Customer Success for Tablo, Engineering/Product/Delivery for NOVA); grants `request_from_agent` + `record_memory` to every agent. |
+| `0010_llm_provider_swap.sql` | `agents.model` default and every existing row swapped from an Anthropic model id to Groq's `openai/gpt-oss-120b`. |
+| `0011_seed_founder.sql` | The single `auth.users` founder-identity row (direct SQL insert, see [`DEPLOYMENT.md`](./DEPLOYMENT.md)) + `company_members` grants across all 4 companies. |
+| `0012_group_ceo.sql` | A new Group CEO agent at the top of OD Holdings (`has_agent` edge, real delegation tools), revises Chief of Staff's persona to report into it. |
+| `0013_role_boundaries.sql` | Real founder profile + each subsidiary's purpose/competitors in `companies.config`; rewrites `match_memories` to actually scope results to the caller's companies and, for `scope: 'agent'` rows, the exact agent — see below. |
 
 ## Core tables
 
@@ -26,8 +30,12 @@ what's written and ready to apply, not what's running.
 Every business unit, including the group level. `parent_id` (nullable,
 self-referencing) forms the hierarchy — currently two levels: OD Holdings
 (`parent_id = null`) → {ODAX, Tablo, NOVA}. `config` is a free-form `jsonb`
-(ownership splits, market, feature flags like `has_managing_director`).
-Never hardcoded elsewhere in application code — `lib/agent/scoped-companies.ts`
+(ownership splits, market, feature flags like `has_managing_director`; as
+of `0013_role_boundaries.sql` also the founder's real name/title on OD
+Holdings and each subsidiary's real `purpose`/`competitors` — the source
+every agent's system prompt reads its "who we are" section from, see
+[`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md)). Never hardcoded elsewhere
+in application code — `lib/agent/scoped-companies.ts`
 walks this table at request time.
 
 ### `company_members`
@@ -193,9 +201,20 @@ Three Postgres functions power semantic retrieval, all deliberately **not**
 policies apply exactly as a direct `select` would (no separate
 access-control logic to keep in sync):
 
-- **`match_memories(p_query_embedding, p_limit)`** — blended ranking:
-  `0.5 × embedding similarity + 0.3 × importance + 0.2 × recency decay`.
-  Used by `assembleSystemPrompt()` for every chat turn.
+- **`match_memories(p_query_embedding, p_company_ids, p_agent_id, p_limit)`**
+  — blended ranking: `0.5 × embedding similarity + 0.3 × importance + 0.2 ×
+  recency decay`, over the rows the caller is actually allowed to see:
+  `scope: 'founder'` always (no company boundary), `scope: 'company'`/
+  `'group'`/`'department'`/`'project'` only when their resolved owning
+  company is in `p_company_ids`, and `scope: 'agent'` only when
+  `scope_id = p_agent_id` — a collaboration memory an agent records about
+  itself (see `request_from_agent` below) is private to that one agent,
+  never visible to any other. Migration `0013_role_boundaries.sql`
+  rewrote this from an unscoped 2-arg signature that searched the entire
+  table regardless of caller — a real cross-company/cross-agent leak, not
+  just a missing filter. Used by `assembleSystemPrompt()` for every chat
+  turn, called with the caller's own `getScopedCompanyIds()` result and
+  agent id.
 - **`match_document_chunks(p_query_embedding, p_company_ids, p_limit)`** —
   pure cosine similarity, scoped to the caller's company set. Used by the
   `search_documents` tool.

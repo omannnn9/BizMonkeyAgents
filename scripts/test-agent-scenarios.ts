@@ -311,13 +311,62 @@ async function main() {
         p_query_embedding: JSON.stringify(
           (await admin.from("memories").select("embedding").eq("id", recordedMemoryId).single()).data?.embedding ?? [],
         ),
+        p_company_ids: [ODAX_ID],
+        p_agent_id: agent!.id,
         p_limit: 5,
       })
     : { data: null };
   record(
-    "The recorded memory is retrievable via match_memories",
+    "The recorded memory is retrievable via match_memories, scoped to its own company",
     !!matchedAfterRecord?.some((m: { id: string }) => m.id === recordedMemoryId),
   );
+
+  // Scenario 9b: match_memories real scoping (migration 0013) — the RPC
+  // used to search the *entire* memories table regardless of caller, a
+  // genuine cross-company/cross-agent leak. Verify directly against the
+  // live function, not just the tool wrapper: a Tablo-scoped memory must
+  // stay invisible from ODAX's context, and a private agent-scoped memory
+  // must stay invisible to every agent except the one it belongs to.
+  const tabloMemoryEmbedding = recordedMemoryId
+    ? (await admin.from("memories").select("embedding").eq("id", recordedMemoryId).single()).data?.embedding
+    : null;
+  const { data: tabloScopedMemory } = await recordMemoryTool.handler(
+    { scope: "company", scopeId: TABLO_ID, content: "Test-agent-scenarios: a Tablo-only memory." },
+    { supabase: admin, agentId: SALES_AGENT_ID, activeCompanyId: TABLO_ID, userId },
+  ).then(async (r) => {
+    const id = r.content.match(/memory id ([0-9a-f-]+)/)?.[1];
+    return id ? admin.from("memories").select("id").eq("id", id).single() : { data: null };
+  });
+  const { data: matchedFromOdaxScope } = await admin.rpc("match_memories", {
+    p_query_embedding: JSON.stringify(tabloMemoryEmbedding ?? []),
+    p_company_ids: [ODAX_ID],
+    p_agent_id: agent!.id,
+    p_limit: 20,
+  });
+  record(
+    "match_memories never returns another company's memory when scoped to ODAX",
+    !matchedFromOdaxScope?.some((m: { id: string }) => m.id === tabloScopedMemory?.id),
+  );
+
+  const { data: cfoPrivateMemory } = await recordMemoryTool.handler(
+    { scope: "agent", scopeId: GROUP_CFO_ID, content: "Test-agent-scenarios: Group CFO's private memory." },
+    { supabase: admin, agentId: GROUP_CFO_ID, activeCompanyId: OD_HOLDINGS_ID, userId },
+  ).then(async (r) => {
+    const id = r.content.match(/memory id ([0-9a-f-]+)/)?.[1];
+    return id ? admin.from("memories").select("id, embedding").eq("id", id).single() : { data: null };
+  });
+  const { data: matchedByADifferentAgent } = await admin.rpc("match_memories", {
+    p_query_embedding: JSON.stringify((cfoPrivateMemory as { embedding: unknown })?.embedding ?? []),
+    p_company_ids: [OD_HOLDINGS_ID],
+    p_agent_id: agent!.id, // a different agent entirely, not the CFO
+    p_limit: 20,
+  });
+  record(
+    "match_memories never returns another agent's private (scope: 'agent') memory",
+    !matchedByADifferentAgent?.some((m: { id: string }) => m.id === cfoPrivateMemory?.id),
+  );
+  if (tabloScopedMemory?.id) await admin.from("memories").delete().eq("id", tabloScopedMemory.id);
+  if (cfoPrivateMemory?.id) await admin.from("memories").delete().eq("id", cfoPrivateMemory.id);
 
   const outOfScopeMemory = await recordMemoryTool.handler(
     { scope: "company", scopeId: TABLO_ID, content: "Should be rejected — Tablo isn't in ODAX's scope." },

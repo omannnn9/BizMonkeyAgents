@@ -63,13 +63,21 @@ Two consequences fall out of this:
 
 1. Browser → `POST /api/chat` with `{ activeCompanyId, agentId?, message, history }`.
 2. Resolve which `agents` row to run (the caller's `agentId`, or the
-   company's default `scope='company'` agent if omitted) and call
-   `runAgentTurn()` (`lib/agent/agent-runtime.ts`).
+   company's default agent if omitted — Group CEO first, then Chief of
+   Staff, then the first department-less company-scope agent; any scope,
+   not just `scope='company'`) and call `runAgentTurn()`
+   (`lib/agent/agent-runtime.ts`).
 3. `runAgentTurn` builds a system prompt via `assembleSystemPrompt()`
-   (`lib/agent/context-assembly.ts`): persona + active company config + a
-   handful of open tasks/recent decisions + the top ~6 retrieved memories
-   (blended recency/importance/embedding-similarity via the `match_memories`
-   RPC) — never a full-table dump.
+   (`lib/agent/context-assembly.ts`): a real, DB-backed group-structure
+   section (OD Holdings, the founder, every active subsidiary) + a fixed
+   role-discipline preamble (stay in your own role, escalate rather than
+   guess, only summarized detail on other departments) + persona + active
+   company config + a handful of open tasks (the agent's own department in
+   full, everything else as a headcount)/recent decisions + the top ~6
+   retrieved memories, scoped to what this agent may actually see (blended
+   recency/importance/embedding-similarity via the `match_memories` RPC) —
+   never a full-table dump, never another company's or agent's private
+   data — see [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md#context-assembly).
 4. It resolves the agent's declared `tools` (a JSON array of tool names on
    the `agents` row) to real `AgentTool` implementations via
    `lib/agent/tools/registry.ts`, and loops against Groq's OpenAI-compatible

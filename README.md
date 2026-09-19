@@ -40,7 +40,7 @@ work (all described below), and a swap of the entire LLM layer from the Anthropi
 Groq's genuinely-free self-serve tier (Anthropic has no ongoing free tier; Groq's does, and both
 `openai/gpt-oss-120b`/`openai/gpt-oss-20b` support the same tool-calling agentic loop this app needs)
 — everything passes `npm run build` / `npm run lint`. **A live Supabase project now exists**
-(`od-cortex`) with all 11 migrations applied and the founder identity seeded. **Demo mode has been
+(`od-cortex`) with all 13 migrations applied and the founder identity seeded. **Demo mode has been
 removed** — the app always talks to the real stack now, no fixture fallback. What hasn't happened
 yet: real end-to-end verification from an actual browser hitting real Supabase/Groq/Voyage — the
 environment this was built in has an outbound network policy that blocks direct HTTPS to those three
@@ -62,6 +62,23 @@ fallback was also fixed in the process: it previously only ever considered `scop
 which meant OD Holdings — an entirely `scope='group'` company — would 404 if `agentId` were ever
 omitted; it now checks for "Group CEO" first, then "Chief of Staff", then any department-less
 company-scope agent, then whatever's active, covering both org shapes.
+
+**Every agent now has real, enforced role boundaries** (migration `0013_role_boundaries.sql`), per
+explicit founder direction: every agent should know everything about OD Group's real structure and
+its own job, only summarized information about other departments, and nothing about another
+company's or another agent's private data. Two real things changed, not just prompt wording. First,
+the founder's name/title and each subsidiary's real purpose/competitors now live in `companies.config`
+(the same place ownership/market already did), and `assembleSystemPrompt()` builds a "who we are"
+section from that live data — plus a fixed core-rule preamble (stay in your role, escalate rather
+than guess) — for every agent, on every turn, regardless of which company is active. A department-
+level agent's own open-task list stays full detail; everything else in its company is now a headcount
+only, never titles. Second, and more consequential: `match_memories` — the RPC every chat turn calls
+for relevant memories — had **no scoping at all**, searching the entire `memories` table regardless of
+which agent or company was asking. That meant a Tablo agent's chat could genuinely surface a Group CFO
+memory about ODAX, or any agent's private `scope: 'agent'` collaboration memory, purely by semantic
+similarity. It's now scoped to the caller's own companies (`scope: 'founder'` stays global; `'agent'`
+rows are private to the exact agent they belong to) — verified directly against the live database
+(cross-company and cross-agent isolation both hold) before this shipped.
 
 **On Phase 6 (`/office`) specifically:** two prior visual passes at `/office` (a 2D pixel-art canvas,
 then a "Night Shift" dark/glow re-theme of it) missed the actual target — the founder's reference
@@ -458,7 +475,7 @@ reporting every other route gets, and an unused `@supabase/ssr` dependency.
 
 ## One-time setup
 
-**A live Supabase project already exists** (`od-cortex`) — all 11 migrations are applied and the
+**A live Supabase project already exists** (`od-cortex`) — all 13 migrations are applied and the
 founder identity is seeded (see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) for the details, and
 that doc's "Setting up Supabase" section for doing this from scratch against a fresh project). What's
 left to actually run the app:

@@ -3,7 +3,7 @@
 ## Current state
 
 **A live Supabase project exists** (`od-cortex`, org `omanronaldo7@gmail.com's Org`,
-free tier). All 11 migrations are applied, in order, and the founder
+free tier). All 13 migrations are applied, in order, and the founder
 identity is seeded — see [`DATA_MODEL.md`](./DATA_MODEL.md) for the schema
 and [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the LLM/embeddings providers
 (Groq, Voyage — both genuinely free, no card required). Demo mode has been
@@ -27,7 +27,7 @@ with unrestricted outbound access.
 
 1. Create a Supabase project.
 2. Apply every migration in `supabase/migrations/`, in numeric order
-   (`0001_init.sql` through `0011_seed_founder.sql`) — via the Supabase CLI
+   (`0001_init.sql` through `0013_role_boundaries.sql`) — via the Supabase CLI
    (`supabase db push`), the Supabase MCP's `apply_migration`, or pasted
    into the SQL editor in order. `0001` needs the `pgcrypto`, `vector`, and
    `pg_cron` extensions; it creates them itself.
@@ -95,7 +95,7 @@ private is the actual production security boundary, not RLS.
 
 ## Post-deploy checklist
 
-- [x] All 11 migrations applied, in order.
+- [x] All 13 migrations applied, in order.
 - [x] `npm run seed:founder` run once (via direct SQL, see `0011_seed_founder.sql`).
 - [ ] `npm run test:rls` passes (defense-in-depth verification) — needs a
       network-unrestricted environment.
