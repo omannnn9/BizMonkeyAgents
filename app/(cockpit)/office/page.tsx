@@ -223,7 +223,7 @@ export default function OfficePage() {
   }, [layout.agents]);
 
   return (
-    <div className="flex h-[calc(100vh-6rem)] flex-col gap-3 p-3 sm:h-[calc(100vh-4rem)]">
+    <div className="flex h-[calc(100vh-7rem)] flex-col gap-3 p-3 md:h-[calc(100vh-3rem)]">
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="text-sm font-semibold text-foreground">Colony</h1>

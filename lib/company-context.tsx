@@ -7,6 +7,7 @@ export interface CompanySummary {
   name: string;
   slug: string;
   parent_id: string | null;
+  industry: string | null;
 }
 
 interface CompanyContextValue {

@@ -1,27 +1,20 @@
 "use client";
 
-import Link from "next/link";
-
 interface RecentItem {
   id: string;
   title: string;
   createdAt: string;
 }
 
-// The reference's Whiteboard/Design Board/Builder/Chats/Projects/Workflows
-// section, remapped to what this app actually has rather than inventing
-// pages for labels with nothing real behind them. Graph/Hierarchy/Brain
-// aren't real destinations from here anymore — this LeftNav lives inside
-// the World shell itself, where WorldLayerSwitcher is the way to reach
-// them (as layers, not a link that would redirect back into this same page).
-const SURFACES = [
-  { href: "/command", label: "Command Center" },
-  { href: "/documents", label: "Documents" },
-  { href: "/memories", label: "Memories" },
-  { href: "/approvals", label: "Approvals" },
-  { href: "/chat", label: "Chat" },
-];
-
+/**
+ * Purely page-contextual now — every real navigation destination this used
+ * to duplicate (Command/Documents/Memories/Approvals/Chat) lives in the
+ * persistent rail (components/CockpitShell.tsx) every route renders
+ * inside, including this one. A second nav list here would just be the
+ * same links said twice in two different visual languages. What's left is
+ * genuinely specific to standing inside the Colony: which district you're
+ * looking at, and what's recently happened here.
+ */
 export function LeftNav({ companyName, recentItems }: { companyName: string; recentItems: RecentItem[] }) {
   return (
     <div className="flex h-full flex-col gap-6 border-r border-border bg-surface/60 p-4 text-sm">
@@ -44,22 +37,6 @@ export function LeftNav({ companyName, recentItems }: { companyName: string; rec
           </ul>
         )}
       </div>
-
-      <nav aria-label="Surfaces">
-        <p className="label-caps mb-2">Surfaces</p>
-        <ul className="flex flex-col gap-1">
-          {SURFACES.map((s) => (
-            <li key={s.href}>
-              <Link
-                href={s.href}
-                className="transition-cortex block rounded-md px-2 py-1.5 text-foreground hover:bg-surface-raised hover:glow-accent"
-              >
-                {s.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
     </div>
   );
 }

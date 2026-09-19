@@ -51,7 +51,7 @@ export const GET = withApiErrorHandling(async () => {
 
   const { data: companies } = await supabase
     .from("companies")
-    .select("id, name, parent_id, industry, config")
+    .select("id, name, slug, parent_id, industry, config")
     .order("name");
   const companyNameById = new Map((companies ?? []).map((c) => [c.id, c.name]));
 
@@ -63,6 +63,7 @@ export const GET = withApiErrorHandling(async () => {
     { data: allOpenTasks },
     { data: allGoals },
     { data: recentRuns },
+    { data: agentRoster },
     { data: synergyPairs },
     { data: briefingMemories },
     { data: recentCosts },
@@ -102,6 +103,10 @@ export const GET = withApiErrorHandling(async () => {
       .select("id, agent_id, company_id, status, output, created_at")
       .order("created_at", { ascending: false })
       .limit(15),
+    // The whole roster is a couple dozen rows — cheaper to fetch once and
+    // join in JS than to embed a foreign-table select on every attention/
+    // activity query above.
+    supabase.from("agents").select("id, name, role_title"),
     supabase.rpc("match_cross_company_memories", { p_limit: 5 }),
     supabase
       .from("memories")
@@ -121,6 +126,13 @@ export const GET = withApiErrorHandling(async () => {
 
   const withCompanyName = <T extends { company_id: string }>(rows: T[] | null) =>
     (rows ?? []).map((r) => ({ ...r, company_name: companyNameById.get(r.company_id) ?? r.company_id }));
+
+  const agentById = new Map((agentRoster ?? []).map((a) => [a.id, a]));
+  const agentLabel = (agentId: string) => {
+    const a = agentById.get(agentId);
+    if (!a) return "An agent";
+    return a.role_title ? `${a.name} (${a.role_title})` : a.name;
+  };
 
   // Per-company health: open/blocked task counts and goal-status counts
   // computed from the bounded rows above, plus one more-recent-per-company
@@ -189,7 +201,10 @@ export const GET = withApiErrorHandling(async () => {
   return NextResponse.json({
     companies: companies ?? [],
     attention: {
-      pendingApprovals: withCompanyName(pendingApprovalsRaw),
+      pendingApprovals: withCompanyName(pendingApprovalsRaw).map((a) => ({
+        ...a,
+        agentName: agentLabel(a.proposed_by_agent_id),
+      })),
       blockedTasks: withCompanyName(blockedTasksRaw),
       overdueTasks: withCompanyName(overdueTasksRaw),
       atRiskGoals: withCompanyName(atRiskGoalsRaw),
@@ -199,6 +214,9 @@ export const GET = withApiErrorHandling(async () => {
     recentActivity: (recentRuns ?? []).map((r) => ({
       id: r.id,
       agentId: r.agent_id,
+      agentName: agentLabel(r.agent_id),
+      companyId: r.company_id,
+      companyName: companyNameById.get(r.company_id) ?? r.company_id,
       status: r.status,
       output: r.output,
       createdAt: r.created_at,

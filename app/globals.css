@@ -29,6 +29,20 @@
   --duration-fast: 120ms;
   --duration-med: 240ms;
   --duration-slow: 480ms;
+
+  /* Company environment accent — overridden per active company by
+     CockpitShell (lib/company-identity.ts, real per-company data, not a
+     decorative default), so the whole shell tints subtly when the founder
+     switches context. Falls back to the base accent above wherever no
+     provider has set it (e.g. the setup-error screen before a company
+     list even exists). */
+  --company-accent: var(--accent);
+  --company-accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+
+  /* The persistent navigation rail's width — one number so the rail itself
+     and every page that needs to know how much room it has (e.g. the
+     Colony's full-bleed canvas) agree. */
+  --rail-width: 4.25rem;
 }
 
 @theme inline {
@@ -48,6 +62,8 @@
   --color-state-blocked: var(--state-blocked);
   --color-state-delivered: var(--state-delivered);
   --color-state-sleeping: var(--state-sleeping);
+  --color-company-accent: var(--company-accent);
+  --color-company-accent-soft: var(--company-accent-soft);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -64,6 +80,12 @@ body {
 .glow-accent {
   box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent),
     0 0 18px 2px color-mix(in oklab, var(--accent) 35%, transparent);
+}
+/* Same treatment, tinted by whichever company is currently active rather
+   than the app's fixed accent — the nav rail's "where am I" signal. */
+.glow-company {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--company-accent) 45%, transparent),
+    0 0 18px 2px color-mix(in oklab, var(--company-accent) 30%, transparent);
 }
 .glow-state-executing {
   box-shadow: 0 0 16px 2px color-mix(in oklab, var(--state-executing) 55%, transparent);
@@ -91,6 +113,88 @@ body {
 .transition-cortex {
   transition-timing-function: var(--ease-out-expo);
   transition-duration: var(--duration-med);
+}
+
+/* ============================================================================
+   Typography scale — five real weights of information, not five sizes of
+   the same weight. "Important information should have visual weight;
+   unimportant information should disappear into the background." Used
+   consciously, not as a replacement for every existing text-sm/text-xs —
+   most body copy stays exactly that; these mark the handful of places a
+   real hierarchy actually matters (a page's single headline, the one
+   number that answers "what needs me").
+   ============================================================================ */
+
+/* 1. Context — where the founder is, not what's happening. Always paired
+   with a company accent dot; never the loudest thing on screen. */
+.text-context {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+
+/* 2. Section — a room's name inside the operating system. */
+.text-section {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+/* 3. Primary — the one thing on a screen that matters most. Reserved for
+   a genuine headline (Command's "what needs you", an agent's name in its
+   own profile) — never applied to every h1 by default. */
+.text-primary-emphasis {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--foreground);
+  letter-spacing: -0.01em;
+}
+
+/* 4. Secondary — supporting sentence under a primary headline. */
+.text-secondary-emphasis {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* 5. Metadata — timestamps, ids, counts. Deliberately small and quiet;
+   .label-caps above covers the all-caps variant of the same tier. */
+.text-meta {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Atmosphere — a single, restrained radial wash anchored to the company
+   accent, meant for one surface per screen (a page header, the shell's
+   identity bar) rather than stacked on every panel. This is the one
+   "atmospheric lighting" touch this design system uses; it is not glow,
+   not glass, and never animates. */
+.atmosphere-company {
+  background: radial-gradient(120% 140% at 0% 0%, var(--company-accent-soft), transparent 60%);
+}
+
+/* The interface is quiet by default; a "live" indicator (a state dot, an
+   attention badge) is the one thing allowed a slow, low-amplitude pulse —
+   never applied broadly. prefers-reduced-motion turns it into a static dot. */
+@keyframes pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.pulse-live {
+  animation: pulse-live 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse-live {
+    animation: none;
+  }
 }
 
 /* Minimal markdown styling for agent chat responses — deliberately not

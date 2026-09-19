@@ -80,6 +80,31 @@ similarity. It's now scoped to the caller's own companies (`scope: 'founder'` st
 rows are private to the exact agent they belong to) — verified directly against the live database
 (cross-company and cross-agent isolation both hold) before this shipped.
 
+**A product-wide UI/UX pass** (per explicit founder direction to make the app "feel like a place, not
+a website") replaced two real, separately-shelled experiences with one. Previously `/office` opted
+entirely out of `CockpitShell` and used its own left nav; every other page lived inside a generic
+top-nav-plus-sidebar layout — the app was, in a literal sense, two different products wearing the
+same colors. `CockpitShell` is now one persistent OS-style rail (icon-first, brand mark, a real
+"something needs you" badge sourced from `/api/command`'s own attention count) that every route
+renders inside, `/office` included — the *only* thing that page still opts out of is content padding,
+since a 3D viewport is inherently full-bleed. Company context is now a first-class visual element
+(`lib/company-identity.ts`): each real company gets a curated accent and a real motif drawn from its
+own `industry` ("Booking & appointment SaaS", not "ODAX"), which tints the active shell via CSS custom
+properties the moment the founder switches environments, and `CompanySwitcher` is now a real panel
+showing every company's identity instead of a plain `<select>`. **Command** (`/command`) was rebuilt
+around "what needs me?" instead of a stats-dashboard layout — a real headline count, attention items
+with actual founder actions (Review/Open, not just a list), a live agent-state summary reused from the
+same signal the Colony already computes, a company-pulse strip instead of identical stat cards, and an
+executive-activity feed grouped into real Just-now/Today/Yesterday buckets with real agent names
+(`lib/temporal.ts`) — including a genuine "N new since your last visit" count, persisted per-browser via
+`localStorage`, never fabricated. See [`docs/FRONTEND.md`](./docs/FRONTEND.md) for the full design
+system. **Scope note, stated plainly:** this pass covers Priorities 1–4 of the founder's brief (design
+system, navigation shell, Command, company context) in depth; the Colony/Brain/Hierarchy/Relationships/
+Documents/Memories/Approvals/agent-profile experiences already have real, distinctive visual treatment
+from earlier phases and now inherit the same shell/typography/company-identity language, but have not
+individually had the deeper structural redesign (agent profile modal, knowledge-library Documents view,
+decision-center Approvals) the brief also calls for — that's real follow-up work, not silently dropped.
+
 **On Phase 6 (`/office`) specifically:** two prior visual passes at `/office` (a 2D pixel-art canvas,
 then a "Night Shift" dark/glow re-theme of it) missed the actual target — the founder's reference
 turned out to be a dense, multi-panel **mission-control app shell** with a real 3D viewport as its

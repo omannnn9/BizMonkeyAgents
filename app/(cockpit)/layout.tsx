@@ -36,14 +36,17 @@ function SetupError({ message }: { message: string }) {
 }
 
 async function loadCompanies(): Promise<
-  | { ok: true; companies: Array<{ id: string; name: string; slug: string; parent_id: string | null }> }
+  | {
+      ok: true;
+      companies: Array<{ id: string; name: string; slug: string; parent_id: string | null; industry: string | null }>;
+    }
   | { ok: false; message: string }
 > {
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("companies")
-      .select("id, name, slug, parent_id")
+      .select("id, name, slug, parent_id, industry")
       .order("name");
     if (error) {
       console.error("[CockpitLayout] companies query failed:", error);

@@ -1,10 +1,38 @@
 # Frontend
 
+## Design system
+
+Product-wide UI/UX transformation, per explicit founder direction: the app
+should feel like one operating system with real spatial/organizational
+relationships, not a collection of separately-styled dashboards. Two new
+primitives make every other change below possible:
+
+- **`lib/company-identity.ts`** — real company differentiation, not just a
+  different color. `getCompanyIdentity({slug, industry})` returns a
+  curated `{accent, accentSoft, motif}` for OD Holdings/ODAX/Tablo/NOVA
+  (motif is each company's real business, e.g. "Booking & appointment
+  SaaS"), falling back to a deterministic hash-derived accent (the same
+  technique `OfficeScene3D`'s chassis-color hashing already used) for any
+  future subsidiary with no curated entry yet — never grey, never
+  decorative randomness.
+- **Typography scale** (`app/globals.css`): five real tiers —
+  `.text-context` (where am I), `.text-section`, `.text-primary-emphasis`
+  (reserved for one genuine headline per screen), `.text-secondary-emphasis`,
+  `.text-meta` — used deliberately at the handful of places a real
+  hierarchy matters, not a blanket replacement for existing `text-sm`/
+  `text-xs` body copy. Also: `--company-accent`/`--company-accent-soft`
+  CSS custom properties (set per-page by `CockpitShell` from the active
+  company's identity, consumed by `.glow-company` and `.atmosphere-company`),
+  and one restrained motion primitive (`.pulse-live`, a slow low-amplitude
+  opacity pulse for a genuine "this just changed" signal — a new attention
+  item, a live state dot — respecting `prefers-reduced-motion`).
+
 ## Layout and shell
 
 `app/layout.tsx` is the root HTML shell (fonts, metadata — `robots: {index:
 false}` since this is an internal tool). `app/(cockpit)/layout.tsx` fetches
-the real company list server-side, wraps children in `CompanyProvider`
+the real company list server-side (now including `industry`, for
+`getCompanyIdentity()`), wraps children in `CompanyProvider`
 (`lib/company-context.tsx`), and renders `CockpitShell`.
 
 `lib/company-context.tsx`'s `CompanyProvider` holds the active company in
@@ -12,68 +40,101 @@ client state, persisted to `localStorage` (`od-group.active-company-id`) so
 switching companies is a state update + re-fetch, never a navigation.
 Defaults to the group-level company (`parent_id === null`) if present.
 
-`components/CockpitShell.tsx` renders the header (logo, `CompanySwitcher`)
-and the sidebar nav (`NAV`: Office/Chat; a `MORE_NAV`
-disclosure: Documents/Memories/Approvals; `CREATE_NAV`: +New company/+New
-agent — Relationships/Hierarchy/Knowledge aren't here, since they're
-layers inside `/office`'s own World shell now, not separate destinations).
-**One exception:** on `pathname === "/office"`, the
-entire sidebar (and its mobile hamburger toggle) is suppressed — the office
-page's own `LeftNav` component covers the same ground, so stacking a second
-nav on top of it would be redundant. `<main>` padding also differs
-(`p-4 sm:p-6` everywhere except `/office`, which owns its own spacing for
-the 4-zone layout).
+**`components/CockpitShell.tsx` is now one persistent rail, not a website
+navbar bolted onto a separately-shelled 3D page.** Previously `/office` opted
+entirely out of the shared shell (its own `LeftNav` stood in for navigation);
+that meant the app was actually two different shells wearing the same colors
+— a real product-coherence problem, not just a styling one. Now every route,
+`/office` included, renders inside the same left rail: a brand mark, primary
+destinations (Command/Colony/Chat, icon + micro-label, matching the
+`PRIMARY`/`SECONDARY` split in the component) with a real "something needs
+you" badge (best-effort, reused from `/api/command`'s own attention count —
+never fabricated, silently absent rather than showing a stale zero if the
+fetch fails), then a visually distinct second tier for the reference surfaces
+(Documents/Memories/Approvals), then a Create menu. `/office` is still the
+one route that renders full-bleed inside `<main>` (a 3D viewport is
+inherently spatial, not a document with margins) — that is now the *only*
+place this shell special-cases a route; the rail and header are identical
+everywhere else. Below `md`, the same primary destinations become a fixed
+bottom tab bar with a "More" sheet for the reference surfaces and Create,
+rather than collapsing the desktop sidebar into a hamburger drawer.
+
+The whole shell tints subtly per active company: `CockpitShell` sets
+`--company-accent`/`--company-accent-soft` as inline CSS custom properties
+from `getCompanyIdentity()`, so the active nav item's glow, the header's
+hover border, and any `.atmosphere-company`/`.glow-company` usage on the
+page itself all shift together when the founder switches environments —
+restrained (a border/glow tint, never a full recolor) but real.
+
+`components/office3d/LeftNav.tsx` (inside `/office`'s own 4-zone layout)
+dropped its "Surfaces" link list entirely — those were the same five links
+the persistent rail now already owns, said twice in two different visual
+languages. What's left there is genuinely page-specific: which district
+you're looking at, and what's recently happened in it.
 
 ## Company/agent switching
 
-`CompanySwitcher` (a plain `<select>`) reads/writes `useCompany()`.
-`AgentSwitcher` is a `<select>` that only renders when a company has more
-than one agent (a single-agent company has nothing to switch between).
-Used on `/chat` and inside `OfficeAgentPanel`.
+`CompanySwitcher` used to be a plain `<select>` reading "Company: ODAX" —
+functional, but not company *context*. It's now a real environment switch:
+a button showing the active company's accent dot, name, and real motif
+(`getCompanyIdentity()`), opening a panel that lists every company the same
+way, OD Holdings pinned first as the group level. Selecting one still just
+calls `useCompany()`'s `setActiveCompanyId` underneath (same state-update-not-
+navigation mechanism as before) — only the surface changed. `AgentSwitcher`
+is unchanged: a `<select>` that only renders when a company has more than
+one agent, used on `/chat` and inside `OfficeAgentPanel`.
 
-## Command Center (`/command`)
+## Command (`/command`)
 
-The Founder Command Center (Phase 4) — the one org-wide page in the app;
-every other page (including the Colony's own Command Mode HUD) is scoped
-to whichever company happens to be active in the switcher. A single `GET
-/api/command` call (see [`API_REFERENCE.md`](./API_REFERENCE.md#get-apicommand))
-feeds six sections, each `data-testid`-tagged for tests:
+Rebuilt around one question — "what needs me?" — instead of a stats-dashboard
+layout. `GET /api/command` (org-wide, unscoped by the company switcher, the
+one page in the app that's deliberately not) now also joins real agent names
+onto both the attention list and the activity feed (`agentLabel()` in the
+route), so the page never shows a raw agent id. Sections, top to bottom:
 
-- **Attention Center** (`attention-center`) — pending approvals, blocked
-  tasks, overdue tasks, and at-risk/off-track goals, merged into one list
-  with a running count in the heading. Empty state reads "Nothing needs
-  you right now — that's a real result," not a spinner or a placeholder.
-- **Opportunities** (`opportunities`) — cross-company synergy candidates,
-  computed live via the same `match_cross_company_memories` RPC
-  `detect_synergies` calls (see
-  [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md)), not a separate
-  pattern-mining feature.
-- **Weekly Executive Briefing** (`weekly-briefing`) — a "Generate" button
-  that calls `POST /api/briefing`, which runs the real Chief of Staff
-  agent through `runAgentTurn()` with a fixed synthesis prompt and returns
-  its real reply. Deliberately not stored: asking again always reflects
-  current data, and the reply gets its own independent `agent_runs` row
-  the same way any other agent turn does, so it stays auditable without a
-  new table.
-- **Company Health** (`company-health-{companyId}`, one per company) —
-  open/blocked task counts, pending approvals, last agent activity, and
-  goal-status counts, computed server-side from the same `tasks`/`goals`/
-  `approvals`/`agent_runs` rows every other page already reads. Also shows
-  (Phase 6) `companies.industry` and, read defensively from the free-form
-  `companies.config` jsonb, `ownership` (formatted from whatever
-  `{role_pct: number}` keys that company's config actually has — e.g.
-  "60% Founder / 40% Partner" — rather than assuming a fixed set of owner
-  names) and `market`. These were seeded since `0002_seed_companies.sql`
-  but invisible anywhere in the UI until now — the Ecosystem Audit's own
-  finding.
-- **Daily Briefings** (`daily-briefings`) — the most recent
-  `memories.source = 'briefing'` row per company (written by the
-  daily-briefing Edge Function once it's deployed — see README). Empty
-  today until that function is deployed and its `pg_cron` schedule wired
-  up — an honest empty state, never a fabricated "real" one.
-- **Agent Activity** (`agent-activity`) — the 15 most recent `agent_runs`
-  across every company, org-wide (unlike `/office`'s own activity feed,
-  which is scoped to the active company).
+- **Headline** — a real count ("N things need you" / "Nothing needs you
+  right now"), plus, when `lib/temporal.ts`'s `getLastVisit("command")`
+  finds a real previous visit in this browser's `localStorage`, how many of
+  those items are new since then. `markVisit()` is called once per mount
+  after reading the old value, so the comparison stays meaningful across
+  reloads in the same sitting rather than resetting itself immediately.
+- **Immediate attention** (`attention-center`) — pending approvals, blocked
+  tasks, overdue tasks, at-risk/off-track goals, merged and sorted by
+  recency. Every row is a real founder action, not just a label: `Review`
+  (approvals → `/approvals`) or `Open` (→ `/office`), per `attentionMeta()`.
+  A new-since-last-visit row gets a `.pulse-live` dot instead of a static
+  one.
+- **Agent situation** — a real, org-wide count of `deriveAgentState()`
+  results (`lib/agent-visual-state.ts`), fetched from the same `/api/map`
+  the Colony itself reads — not a second data source. `isWorking` is always
+  `false` here (Command has no way to know an agent is mid-turn in someone
+  else's browser tab the way `/office`'s own optimistic client state does),
+  so this section is honestly missing `executing` rather than guessing it.
+- **Company pulse** — one real row per company (accent dot + name + motif +
+  ownership/momentum/spend), not a grid of identical stat cards — the
+  `getCompanyIdentity()` accent is what makes ODAX read as visually
+  different from Tablo here, the same as everywhere else now.
+- **Opportunities** / **Weekly executive briefing** — unchanged behavior
+  (see below), restyled to the same Panel/typography language.
+- **Executive activity** (`agent-activity`) — the 15 most recent
+  `agent_runs` org-wide, now grouped into real "Just now / Earlier today /
+  Yesterday / Earlier" buckets via `lib/temporal.ts`'s `groupByRecency()`,
+  and read as "**Group Strategy** (ODAX) ran with no output." / "hit an
+  error." instead of a raw status string.
+- **Daily briefings** — unchanged; only rendered once at least one exists
+  (an honest empty state was removed in favor of just omitting the section,
+  since "no daily briefings yet" duplicated the explanation `DEPLOYMENT.md`
+  already gives for why).
+
+`Opportunities` stays the same live `match_cross_company_memories` RPC
+`detect_synergies` also calls; `Weekly executive briefing`'s `Generate`
+button still calls `POST /api/briefing` (the real Chief of Staff agent via
+`runAgentTurn()`, deliberately not stored — see
+[`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md)); `Company pulse`'s numbers
+are the same `tasks`/`goals`/`approvals`/`agent_runs` counts the old
+"Company Health" grid computed, including `companies.config`'s
+`ownership`/`market`/`monthly_spend_cap_usd` (Phase 6/7) — only the layout
+changed, not the data source.
 
 ## Chat
 

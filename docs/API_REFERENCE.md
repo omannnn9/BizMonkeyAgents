@@ -8,7 +8,10 @@ app has no login (see [`ARCHITECTURE.md`](./ARCHITECTURE.md#no-login-by-design))
 
 ## `GET /api/companies`
 
-Lists every company (`id, name, slug, parent_id`), ordered by name.
+Lists every company (`id, name, slug, parent_id, industry`), ordered by
+name. `industry` (added alongside the redesign) feeds
+`lib/company-identity.ts`'s `getCompanyIdentity()` — the curated accent/
+motif every company-context surface now reads from.
 
 ## `POST /api/companies`
 
@@ -52,10 +55,11 @@ Runs one turn against an agent.
 
 **Body:** `{activeCompanyId, agentId?, message, history: Array<{role, content}>}`
 
-If `agentId` is omitted, resolves the company's default `scope='company'`
-agent (sorted by name, so "CEO Agent" wins alphabetically over
-"Marketing"/"Sales" when more than one exists). Delegates to
-`runAgentTurn()` — see
+If `agentId` is omitted, resolves the company's default agent by priority —
+"Group CEO" first, then "Chief of Staff", then the first department-less
+company-scope agent, then whatever active agent exists — covering both
+`scope='group'` companies (OD Holdings) and `scope='company'` ones without
+ever 404ing. Delegates to `runAgentTurn()` — see
 [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md#the-agent-runtime).
 
 **Response:** `{message: string, toolCalls: Array<{name, input, result}>}`
@@ -89,9 +93,9 @@ company one at a time.
 **Response:**
 ```
 {
-  companies: Array<{id, name, parent_id}>,
+  companies: Array<{id, name, slug, parent_id, industry, config}>,  // slug feeds getCompanyIdentity(); Command's own Company Pulse re-resolves it via useCompany() instead
   attention: {
-    pendingApprovals: Array<{id, proposed_by_agent_id, company_id, company_name, action_type, risk_level, created_at}>,
+    pendingApprovals: Array<{id, proposed_by_agent_id, agentName, company_id, company_name, action_type, risk_level, created_at}>,  // agentName: "Name (role_title)" or just "Name", joined server-side from the agents table
     blockedTasks: Array<{id, title, company_id, company_name, created_at}>,
     overdueTasks: Array<{id, title, company_id, company_name, due_at}>,
     atRiskGoals: Array<{id, objective, company_id, company_name, status}>,
@@ -106,7 +110,7 @@ company one at a time.
     spendCapUsd,  // Phase 7: companies.config.monthly_spend_cap_usd, read defensively — null if the founder hasn't set one, never a fabricated default
   }>,
   opportunities: Array<{similarity, companyA, memoryA, companyB, memoryB}>,  // match_cross_company_memories, same RPC detect_synergies uses
-  recentActivity: Array<{id, agentId, status, output, createdAt}>,          // 15 most recent agent_runs, org-wide
+  recentActivity: Array<{id, agentId, agentName, companyId, companyName, status, output, createdAt}>,  // 15 most recent agent_runs, org-wide; agentName/companyName joined server-side so Command's Executive Activity never shows a raw id
   dailyBriefings: Array<{companyId, companyName, content, createdAt}>,     // latest memories.source='briefing' row per company
 }
 ```
