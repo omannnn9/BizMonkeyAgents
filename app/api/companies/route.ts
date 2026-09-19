@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode, DEMO_COMPANIES } from "@/lib/demo-mode";
 
 export const GET = withApiErrorHandling(async () => {
-  if (isDemoMode()) return NextResponse.json({ companies: DEMO_COMPANIES });
-
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("companies")
@@ -31,13 +28,6 @@ export const POST = withApiErrorHandling(async (request: Request) => {
   };
   if (!name || !slug) {
     return NextResponse.json({ error: "name and slug are required" }, { status: 400 });
-  }
-
-  if (isDemoMode()) {
-    return NextResponse.json({
-      company: { id: "demo-company", name, slug, parent_id: parentId ?? null },
-      demo: true,
-    });
   }
 
   const supabase = await createClient();

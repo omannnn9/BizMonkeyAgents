@@ -26,7 +26,7 @@ one Supabase project (Postgres + pgvector + Storage + Edge Functions).
 | 3D | `@react-three/fiber` + `@react-three/drei` (the `/office` viewport only) |
 | Styling | Tailwind CSS v4 |
 | Error tracking | Sentry (`@sentry/nextjs`) |
-| Testing | Playwright (e2e, demo-mode), custom `tsx` scripts (RLS, prompt-injection, agent-scenario checks) |
+| Testing | Custom `tsx` scripts against the live project (RLS, prompt-injection, agent-scenario checks) — see [`TESTING.md`](./TESTING.md) |
 | Validation | Zod (tool input schemas) |
 | Document parsing | `pdfjs-dist` (PDF), `mammoth` (DOCX) |
 
@@ -59,36 +59,22 @@ Two consequences fall out of this:
   resolves that user's id from the `company_members` table at request time —
   never a hardcoded literal.
 
-## Demo mode
-
-If `NEXT_PUBLIC_SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` are unset,
-`lib/demo-mode.ts`'s `isDemoMode()` returns `true` and **every** API route
-returns realistic fixture data instead of erroring or touching Supabase. A
-persistent banner (`CockpitShell`) makes this unambiguous to anyone looking
-at the app. Nothing in demo mode persists — approve/reject and document
-upload round-trip successfully but don't change any list.
-
-This exists so the UI can be built, reviewed, and e2e-tested before a live
-Supabase project exists. It is the reason `npm run test:e2e` passes with no
-backend at all — see [`TESTING.md`](./TESTING.md).
-
 ## Request flow: a chat message
 
 1. Browser → `POST /api/chat` with `{ activeCompanyId, agentId?, message, history }`.
-2. If demo mode: return a canned reply from `demoChatReply()` and stop.
-3. Otherwise, resolve which `agents` row to run (the caller's `agentId`, or
-   the company's default `scope='company'` agent if omitted) and call
+2. Resolve which `agents` row to run (the caller's `agentId`, or the
+   company's default `scope='company'` agent if omitted) and call
    `runAgentTurn()` (`lib/agent/agent-runtime.ts`).
-4. `runAgentTurn` builds a system prompt via `assembleSystemPrompt()`
+3. `runAgentTurn` builds a system prompt via `assembleSystemPrompt()`
    (`lib/agent/context-assembly.ts`): persona + active company config + a
    handful of open tasks/recent decisions + the top ~6 retrieved memories
    (blended recency/importance/embedding-similarity via the `match_memories`
    RPC) — never a full-table dump.
-5. It resolves the agent's declared `tools` (a JSON array of tool names on
+4. It resolves the agent's declared `tools` (a JSON array of tool names on
    the `agents` row) to real `AgentTool` implementations via
-   `lib/agent/tools/registry.ts`, and loops against the Anthropic API (up to
-   6 tool-use iterations), executing each tool call server-side and feeding
-   the result back as a `tool_result` block.
+   `lib/agent/tools/registry.ts`, and loops against Groq's OpenAI-compatible
+   chat completions API (up to 6 tool-use iterations), executing each tool
+   call server-side and feeding the result back as a `tool` role message.
 6. Exactly one `agent_runs` row is inserted for the whole turn — input,
    every tool call, model, token counts, latency, final status — regardless
    of how many tool iterations happened inside it.
@@ -138,25 +124,25 @@ cross-company data — no separate access model.
   `approvals`, `graph`, `memories`, `companies/new`, `agents/new`), wrapped
   by `app/(cockpit)/layout.tsx` (fetches the company list server-side,
   wraps in `CompanyProvider`, renders `CockpitShell`).
-- `app/api/` — every server route. All demo-mode-aware, all wrapped in
-  `withApiErrorHandling` (`lib/api-error.ts`) so an unhandled throw becomes
-  a clean JSON 500 + a Sentry capture instead of crashing.
-- `components/` — shared UI: `CockpitShell` (header/nav/demo banner),
-  `AgentChatPanel` (the one chat implementation, reused by both `/chat` and
-  the office overlay), `OfficeAgentPanel`, switchers, `Spinner`.
+- `app/api/` — every server route, all wrapped in `withApiErrorHandling`
+  (`lib/api-error.ts`) so an unhandled throw becomes a clean JSON 500 + a
+  Sentry capture instead of crashing.
+- `components/` — shared UI: `CockpitShell` (header/nav), `AgentChatPanel`
+  (the one chat implementation, reused by both `/chat` and the office
+  overlay), `OfficeAgentPanel`, switchers, `Spinner`.
 - `components/office3d/` — the `/office` mission-control shell's own
   components (see [`FRONTEND.md`](./FRONTEND.md#office-mission-control)).
 - `lib/agent/` — the agent runtime, approval gate, context assembly, and
   every tool. See [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md).
-- `lib/` (top level) — `demo-mode.ts`, `office-layout.ts` (deterministic
-  room/agent grid), `graph-layout.ts` (hand-rolled force layout), `api-error.ts`,
+- `lib/` (top level) — `office-layout.ts` (deterministic room/agent grid),
+  `graph-layout.ts` (hand-rolled force layout), `api-error.ts`,
   `agent-visual-state.ts` (shared state → color mapping for the office view).
 - `supabase/migrations/` — the whole schema, applied in order. See
   [`DATA_MODEL.md`](./DATA_MODEL.md).
 - `supabase/functions/daily-briefing/` — a Deno Edge Function, not yet
-  deployed (needs a live project).
-- `tests/e2e/` — the full Playwright suite, runs entirely against demo
-  mode. See [`TESTING.md`](./TESTING.md).
+  deployed.
+- `tests/e2e/` — currently empty; the Playwright suite that ran entirely
+  against demo mode was retired along with it. See [`TESTING.md`](./TESTING.md).
 
 ## Observability
 

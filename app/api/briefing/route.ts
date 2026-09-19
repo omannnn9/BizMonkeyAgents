@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { runAgentTurn } from "@/lib/agent/agent-runtime";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode, demoBriefing } from "@/lib/demo-mode";
 
 const OD_HOLDINGS_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -24,7 +23,6 @@ const BRIEFING_PROMPT =
  * one-off text generation nobody can trace back to anything.
  */
 export const POST = withApiErrorHandling(async () => {
-  if (isDemoMode()) return NextResponse.json(demoBriefing());
 
   const supabase = await createClient();
   const { data: chiefOfStaff, error } = await supabase

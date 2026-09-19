@@ -6,7 +6,6 @@ import { generateAssetViaHiggsfield } from "@/lib/integrations/higgsfield";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { controlsApprovalsFor } from "@/lib/agent/approvals-authz";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode } from "@/lib/demo-mode";
 
 /**
  * Approve or reject a pending action. With no login/session, this can't
@@ -25,13 +24,6 @@ export const POST = withApiErrorHandling(async (
   const { decision } = (await request.json()) as { decision: "approved" | "rejected" };
   if (decision !== "approved" && decision !== "rejected") {
     return NextResponse.json({ error: "decision must be 'approved' or 'rejected'" }, { status: 400 });
-  }
-
-  if (isDemoMode()) {
-    // Nothing to persist against — the demo approvals list is static, so
-    // this doesn't actually move the item to History, but it does prove
-    // the interaction round-trips without erroring.
-    return NextResponse.json({ status: decision === "approved" ? "executed" : "rejected" });
   }
 
   const supabase = await createClient();

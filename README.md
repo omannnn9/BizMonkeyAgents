@@ -20,14 +20,6 @@ There's still exactly one `auth.users` row (created by `npm run seed:founder`), 
 foreign keys on `documents.uploaded_by`, `approvals.decided_by`, `audit_log.actor_id`, etc. — it's
 never used to sign in anywhere.
 
-## Demo mode
-
-If `NEXT_PUBLIC_SUPABASE_URL` or `SUPABASE_SERVICE_ROLE_KEY` aren't set (e.g. before the Supabase
-project exists yet), every page falls back to realistic mock data (`lib/demo-mode.ts`) instead of
-erroring, with a persistent orange banner saying so — so the actual UI can be reviewed before the
-backend is wired up. Nothing in demo mode is real or persists (approve/reject and upload just prove
-the round-trip works); it disappears automatically the moment real env vars are set.
-
 ## Status
 
 **Phase 1** (one CEO agent, cockpit UI, approval gate, audit log), **Phase 2** (Sales/Marketing
@@ -44,14 +36,18 @@ Ecosystem Audit-driven pass rebuilt the organization itself: a real 20-agent ros
 non-overlapping jobs, agent-to-agent collaboration (`request_from_agent`, cycle- and depth-guarded),
 a memory-creation/knowledge-flow tool set (`record_memory`, `assign_task`, `record_decision`,
 `create_goal`), the Founder Command Center (`/command`), and pagination/spend-tracking scalability
-work (all described below) — everything that
-doesn't require a live Supabase project passes `npm run build` / `npm run lint`. **Nothing has been
-applied to a live database or run end-to-end yet** — that's blocked on a Supabase project existing
-(see below). Until then, treat the agents' tool behavior as reviewed-but-unverified, not tested.
-`/office`'s layout (no redirect, no login) was visually verified in a real browser with placeholder
-Supabase credentials, including real headless-browser screenshots confirming the 3D scene actually
-renders and a full click-through (character click → agent overlay with real pending-approval and
-run data) — the actual data-bearing pages weren't fully exercised, since that needs a real database.
+work (all described below), and a swap of the entire LLM layer from the Anthropic Messages API to
+Groq's genuinely-free self-serve tier (Anthropic has no ongoing free tier; Groq's does, and both
+`openai/gpt-oss-120b`/`openai/gpt-oss-20b` support the same tool-calling agentic loop this app needs)
+— everything passes `npm run build` / `npm run lint`. **A live Supabase project now exists**
+(`od-cortex`) with all 11 migrations applied and the founder identity seeded. **Demo mode has been
+removed** — the app always talks to the real stack now, no fixture fallback. What hasn't happened
+yet: real end-to-end verification from an actual browser hitting real Supabase/Groq/Voyage — the
+environment this was built in has an outbound network policy that blocks direct HTTPS to those three
+services (confirmed via 403s on every CONNECT, not a bug to route around), so the first real chat
+message / document upload / agent tool call needs to happen either on a Vercel deployment or a
+machine with unrestricted egress. See [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) for the current
+state and what's left on the post-deploy checklist.
 
 **On Phase 6 (`/office`) specifically:** two prior visual passes at `/office` (a 2D pixel-art canvas,
 then a "Night Shift" dark/glow re-theme of it) missed the actual target — the founder's reference
@@ -448,53 +444,43 @@ reporting every other route gets, and an unused `@supabase/ssr` dependency.
 
 ## One-time setup
 
-1. **Create a Supabase project** (new, dedicated — don't reuse another project's database) and
-   note its project ref, URL, and service role key.
-2. Copy `.env.local.example` to `.env.local` and fill in:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+**A live Supabase project already exists** (`od-cortex`) — all 11 migrations are applied and the
+founder identity is seeded (see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) for the details, and
+that doc's "Setting up Supabase" section for doing this from scratch against a fresh project). What's
+left to actually run the app:
+
+1. Copy `.env.local.example` to `.env.local` and fill in:
+   - `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (from the live project's dashboard →
+     Project Settings → API)
    - `GROQ_API_KEY` (free self-serve tier at console.groq.com, no card required)
-   - `VOYAGE_API_KEY` (free tier at voyageai.com)
+   - `VOYAGE_API_KEY` (free tier at voyageai.com, no card required)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` only if you want to run `test:rls` (the app itself never uses it)
-3. Apply the migrations in order, via the Supabase MCP's `apply_migration` (or the Supabase CLI /
-   SQL editor): `0001_init.sql`, `0002_seed_companies.sql`, `0003_storage.sql`, `0004_phase2.sql`,
-   `0005_phase3.sql`, `0006_synergy_detection.sql`. `0004_phase2.sql` seeds the Sales and Marketing
-   agents under ODAX and some structural knowledge-graph edges; its `pg_cron` block at the bottom is
-   commented out — see the comment inside it for how to wire up the daily briefing once this
-   project's ref and service role key are known. `0005_phase3.sql` mirrors that pattern for Tablo and
-   NOVA, adds the two group-scope agents (Group CFO, Group Strategy) at OD Holdings, and adds the
-   `goals` table. `0006_synergy_detection.sql` adds the cross-company similarity RPC and grants
-   `detect_synergies` to the two group-scope agents.
-4. Seed the founder identity (creates the one `auth.users` row for FK purposes and grants it
-   `controls_approvals` across all four companies — no login involved):
-   ```
-   npm run seed:founder
-   ```
-5. Optional but recommended: regenerate `lib/supabase/types.ts` from the real schema instead of the
+2. Optional but recommended: regenerate `lib/supabase/types.ts` from the real schema instead of the
    hand-written version here (`mcp__Supabase__generate_typescript_types`, or
    `supabase gen types typescript`).
-6. Run the scripted tests:
+3. Run the scripted tests, from an environment with real outbound access to Supabase/Groq/Voyage
+   (the sandbox this was built in has a network policy that blocks all three — see
+   [`docs/TESTING.md`](./docs/TESTING.md)):
    ```
    npm run test:rls               # defense-in-depth only, see "No login" above
    npm run test:prompt-injection
    npm run test:agent-scenarios
    ```
-7. `npm run dev` and walk the cockpit yourself: switch companies, upload a doc (`.txt`/`.md`/`.csv`/
+4. `npm run dev` and walk the cockpit yourself: switch companies, upload a doc (`.txt`/`.md`/`.csv`/
    `.pdf`/`.docx` all work now) and ask the agent about it, ask it to draft an email and confirm it
-   shows up in Approvals (not sent). On ODAX, Tablo, or NOVA, try the agent switcher in `/chat` —
-   Sales and Marketing agents propose `enrich_lead` / `generate_creative_asset` the same
-   approval-gated way, then fail loudly since those integrations aren't connected. At OD Holdings,
-   try Group CFO / Group Strategy — ask for a board report, or whether there are any cross-company
-   synergies worth flagging. `/office` (the home page) is the Colony — a living view of all of this
-   at once — click a district to focus that company, click an Operator to open its chat/runs/
-   approvals overlay. Check `/graph` for the full relationship explorer, rendered as a glowing
-   hologram schematic. Visit `/memories` and
-   promote a company-scope memory to group. Try `/companies/new` and `/agents/new`.
+   shows up in Approvals (not sent). Try the agent switcher across the 20-agent roster — a company's
+   Sales/Marketing Lead proposes `enrich_lead` / `generate_creative_asset` the same approval-gated
+   way, then fails loudly since those integrations aren't connected; at OD Holdings, try Group CFO /
+   Group Strategy — ask for a board report, or whether there are any cross-company synergies worth
+   flagging. `/office` (the home page) is the Colony — a living view of all of this at once — click a
+   district to focus that company, click an Operator to open its chat/runs/approvals overlay. Check
+   `/graph` for the full relationship explorer, rendered as a glowing hologram schematic. Visit
+   `/memories` and promote a company-scope memory to group. Try `/companies/new` and `/agents/new`.
 
 ## Deploying
 
-The app builds clean and doesn't crash on missing config, so it's safe to deploy before the
-Supabase project is ready — nothing will actually work until the env vars below are set, but it
-won't error either. **Once deployed, treat the URL as sensitive** — there's no login (see above).
+The app builds clean and requires real env vars to run correctly — see [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)
+for the full walkthrough. **Once deployed, treat the URL as sensitive** — there's no login (see above).
 
 1. Go to [vercel.com/new](https://vercel.com/new) and import `omannnn9/BizMonkeyAgents`. Vercel
    auto-detects Next.js; no build config changes needed. (The Vercel MCP connector available in
@@ -517,13 +503,14 @@ that needs a `SENTRY_AUTH_TOKEN` nobody's generated; error capture itself doesn'
 | `npm run seed:founder` | Creates the one auth.users row (no login involved) and grants it membership + controls_approvals across all 4 companies. Run this first. |
 | `npm run test:rls` | RLS defense-in-depth check for the anon key (the app itself doesn't use it — see "No login" above). |
 | `npm run test:prompt-injection` | Seeds a document with an embedded fake instruction, asserts the agent reports rather than obeys it. |
-| `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) for the CEO, Sales, Marketing, and Group CFO agents — including promote_memory, generate_board_report, and detect_synergies. |
-| `npm run test:e2e` | Real Playwright suite (`tests/e2e/`) against demo mode — checks across the `/office` Colony shell (3D scene mounts, left nav/category row navigation, activity feed and terminal strip render real data), the `/hierarchy` tree (including a fully-automated Operator-click → agent-panel check), chat (incl. both agent switchers), documents, approvals, the knowledge graph, memories, the creator wizards, navigation, and mobile responsiveness. Runs and passes right now, no Supabase needed (a 3D-click-to-open-agent-panel check on the colony world specifically is deliberately not automated — see the office page's test file header — and is instead verified with real headless-browser screenshots). Does NOT verify real data flows (RLS, real agent responses, real approvals, real PDF/DOCX extraction) — those need the scripts above against a live project. |
+| `npm run test:agent-scenarios` | Scripted tool-call-shape checks (not wording) across the seeded agent roster — including promote_memory, generate_board_report, detect_synergies, and the Phase 7 collaboration cycle guard. |
+| `npm run test:e2e` | Playwright config only (`tests/e2e/` is currently empty) — the old suite ran entirely against demo mode and was retired when demo mode was removed, since it asserted on fixture content that no longer exists. See [`docs/TESTING.md`](./docs/TESTING.md#why-the-e2e-suite-was-retired). |
 
 ## What's genuinely not built yet
 
 Project-scope agents in practice (the schema supports them; nothing creates one). Also still
 pending: the real OSL lead database/scoring model, real API keys for Gmail/Apollo.io/Higgsfield,
-actually deploying the daily-briefing Edge Function + its `pg_cron` schedule, and end-to-end
-verification of real PDF/DOCX extraction through the live upload route (see "Status" above) — all
-blocked on a live Supabase project and/or real credentials, not on any unwritten code.
+actually deploying the daily-briefing Edge Function + its `pg_cron` schedule, real e2e test coverage
+(see above), and end-to-end verification of the whole app against a real browser — all blocked on
+either those real credentials, or on an environment with real network access to Supabase/Groq/Voyage
+(see "Status" above), not on any unwritten code.

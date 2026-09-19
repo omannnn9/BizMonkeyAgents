@@ -30,13 +30,7 @@ const CREATE_NAV = [
   { href: "/agents/new", label: "+ New agent" },
 ];
 
-export function CockpitShell({
-  children,
-  demoMode = false,
-}: {
-  children: React.ReactNode;
-  demoMode?: boolean;
-}) {
+export function CockpitShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [navOpen, setNavOpen] = useState(false);
   // /office has its own left column (components/office3d/LeftNav.tsx) that
@@ -47,11 +41,6 @@ export function CockpitShell({
 
   return (
     <div className="flex min-h-screen flex-col">
-      {demoMode && (
-        <div className="border-b border-warning/40 bg-warning/10 px-4 py-2 text-center text-xs font-medium text-warning sm:px-6">
-          Demo mode — no Supabase project connected yet. Everything on this page is sample data, not real.
-        </div>
-      )}
       <header className="flex items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3 sm:gap-6">
           {!isMissionControl && (

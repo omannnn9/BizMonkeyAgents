@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { createClient } from "@/lib/supabase/server";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode, demoGraph } from "@/lib/demo-mode";
 
 export interface GraphNode {
   id: string;
@@ -76,8 +75,6 @@ async function resolveLabels(
 const COLLABORATION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const GET = withApiErrorHandling(async () => {
-  if (isDemoMode()) return NextResponse.json(demoGraph());
-
   const supabase = await createClient();
   const [{ data: edgeRows, error }, { data: activityRows }] = await Promise.all([
     supabase

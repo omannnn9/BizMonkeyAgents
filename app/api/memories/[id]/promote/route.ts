@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode } from "@/lib/demo-mode";
 
 /**
  * The founder's own manual promotion, from the /memories page — same
@@ -15,11 +14,6 @@ export const POST = withApiErrorHandling(async (
   { params }: { params: Promise<{ id: string }> },
 ) => {
   const { id } = await params;
-
-  if (isDemoMode()) {
-    // Nothing to persist against — proves the interaction round-trips.
-    return NextResponse.json({ promoted: true, demo: true });
-  }
 
   const supabase = await createClient();
   const founderUserId = await getFounderUserId(supabase);

@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { runAgentTurn } from "@/lib/agent/agent-runtime";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode, demoChatReply } from "@/lib/demo-mode";
 
 export const POST = withApiErrorHandling(async (request: Request) => {
   const { activeCompanyId, agentId, message, history } = (await request.json()) as {
@@ -16,8 +15,6 @@ export const POST = withApiErrorHandling(async (request: Request) => {
   if (!activeCompanyId || !message) {
     return NextResponse.json({ error: "activeCompanyId and message are required" }, { status: 400 });
   }
-
-  if (isDemoMode()) return NextResponse.json(demoChatReply(message, agentId));
 
   const supabase = await createClient();
 

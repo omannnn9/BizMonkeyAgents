@@ -4,17 +4,16 @@
 
 `app/layout.tsx` is the root HTML shell (fonts, metadata — `robots: {index:
 false}` since this is an internal tool). `app/(cockpit)/layout.tsx` fetches
-the company list server-side (or `DEMO_COMPANIES` in demo mode), wraps
-children in `CompanyProvider` (`lib/company-context.tsx`), and renders
-`CockpitShell`.
+the real company list server-side, wraps children in `CompanyProvider`
+(`lib/company-context.tsx`), and renders `CockpitShell`.
 
 `lib/company-context.tsx`'s `CompanyProvider` holds the active company in
 client state, persisted to `localStorage` (`od-group.active-company-id`) so
 switching companies is a state update + re-fetch, never a navigation.
 Defaults to the group-level company (`parent_id === null`) if present.
 
-`components/CockpitShell.tsx` renders the header (logo, demo-mode banner,
-`CompanySwitcher`) and the sidebar nav (`NAV`: Office/Chat; a `MORE_NAV`
+`components/CockpitShell.tsx` renders the header (logo, `CompanySwitcher`)
+and the sidebar nav (`NAV`: Office/Chat; a `MORE_NAV`
 disclosure: Documents/Memories/Approvals; `CREATE_NAV`: +New company/+New
 agent — Relationships/Hierarchy/Knowledge aren't here, since they're
 layers inside `/office`'s own World shell now, not separate destinations).
@@ -70,9 +69,8 @@ feeds six sections, each `data-testid`-tagged for tests:
 - **Daily Briefings** (`daily-briefings`) — the most recent
   `memories.source = 'briefing'` row per company (written by the
   daily-briefing Edge Function once it's deployed — see README). Empty
-  today in any real deployment until that function runs; demo mode shows
-  the same "not deployed yet" example `demoDashboard()`'s briefing card
-  already used, not a fabricated "real" one.
+  today until that function is deployed and its `pg_cron` schedule wired
+  up — an honest empty state, never a fabricated "real" one.
 - **Agent Activity** (`agent-activity`) — the 15 most recent `agent_runs`
   across every company, org-wide (unlike `/office`'s own activity feed,
   which is scoped to the active company).
@@ -452,11 +450,7 @@ one other place besides the Organization layer that earns real 3D depth
   aggregates across every company at once, since every other route is
   deliberately per-company-scoped for the per-company pages — the one
   deliberate exception to "reuse an existing route" the shell otherwise
-  holds to. Demo-mode-aware like every other route: `lib/demo-mode.ts`'s
-  `demoBrain()` is built from the same fixture memories `demoMemories()`,
-  `demoChatReply()`'s Group CFO synergy example, and (as of this pass)
-  `demoDocuments()`'s two fixture rows already define — not new invented
-  content.
+  holds to.
 - **What's honestly real, decided up front:** the core's size is a real
   function of an actual `count(*)` query (`base + log(count + 1) * factor`
   — small now, since this app has almost no seeded memory data, and that's

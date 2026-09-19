@@ -59,13 +59,7 @@ export default function MemoriesPage() {
     setFeedback(null);
     const res = await fetch(`/api/memories/${id}/promote`, { method: "POST" });
     const body = await res.json();
-    setFeedback(
-      res.ok
-        ? body.demo
-          ? "Demo mode — promotion not persisted, but the round-trip works."
-          : "Promoted to group scope."
-        : `Error: ${body.error}`,
-    );
+    setFeedback(res.ok ? "Promoted to group scope." : `Error: ${body.error}`);
     setBusyId(null);
     load();
   }

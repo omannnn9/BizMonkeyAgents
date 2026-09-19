@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode, demoBrain } from "@/lib/demo-mode";
 
 export interface BrainMemory {
   id: string;
@@ -46,7 +45,6 @@ export interface BrainSynergy {
  * bending an existing one to a job it wasn't shaped for.
  */
 export const GET = withApiErrorHandling(async () => {
-  if (isDemoMode()) return NextResponse.json(demoBrain());
 
   const supabase = await createClient();
 

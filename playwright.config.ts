@@ -1,11 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Runs against demo mode (lib/demo-mode.ts) by design — no Supabase project
- * is required for these to pass. They verify the UI shell, navigation, and
- * demo-data rendering; they do NOT verify real data flows (RLS isolation,
- * real agent responses, real approvals) — those need scripts/test-rls-isolation.ts
- * etc. against a live project instead.
+ * Runs against the real app (real Supabase/Groq/Voyage credentials from the
+ * environment — see .env.local) now that demo mode has been removed. There
+ * are no spec files checked in yet (tests/e2e/ was entirely built around the
+ * old demo-mode fixtures and was retired along with it — see docs/TESTING.md);
+ * this config exists for whoever writes real specs next, from an environment
+ * that can actually reach those services.
  */
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -38,10 +39,5 @@ export default defineConfig({
     url: "http://localhost:3000/office",
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
-    env: {
-      // Deliberately empty/unset Supabase config forces demo mode.
-      NEXT_PUBLIC_SUPABASE_URL: "",
-      SUPABASE_SERVICE_ROLE_KEY: "",
-    },
   },
 });

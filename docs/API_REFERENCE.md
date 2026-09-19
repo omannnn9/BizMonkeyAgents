@@ -2,11 +2,9 @@
 
 All routes live under `app/api/`, are wrapped in `withApiErrorHandling`
 (`lib/api-error.ts` — an unhandled throw becomes a clean JSON 500 + a Sentry
-capture rather than crashing), and check `isDemoMode()` first — with no
-Supabase project configured, every route below returns realistic fixture
-data from `lib/demo-mode.ts` instead of touching a database. There is no
-authentication on any route; the app has no login (see
-[`ARCHITECTURE.md`](./ARCHITECTURE.md#no-login-by-design)).
+capture rather than crashing), and always touch the real Supabase project
+configured in the environment. There is no authentication on any route; the
+app has no login (see [`ARCHITECTURE.md`](./ARCHITECTURE.md#no-login-by-design)).
 
 ## `GET /api/companies`
 

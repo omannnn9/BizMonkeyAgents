@@ -249,8 +249,8 @@ async function main() {
   // Scenario 8: request_from_agent's handler is exercised directly (not
   // through the LLM tool loop, unlike every scenario above) since it's the
   // depth guard's behavior under test, not whether a model chooses to call
-  // it — deterministic input/output, same reasoning `demoChatReply()`'s own
-  // fixtures don't route through a real model either.
+  // it — deterministic input/output rather than depending on a live model's
+  // tool-choice behavior.
   const collabRequest = "Status of the Q3 creative brief?";
   const collabCtx = { supabase: admin, agentId: agent!.id, activeCompanyId: ODAX_ID, userId };
 

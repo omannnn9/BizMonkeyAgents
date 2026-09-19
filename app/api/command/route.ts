@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode, demoCommand } from "@/lib/demo-mode";
 
 /**
  * The Founder Command Center's single data source — org-wide (unscoped by
@@ -47,7 +46,6 @@ function extractSpendCap(config: unknown): number | null {
 const SPEND_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const GET = withApiErrorHandling(async () => {
-  if (isDemoMode()) return NextResponse.json(demoCommand());
 
   const supabase = await createClient();
 

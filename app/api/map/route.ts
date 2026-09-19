@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode, demoMap } from "@/lib/demo-mode";
 
 export interface MapNode {
   id: string;
@@ -35,7 +34,6 @@ export interface MapEdge {
 }
 
 export const GET = withApiErrorHandling(async () => {
-  if (isDemoMode()) return NextResponse.json(demoMap());
 
   const supabase = await createClient();
 

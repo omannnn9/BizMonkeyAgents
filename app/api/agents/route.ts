@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getFounderUserId } from "@/lib/agent/founder";
 import { getToolByName } from "@/lib/agent/tools/registry";
 import { withApiErrorHandling } from "@/lib/api-error";
-import { isDemoMode, demoAgents } from "@/lib/demo-mode";
 
 export const GET = withApiErrorHandling(async (request: Request) => {
   const { searchParams } = new URL(request.url);
@@ -11,8 +10,6 @@ export const GET = withApiErrorHandling(async (request: Request) => {
   if (!companyId) {
     return NextResponse.json({ error: "companyId is required" }, { status: 400 });
   }
-
-  if (isDemoMode()) return NextResponse.json(demoAgents(companyId));
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -49,13 +46,6 @@ export const POST = withApiErrorHandling(async (request: Request) => {
   const unknownTools = tools.filter((t) => !getToolByName(t));
   if (unknownTools.length > 0) {
     return NextResponse.json({ error: `Unknown tool(s): ${unknownTools.join(", ")}` }, { status: 400 });
-  }
-
-  if (isDemoMode()) {
-    return NextResponse.json({
-      agent: { id: "demo-agent", name, role_title: roleTitle ?? null },
-      demo: true,
-    });
   }
 
   const supabase = await createClient();
