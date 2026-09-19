@@ -298,38 +298,56 @@ persistent shell — no navigation, no chrome unmount, between any of them:
 now this feed + terminal strip, the same "fold into `/office`, keep the API
 route" pattern the earlier `/dashboard` and `/map` pages went through.
 
-### The Colony collaboration beam
+### The Colony collaboration beam — and real movement
 
 A real signal for the `request_from_agent` tool
-([`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated)),
-not decoration: `lib/collaboration.ts`'s `deriveCollaborationEdges()`
-scans the same `agent_runs` rows `ActivityFeed`/`TerminalStrip` already
-poll (`/api/activity`, now selecting `tool_calls` too) for a
-`request_from_agent` call within the last two minutes (`RECENT_DELIVERY_MS`,
-the same window `delivered` already uses), and extracts the real
-`{sourceAgentId, targetAgentId}` pair from the call's own logged input.
+([`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md#request_from_agent--agent-to-agent-collaboration-not-gated))
+**and** the `assign_task` tool (the Group CEO's own primary delegation
+lane — see [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md)), not
+decoration: `lib/collaboration.ts`'s `deriveCollaborationEdges()` scans the
+same `agent_runs` rows `ActivityFeed`/`TerminalStrip` already poll
+(`/api/activity`, now selecting `tool_calls` too) for a
+`request_from_agent` or `assign_task` call within the last two minutes
+(`RECENT_DELIVERY_MS`, the same window `delivered` already uses), and
+extracts the real `{sourceAgentId, targetAgentId}` pair from the call's
+own logged input — `targetAgentId` from `request_from_agent`'s input,
+`assigneeAgentId` from `assign_task`'s. Each derived `CollaborationEdge`
+carries a `kind: "request" | "delegation"` so the two real tool calls stay
+distinguishable downstream without a second scan over the same rows.
 `app/(cockpit)/office/page.tsx` derives this once via `useMemo` and passes
 it to `OfficeScene3D` as `collaborationEdges`.
 
-Two independent effects come out of the same derived data, not two
-signals:
+Three independent effects come out of the same derived data, not three
+separate signals:
 
 - **The glow**: `deriveAgentState()` gains an `isCollaborating` parameter,
   checked after `blocked`/`approval` (a real error or pending decision
   stays more urgent than "recently collaborated") but before `delivered` —
   functionally the same "just happened" tier, distinguished only by what
   kind of run it was.
-- **The beam**: a new `CollaborationBeam` component in `OfficeScene3D.tsx`
-  — the same raw `<line>`/`bufferGeometry` technique
-  `GraphScene.tsx`'s `GraphEdgeLine` already established for the
-  Relationships layer — connects the two Operators' real glow-orb world
-  positions, pulsed via the same `useFrame` sine pattern `ExecutingFX`
-  already uses, tinted with the new `collaborating` state color
-  (`#c77dff`). Renders regardless of either Operator's glow state, so the
-  beam stays visible even when one side is showing `blocked`/`approval`.
+- **The beam**: a `CollaborationBeam` component in `OfficeScene3D.tsx` —
+  the same raw `<line>`/`bufferGeometry` technique `GraphScene.tsx`'s
+  `GraphEdgeLine` already established for the Relationships layer —
+  connects the two Operators' real glow-orb world positions, pulsed via
+  the same `useFrame` sine pattern `ExecutingFX` already uses, tinted with
+  the `collaborating` state color (`#c77dff`). Renders regardless of
+  either Operator's glow state, so the beam stays visible even when one
+  side is showing `blocked`/`approval`.
+- **Real movement**: `AgentOperator` (wraps `AgentFigure`) is the piece
+  that answers "I see them moving around working" literally, not just
+  with a static glow — an Operator that is the real `sourceAgentId` of an
+  active edge steps out from its desk, partway toward the target
+  Operator's own desk (`WALK_REACH`, 55% of the real distance between the
+  two — a hand-off, not a desk swap), pacing back and forth there via a
+  `useFrame` sine while the edge stays live, and eases back home
+  (`WALK_LERP_SPEED`) the moment `deriveCollaborationEdges()` stops
+  returning it (the edge aged out of the two-minute window, or the
+  underlying tool call simply hasn't recurred). The walk target is always
+  resolved from the same `layout.agents` desk positions the beam's own
+  endpoints use — never a fabricated waypoint.
 
 Command Mode's HUD chip row picks this up too (`summarizeAgentStates()`'s
-new `collaboratingAgentIds` parameter) — org-wide, not scoped to whichever
+`collaboratingAgentIds` parameter) — org-wide, not scoped to whichever
 district is active.
 
 ### Relationships layer

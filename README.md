@@ -49,6 +49,20 @@ message / document upload / agent tool call needs to happen either on a Vercel d
 machine with unrestricted egress. See [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md) for the current
 state and what's left on the post-deploy checklist.
 
+**A Group CEO now sits at the top of the org** (migration `0012_group_ceo.sql`), per explicit founder
+direction: a single agent above every other group lead and every company, the founder's default point
+of contact in chat, with real delegation tools (`assign_task`, `create_goal`, `request_from_agent`)
+that reach straight down into any company, not just the other group agents. Chief of Staff's persona
+was revised to describe supporting the CEO (the synthesis layer it always was, now reporting into a
+real top-of-org role instead of standing in for one) rather than being framed as the founder's direct
+right hand. The founder is never restricted to the CEO only — every agent, including Chief of Staff,
+Group CFO, Group Strategy, and every company-level agent, stays directly reachable in the chat agent
+switcher; the CEO is the default selection, not a gate. `/api/chat`'s server-side default-agent
+fallback was also fixed in the process: it previously only ever considered `scope='company'` agents,
+which meant OD Holdings — an entirely `scope='group'` company — would 404 if `agentId` were ever
+omitted; it now checks for "Group CEO" first, then "Chief of Staff", then any department-less
+company-scope agent, then whatever's active, covering both org shapes.
+
 **On Phase 6 (`/office`) specifically:** two prior visual passes at `/office` (a 2D pixel-art canvas,
 then a "Night Shift" dark/glow re-theme of it) missed the actual target — the founder's reference
 turned out to be a dense, multi-panel **mission-control app shell** with a real 3D viewport as its
@@ -468,7 +482,7 @@ left to actually run the app:
    ```
 4. `npm run dev` and walk the cockpit yourself: switch companies, upload a doc (`.txt`/`.md`/`.csv`/
    `.pdf`/`.docx` all work now) and ask the agent about it, ask it to draft an email and confirm it
-   shows up in Approvals (not sent). Try the agent switcher across the 20-agent roster — a company's
+   shows up in Approvals (not sent). Try the agent switcher across the full agent roster — a company's
    Sales/Marketing Lead proposes `enrich_lead` / `generate_creative_asset` the same approval-gated
    way, then fails loudly since those integrations aren't connected; at OD Holdings, try Group CFO /
    Group Strategy — ask for a board report, or whether there are any cross-company synergies worth

@@ -19,28 +19,34 @@ export const POST = withApiErrorHandling(async (request: Request) => {
   const supabase = await createClient();
 
   // No agentId supplied: fall back to this company's default agent, same as
-  // before the agent switcher existed. A company can have more than one
-  // company-scope agent since Phase 2 (Sales Lead, Marketing Lead, etc.
-  // alongside the Managing Director/Studio Director) — the department-less
-  // company-scope agent is the company-wide synthesis role (migration 0009),
-  // so prefer that, falling back to whatever exists.
+  // before the agent switcher existed. Priority: "Group CEO" (the top of
+  // the org at OD Holdings — see AGENTS_AND_TOOLS.md), then "Chief of
+  // Staff" (its synthesis layer), then the department-less company-scope
+  // agent (Managing Director / Studio Director — the company-wide
+  // synthesis role migration 0009 gives every real company), then whatever
+  // active agent exists for that company. A company can have more than one
+  // company-scope agent since Phase 2 (Sales Lead, Marketing Lead, etc.),
+  // and OD Holdings has none at all (every OD Holdings agent is
+  // scope='group') — this list has to cover both shapes.
   let resolvedAgentId = agentId;
   if (!resolvedAgentId) {
     const baseQuery = () =>
-      supabase.from("agents").select("id").eq("company_id", activeCompanyId).eq("scope", "company").eq("status", "active");
+      supabase.from("agents").select("id, name, scope, department_id").eq("company_id", activeCompanyId).eq("status", "active");
 
-    const { data: executiveAgent } = await baseQuery().is("department_id", null).order("name", { ascending: true }).limit(1).maybeSingle();
-    const { data: anyAgent } = executiveAgent
-      ? { data: executiveAgent }
-      : await baseQuery().order("name", { ascending: true }).limit(1).maybeSingle();
+    const { data: candidates } = await baseQuery().order("name", { ascending: true });
+    const defaultAgent =
+      candidates?.find((a) => a.name === "Group CEO") ??
+      candidates?.find((a) => a.name === "Chief of Staff") ??
+      candidates?.find((a) => a.scope === "company" && !a.department_id) ??
+      candidates?.[0];
 
-    if (!anyAgent) {
+    if (!defaultAgent) {
       return NextResponse.json(
         { error: "No active agent found for this company — it isn't seeded yet." },
         { status: 404 },
       );
     }
-    resolvedAgentId = anyAgent.id;
+    resolvedAgentId = defaultAgent.id;
   }
 
   const userId = await getFounderUserId(supabase);

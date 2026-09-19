@@ -32,9 +32,50 @@ const recentEdges = deriveCollaborationEdges(
   now,
 );
 record(
-  "A recent request_from_agent call becomes an edge",
-  recentEdges.length === 1 && recentEdges[0].sourceAgentId === "sales" && recentEdges[0].targetAgentId === "marketing",
+  "A recent request_from_agent call becomes a 'request' edge",
+  recentEdges.length === 1 &&
+    recentEdges[0].sourceAgentId === "sales" &&
+    recentEdges[0].targetAgentId === "marketing" &&
+    recentEdges[0].kind === "request",
 );
+
+// A recent assign_task call becomes a real "delegation" edge.
+const delegationEdges = deriveCollaborationEdges(
+  [
+    {
+      agent_id: "group-ceo",
+      created_at: minutesAgo(1),
+      tool_calls: [
+        {
+          name: "assign_task",
+          input: { assigneeAgentId: "group-strategy", task: "cascade the Q3 goal" },
+          result: "ok",
+        },
+      ],
+    },
+  ],
+  now,
+);
+record(
+  "A recent assign_task call becomes a 'delegation' edge",
+  delegationEdges.length === 1 &&
+    delegationEdges[0].sourceAgentId === "group-ceo" &&
+    delegationEdges[0].targetAgentId === "group-strategy" &&
+    delegationEdges[0].kind === "delegation",
+);
+
+// An assign_task call with no assigneeAgentId is dropped, not thrown.
+const malformedDelegationEdges = deriveCollaborationEdges(
+  [
+    {
+      agent_id: "group-ceo",
+      created_at: minutesAgo(1),
+      tool_calls: [{ name: "assign_task", input: {}, result: "ok" }],
+    },
+  ],
+  now,
+);
+record("An assign_task call with no assigneeAgentId produces no edge", malformedDelegationEdges.length === 0);
 
 // A request_from_agent call outside the recency window is dropped.
 const staleEdges = deriveCollaborationEdges(

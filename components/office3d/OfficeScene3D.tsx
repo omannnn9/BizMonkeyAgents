@@ -456,6 +456,87 @@ function AgentFigure({
   );
 }
 
+// How far a delegating Operator walks toward the Operator it's collaborating
+// with — a fraction of the real distance between their two desks, not the
+// full distance, so it reads as "stepping out to hand off work" rather than
+// swapping desks. WALK_LERP_SPEED governs how quickly its position eases
+// toward wherever it should be (out at the target, or back home) each
+// frame — independent of the pacing oscillation below.
+const WALK_REACH = 0.55;
+const WALK_LERP_SPEED = 1.6;
+
+/** Wraps AgentFigure in a group whose position actually moves — a real
+ *  "moving around working" signal grounded in `collaborationEdges`, not a
+ *  decorative walk cycle: an Operator only steps out from its desk while it
+ *  is the genuine `sourceAgentId` of an active edge (a real
+ *  request_from_agent/assign_task call within the recency window),
+ *  partway toward the target Operator's own desk, easing back home the
+ *  moment that edge ages out. The back-and-forth pacing while out there is
+ *  the one purely decorative touch, same as ExecutingFX's swirl — it never
+ *  runs unless the underlying edge is real. */
+function AgentOperator({
+  agent,
+  home,
+  walkTarget,
+  isWorking,
+  isCollaborating,
+  selected,
+  now,
+  onSelect,
+}: {
+  agent: OfficeAgentPosition;
+  home: [number, number, number];
+  walkTarget: [number, number, number] | null;
+  isWorking: boolean;
+  isCollaborating: boolean;
+  selected: boolean;
+  now: number;
+  onSelect: () => void;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const current = useRef(new THREE.Vector3(home[0], home[1], home[2]));
+  // Deterministic per-agent phase offset so multiple delegating Operators
+  // don't all pace in lockstep — same seeded-hash approach as the chassis
+  // color palette above, not Math.random().
+  const seed = useMemo(() => hashToIndex(agent.agentId, 1000) / 1000, [agent.agentId]);
+
+  useFrame((frameState, delta) => {
+    if (!groupRef.current) return;
+    let desired: THREE.Vector3;
+    if (walkTarget) {
+      const pace = 0.5 + 0.5 * Math.sin(frameState.clock.elapsedTime * 1.6 + seed * Math.PI * 2);
+      desired = new THREE.Vector3(
+        home[0] + (walkTarget[0] - home[0]) * WALK_REACH * pace,
+        home[1],
+        home[2] + (walkTarget[2] - home[2]) * WALK_REACH * pace,
+      );
+    } else {
+      desired = new THREE.Vector3(home[0], home[1], home[2]);
+    }
+    current.current.lerp(desired, Math.min(1, delta * WALK_LERP_SPEED));
+    groupRef.current.position.copy(current.current);
+
+    if (walkTarget) {
+      const dx = walkTarget[0] - home[0];
+      const dz = walkTarget[2] - home[2];
+      if (Math.hypot(dx, dz) > 0.001) groupRef.current.rotation.y = Math.atan2(dx, dz);
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={home}>
+      <AgentFigure
+        agent={agent}
+        isWorking={isWorking}
+        isCollaborating={isCollaborating}
+        selected={selected}
+        now={now}
+        onSelect={onSelect}
+      />
+    </group>
+  );
+}
+
 function SceneContents({
   layout,
   workingAgentIds,
@@ -504,6 +585,33 @@ function SceneContents({
     return map;
   }, [layout.agents]);
 
+  // Each Operator's own desk position (unprefixed id), reused both as the
+  // AgentOperator's "home" to ease back toward and as the destination a
+  // delegating Operator walks partway toward below.
+  const groundPositionByRawId = useMemo(() => {
+    const map = new Map<string, [number, number, number]>();
+    for (const agent of layout.agents) {
+      const rawId = agent.agentId.replace(/^agent:/, "");
+      map.set(rawId, [agent.x / SCALE, 0, agent.y / SCALE]);
+    }
+    return map;
+  }, [layout.agents]);
+
+  // One real walk target per delegating Operator — the first active edge
+  // it's the source of, resolved to the real target Operator's own desk
+  // position. Deliberately not per-edge (an Operator can only walk toward
+  // one place at a time); collaborationEdges is already recency-filtered,
+  // so this only exists while the underlying request/delegation is live.
+  const walkTargetByRawId = useMemo(() => {
+    const map = new Map<string, [number, number, number]>();
+    for (const e of collaborationEdges) {
+      if (map.has(e.sourceAgentId)) continue;
+      const target = groundPositionByRawId.get(e.targetAgentId);
+      if (target) map.set(e.sourceAgentId, target);
+    }
+    return map;
+  }, [collaborationEdges, groundPositionByRawId]);
+
   return (
     <>
       <Starfield radius={Math.max(sceneRadius, 6)} />
@@ -534,19 +642,20 @@ function SceneContents({
       })}
 
       {layout.agents.map((agent) => {
-        const x = agent.x / SCALE;
-        const z = agent.y / SCALE;
+        const rawId = agent.agentId.replace(/^agent:/, "");
+        const home = groundPositionByRawId.get(rawId) ?? [agent.x / SCALE, 0, agent.y / SCALE];
         return (
-          <group key={agent.agentId} position={[x, 0, z]}>
-            <AgentFigure
-              agent={agent}
-              isWorking={workingAgentIds.has(agent.agentId)}
-              isCollaborating={collaboratingIds.has(agent.agentId.replace(/^agent:/, ""))}
-              selected={selectedAgentId === agent.agentId}
-              now={now}
-              onSelect={() => onSelectAgent(agent.agentId)}
-            />
-          </group>
+          <AgentOperator
+            key={agent.agentId}
+            agent={agent}
+            home={home}
+            walkTarget={walkTargetByRawId.get(rawId) ?? null}
+            isWorking={workingAgentIds.has(agent.agentId)}
+            isCollaborating={collaboratingIds.has(rawId)}
+            selected={selectedAgentId === agent.agentId}
+            now={now}
+            onSelect={() => onSelectAgent(agent.agentId)}
+          />
         );
       })}
 

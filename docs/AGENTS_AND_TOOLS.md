@@ -17,13 +17,21 @@ pairs, Group CFO and Group Strategy sharing one persona) with 20 agents
 that each have a real, non-overlapping job grounded in what each
 company's own `config`/`industry` says about its actual business:
 
-**OD Holdings (group scope)** — Group CFO (spend discipline,
-`generate_board_report`), Group Strategy (goal cascade, `create_goal`,
-`detect_synergies`), Group Operations (execution health across every
-company, the routing point for cross-company `request_from_agent` calls,
-`assign_task`), Group Intelligence (curates memories — `promote_memory`,
-`update_memory`, proactive `detect_synergies`), Chief of Staff (synthesizes
-the other four for the founder; owns no functional lane of its own).
+**OD Holdings (group scope)** — six agents. **Group CEO** (migration
+`0012_group_ceo.sql`) sits at the top: the founder's default point of
+contact and the only group agent that actually delegates real work rather
+than just reporting on it — `assign_task` and `create_goal` reach straight
+down into any company, not just the other five group agents. Below it:
+Group CFO (spend discipline, `generate_board_report`), Group Strategy
+(goal cascade, `create_goal`, `detect_synergies`), Group Operations
+(execution health across every company, the routing point for
+cross-company `request_from_agent` calls, `assign_task`), Group
+Intelligence (curates memories — `promote_memory`, `update_memory`,
+proactive `detect_synergies`), and Chief of Staff (synthesizes the other
+four *for the CEO*, the way it used to for the founder directly; owns no
+functional lane of its own). The founder is never restricted to talking to
+the CEO only — every agent, including these five, stays directly reachable
+in chat; the CEO is the default, not a gate.
 
 **Each company (ODAX, Tablo, NOVA)** — five company-scope agents: a
 Managing Director/Studio Director (company-wide synthesis, `assign_task`,
@@ -252,8 +260,8 @@ the calling agent's own `{company_id, scope}` (`ctx.agentId` doesn't carry
 this directly), then checks it against the target's. `assign_task` uses the
 same helper and rule.
 
-Granted to all 20 seeded agents (migrations `0007_agent_collaboration.sql`,
-`0009_org_rebuild.sql`). Writes one `audit_log` row directly (`action:
+Granted to all 21 seeded agents (migrations `0007_agent_collaboration.sql`,
+`0009_org_rebuild.sql`, `0012_group_ceo.sql`). Writes one `audit_log` row directly (`action:
 "collaborate:request_from_agent"`) — the same "skip `gateAction`, write the
 log yourself" pattern `promote_memory` uses for ungated internal actions —
 and, best-effort (wrapped so a failure here never fails the collaboration
@@ -263,11 +271,14 @@ that agent's future turns, summarizing what was asked and what came back.
 This is what makes a collaboration a durable part of the organization's
 knowledge instead of only a log line nobody's context ever re-reads.
 
-**Visualized in two places**: `AgentChatPanel`'s `NOTEWORTHY_TOOLS` surfaces
-the target agent's reply as an inline note under the calling agent's
-message, and the Colony (Organization layer) draws a connecting beam
+**Visualized in three places**: `AgentChatPanel`'s `NOTEWORTHY_TOOLS`
+surfaces the target agent's reply as an inline note under the calling
+agent's message; the Colony (Organization layer) draws a connecting beam
 between the two agents' real 3D positions for a couple of minutes after the
-call — see [`FRONTEND.md`](./FRONTEND.md#the-colony-collaboration-beam).
+call; and, since this is the same real signal `assign_task` produces (see
+below), the requesting Operator's own figure walks partway out toward the
+target Operator's desk for that same window — see
+[`FRONTEND.md`](./FRONTEND.md#the-colony-collaboration-beam--and-real-movement).
 
 ### `record_memory` — write a new memory, not gated
 
@@ -317,7 +328,11 @@ when a group-scope agent delegates down into a specific company, and the
 task genuinely belongs to whichever company will do the work. This is the
 asynchronous counterpart to `request_from_agent`'s synchronous
 request/reply: use it for anything that will take the assignee more than
-one exchange.
+one exchange. It's now the Group CEO's primary delegation tool (migration
+`0012_group_ceo.sql`), and `lib/collaboration.ts`'s
+`deriveCollaborationEdges()` treats a real, recent `assign_task` call as
+the same kind of Colony signal `request_from_agent` produces — see
+[`FRONTEND.md`](./FRONTEND.md#the-colony-collaboration-beam--and-real-movement).
 
 ### `record_decision` — log a structured decision, not gated
 

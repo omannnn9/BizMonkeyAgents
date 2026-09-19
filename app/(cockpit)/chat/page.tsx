@@ -17,10 +17,13 @@ export default function ChatPage() {
   // Re-fetch the agent list whenever the active company changes, and reset
   // to that company's default agent rather than carrying over an agent id
   // that may not exist for the newly active company. Default preference:
-  // Chief of Staff (the founder's synthesis agent at group level), then any
-  // department-less company-scope agent (Managing Director / Studio
-  // Director — the company-wide synthesis role every company migration
-  // 0009 gives), then whatever comes first.
+  // Group CEO (the top of the org, the founder's primary point of contact —
+  // see AGENTS_AND_TOOLS.md), then Chief of Staff (its synthesis layer),
+  // then any department-less company-scope agent (Managing Director /
+  // Studio Director — the company-wide synthesis role every company
+  // migration 0009 gives), then whatever comes first. The switcher below
+  // still lets the founder talk to any individual agent directly —
+  // Group CEO is only the default, never the only option.
   useEffect(() => {
     if (!activeCompanyId) return;
     let cancelled = false;
@@ -30,6 +33,7 @@ export default function ChatPage() {
         if (cancelled || !Array.isArray(body.agents)) return;
         setAgents(body.agents);
         const defaultAgent =
+          body.agents.find((a: AgentSummary) => a.name === "Group CEO") ??
           body.agents.find((a: AgentSummary) => a.name === "Chief of Staff") ??
           body.agents.find((a: AgentSummary) => a.scope === "company" && !a.department_id);
         setActiveAgentId(defaultAgent?.id ?? body.agents[0]?.id ?? "");

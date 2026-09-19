@@ -104,7 +104,8 @@ private is the actual production security boundary, not RLS.
 - [ ] Manually walk the cockpit: switch companies, upload a document and
       ask an agent about it, ask an agent to draft an email and confirm it
       lands in Approvals (not sent), try the agent switcher across the
-      20-agent roster (see [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md)).
+      full agent roster, starting with the Group CEO (see
+      [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md)).
 - [ ] Decide whether to finish any of the three integration stubs
       (Gmail/Apollo.io/Higgsfield) — see
       [`AGENTS_AND_TOOLS.md`](./AGENTS_AND_TOOLS.md#integration-stubs).
